@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,12 +28,14 @@ export function DashboardFilters({
   const t = useTranslations("dashboard");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const orgPath = useOrgPath;
+  const dashboardPath = orgPath("/dashboard");
 
   const updateParam = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(`${dashboardPath}?${params.toString()}`);
   };
 
   return (
@@ -65,8 +68,8 @@ export function DashboardFilters({
             <Link
               href={
                 tf === "all"
-                  ? `/dashboard${currentClientId ? `?clientId=${currentClientId}` : ""}`
-                  : `/dashboard?timeframe=${tf}${currentClientId ? `&clientId=${currentClientId}` : ""}`
+                  ? `${dashboardPath}${currentClientId ? `?clientId=${currentClientId}` : ""}`
+                  : `${dashboardPath}?timeframe=${tf}${currentClientId ? `&clientId=${currentClientId}` : ""}`
               }
             >
               {t(`timeframe.${tf}`)}

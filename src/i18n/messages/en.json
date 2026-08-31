@@ -403,15 +403,107 @@
   },
   "wizard": {
     "title": "Create new event",
-    "subtitle": "Set up your event in six simple steps",
+    "subtitle": "Set up your event step by step",
+    "backToEvents": "Back to events",
     "steps": {
       "type": "Event type",
+      "details": "Event details",
+      "location": "Location",
+      "people": "People",
+      "theme": "Look & feel",
+      "review": "Review & create",
       "info": "Event details",
       "host": "Host information",
       "guests": "Guest expectations",
-      "theme": "Theme & colors",
       "finish": "Review & create"
     },
+    "stepQuestions": {
+      "type": {
+        "title": "What are you planning?",
+        "subtitle": "Choose the type that best fits your celebration."
+      },
+      "details": {
+        "title": "Tell us about your event",
+        "wedding": "Share the names, date, and story of your special day.",
+        "engagement": "Capture the joy of this milestone moment.",
+        "baptism": "Celebrate this meaningful ceremony with the people you love.",
+        "birthday": "Make it personal — every birthday deserves a great plan.",
+        "party": "Set the vibe for a gathering everyone will remember.",
+        "corporate": "Professional events deserve a polished first impression.",
+        "conference": "Organize speakers, schedules, and attendees with ease.",
+        "other": "Every event is unique — start with the essentials."
+      },
+      "location": {
+        "title": "Where will it happen?",
+        "subtitle": "Search for your venue or enter the address manually."
+      },
+      "people": {
+        "title": "Who is involved?",
+        "subtitle": "Add contact details and expected guest counts."
+      },
+      "theme": {
+        "title": "Set the mood",
+        "subtitle": "Pick colors that reflect the feeling of your event."
+      },
+      "review": {
+        "title": "Ready to create?",
+        "subtitle": "Review your details — you can always adjust later."
+      }
+    },
+    "typeDescriptions": {
+      "wedding": "Ceremony, reception, and everything in between",
+      "engagement": "An intimate celebration of your commitment",
+      "baptism": "A cherished religious ceremony",
+      "birthday": "Milestone celebrations of all ages",
+      "party": "Social gatherings and celebrations",
+      "corporate": "Business events and company functions",
+      "conference": "Talks, workshops, and professional gatherings",
+      "other": "Something unique — we'll adapt to you"
+    },
+    "namePlaceholders": {
+      "wedding": "Maria & George's Wedding",
+      "engagement": "Our Engagement Party",
+      "baptism": "Sophia's Baptism",
+      "birthday": "Alex's 30th Birthday",
+      "party": "Summer Garden Party",
+      "corporate": "Annual Company Gala",
+      "conference": "Design Summit 2026",
+      "other": "My Event"
+    },
+    "hostLabels": {
+      "coupleName": "Couple names",
+      "couplePhone": "Contact phone",
+      "coupleEmail": "Contact email",
+      "parentName": "Parent or godparent name",
+      "parentPhone": "Contact phone",
+      "parentEmail": "Contact email",
+      "celebrantName": "Celebrant name",
+      "hostName": "Host name",
+      "hostPhone": "Host phone",
+      "hostEmail": "Host email",
+      "organizerName": "Organizer name",
+      "organizerPhone": "Organizer phone",
+      "organizerEmail": "Organizer email",
+      "contactName": "Contact person",
+      "contactPhone": "Contact phone",
+      "contactEmail": "Contact email"
+    },
+    "guestLabels": {
+      "godchildren": "Expected children",
+      "attendees": "Expected attendees",
+      "executives": "VIP / executives",
+      "speakers": "Speakers & VIP"
+    },
+    "peopleHostTitle": "Contact person",
+    "peopleHostSubtitle": "Who should guests reach out to?",
+    "peopleGuestsTitle": "Guest estimates",
+    "peopleGuestsSubtitle": "Rough numbers help with planning — you can refine later.",
+    "locationSearchPlaceholder": "Search for a venue or address",
+    "addressManualPlaceholder": "Street, city, postal code",
+    "locationNoResults": "No places found. You can enter the address manually.",
+    "locationSearching": "Searching...",
+    "descriptionPlaceholder": "A few words about your event (optional)",
+    "endTime": "End time",
     "address": "Address",
     "hostName": "Host name",
     "hostPhone": "Host phone",
@@ -421,6 +513,16 @@
     "expectedChildren": "Expected children",
     "expectedVip": "Expected VIP",
     "estimatedBudget": "Estimated budget (€)",
+    "choosePalette": "Choose a color palette",
+    "customColors": "Custom colors",
+    "presets": {
+      "elegantPurple": "Elegant purple",
+      "romanticRose": "Romantic rose",
+      "softSky": "Soft sky",
+      "modernViolet": "Modern violet",
+      "corporateSlate": "Corporate slate",
+      "forestTeal": "Forest teal"
+    },
     "primaryColor": "Primary color",
     "secondaryColor": "Secondary color",
     "accentColor": "Accent color",
@@ -433,10 +535,16 @@
     "coverUploadSuccess": "Cover uploaded successfully",
     "coverUploadError": "Failed to upload cover",
     "preview": "Preview",
+    "reviewNote": "Your event will be created as a draft. You can invite collaborators and refine details anytime.",
     "createEvent": "Create event",
     "creating": "Creating...",
     "submitSuccess": "Event created successfully",
-    "submitError": "Failed to create event"
+    "submitError": "Failed to create event",
+    "validation": {
+      "nameRequired": "Please enter an event name",
+      "dateRequired": "Please select a date",
+      "stepIncomplete": "Please complete the required fields before continuing"
+    }
   },
   "seating": {
     "title": "Seating",
@@ -694,7 +802,10 @@
     "pendingInvites": "Pending invites",
     "expires": "Expires",
     "noTeam": "No organization",
-    "noTeamDesc": "Select or create an organization to manage your team."
+    "noTeamDesc": "Select or create an organization to manage your team.",
+    "inviteMember": "Invite member",
+    "inviteSent": "Invitation sent",
+    "inviting": "Sending..."
   },
   "settings": {
     "title": "Settings",
@@ -772,5 +883,34 @@
     "cookieMessage": "We use cookies to improve your experience. By continuing, you accept our use of analytics cookies.",
     "cookieAccept": "Accept all",
     "cookieEssential": "Essential only"
+  },
+  "setup": {
+    "title": "Set up your organization",
+    "subtitle": "Create an organization to start managing events.",
+    "orgName": "Organization name",
+    "orgNamePlaceholder": "e.g. Maria Events",
+    "submit": "Create organization",
+    "creating": "Creating..."
+  },
+  "organizations": {
+    "newTitle": "Create a new organization",
+    "newSubtitle": "Add another workspace for a separate team or brand."
+  },
+  "invite": {
+    "title": "You're invited",
+    "description": "Join {orgName} on Eventos",
+    "invitedAs": "Invited as {email} · {role}",
+    "accept": "Accept invitation",
+    "accepting": "Accepting...",
+    "invalidTitle": "Invalid invitation",
+    "invalid": "This invitation link is invalid or has expired.",
+    "emailMismatch": "This invitation was sent to a different email address. Sign in with the invited email to accept.",
+    "signInToAccept": "Sign in to accept",
+    "createAccount": "Create account"
+  },
+  "forbidden": {
+    "title": "Access denied",
+    "description": "You don't have permission to access this organization.",
+    "backToDashboard": "Go to dashboard"
   }
 }

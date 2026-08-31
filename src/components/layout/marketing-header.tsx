@@ -1,9 +1,9 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/shared/logo";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -21,13 +21,8 @@ export function MarketingHeader({ className }: { className?: string }) {
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="group flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-sm">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </span>
-          <span className="text-lg font-semibold tracking-tight">
-            {t("common.appName")}
-          </span>
+        <Link href="/" className="group flex items-center">
+          <Logo variant="full" size="md" priority />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">

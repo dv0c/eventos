@@ -127,4 +127,141 @@
   .surface-elevated {
     @apply bg-card/80 backdrop-blur-sm border border-border/60 shadow-sm;
   }
+
+  .wizard-scene-enter {
+    animation: wizard-fade-in 0.35s ease-out forwards;
+  }
+
+  .wizard-float {
+    animation: wizard-float 5s ease-in-out infinite;
+  }
+
+  .wizard-sway {
+    animation: wizard-sway 7s ease-in-out infinite;
+    transform-origin: center center;
+  }
+
+  .wizard-bob {
+    animation: wizard-bob 4.5s ease-in-out infinite;
+  }
+
+  .wizard-ink-draw {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: wizard-draw 1.2s ease-out forwards;
+  }
+
+  .wizard-step-enter-forward {
+    animation: wizard-step-in-forward 0.32s ease-out forwards;
+  }
+
+  .wizard-step-enter-backward {
+    animation: wizard-step-in-backward 0.32s ease-out forwards;
+  }
+
+  .wizard-form-section-enter {
+    animation: wizard-form-in 0.28s ease-out forwards;
+  }
+
+  .wizard-worm-progress {
+    transition: stroke-dashoffset 300ms ease-out;
+  }
+}
+
+@keyframes wizard-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes wizard-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes wizard-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes wizard-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes wizard-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes wizard-step-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(10px) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes wizard-step-in-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes wizard-form-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wizard-scene-enter,
+  .wizard-float,
+  .wizard-sway,
+  .wizard-bob,
+  .wizard-ink-draw,
+  .wizard-step-enter-forward,
+  .wizard-step-enter-backward,
+  .wizard-form-section-enter {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+    transform: none;
+  }
+
+  .wizard-worm-progress {
+    transition: none;
+  }
 }

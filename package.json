@@ -15,7 +15,8 @@
     "db:reset": "prisma migrate reset --force",
     "worker": "tsx workers/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "icons:process": "tsx scripts/process-event-type-icons.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -73,6 +74,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "prisma": "6.19.2",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

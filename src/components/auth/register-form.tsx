@@ -10,7 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useLocale } from "next-intl";
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  callbackUrl?: string;
+}
+
+export function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const t = useTranslations("auth");
   const tErrors = useTranslations("errors");
   const locale = useLocale();
@@ -49,7 +53,10 @@ export function RegisterForm() {
       }
 
       toast.success(t("accountCreated"));
-      router.push("/login");
+      const loginHref = callbackUrl
+        ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+        : "/login";
+      router.push(loginHref);
     } catch {
       toast.error(tErrors("networkError"));
       setIsLoading(false);
@@ -99,7 +106,10 @@ export function RegisterForm() {
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {t("hasAccount")}{" "}
-        <Link href="/login" className="font-medium text-primary hover:underline">
+        <Link
+          href={callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login"}
+          className="font-medium text-primary hover:underline"
+        >
           {t("signIn")}
         </Link>
       </p>

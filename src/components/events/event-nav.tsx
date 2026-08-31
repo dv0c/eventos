@@ -15,6 +15,7 @@ import {
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 
+import { useOrgPath } from "@/components/providers/org-provider";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ interface EventNavProps {
 }
 
 interface NavItem {
-  href: string;
+  path: string;
   labelKey: string;
   icon: LucideIcon;
   suffix: string;
@@ -34,18 +35,19 @@ interface NavItem {
 export function EventNav({ eventId, eventSlug, className }: EventNavProps) {
   const t = useTranslations("eventNav");
   const pathname = usePathname();
+  const orgPath = useOrgPath;
 
   const navItems: NavItem[] = [
-    { href: `/events/${eventId}/overview`, labelKey: "overview", icon: LayoutDashboard, suffix: "overview" },
-    { href: `/events/${eventId}/guests`, labelKey: "guests", icon: Users, suffix: "guests" },
-    { href: `/events/${eventId}/rsvp`, labelKey: "rsvp", icon: UserCheck, suffix: "rsvp" },
-    { href: `/events/${eventId}/seating`, labelKey: "seating", icon: UsersRound, suffix: "seating" },
-    { href: `/events/${eventId}/tasks`, labelKey: "tasks", icon: ClipboardList, suffix: "tasks" },
-    { href: `/events/${eventId}/timeline`, labelKey: "timeline", icon: Calendar, suffix: "timeline" },
-    { href: `/events/${eventId}/messages`, labelKey: "messages", icon: MessageSquare, suffix: "messages" },
-    { href: `/events/${eventId}/collaborators`, labelKey: "collaborators", icon: UsersRound, suffix: "collaborators" },
-    { href: `/events/${eventId}/analytics`, labelKey: "analytics", icon: BarChart3, suffix: "analytics" },
-    { href: `/events/${eventId}/settings`, labelKey: "settings", icon: Settings, suffix: "settings" },
+    { path: `/events/${eventId}/overview`, labelKey: "overview", icon: LayoutDashboard, suffix: "overview" },
+    { path: `/events/${eventId}/guests`, labelKey: "guests", icon: Users, suffix: "guests" },
+    { path: `/events/${eventId}/rsvp`, labelKey: "rsvp", icon: UserCheck, suffix: "rsvp" },
+    { path: `/events/${eventId}/seating`, labelKey: "seating", icon: UsersRound, suffix: "seating" },
+    { path: `/events/${eventId}/tasks`, labelKey: "tasks", icon: ClipboardList, suffix: "tasks" },
+    { path: `/events/${eventId}/timeline`, labelKey: "timeline", icon: Calendar, suffix: "timeline" },
+    { path: `/events/${eventId}/messages`, labelKey: "messages", icon: MessageSquare, suffix: "messages" },
+    { path: `/events/${eventId}/collaborators`, labelKey: "collaborators", icon: UsersRound, suffix: "collaborators" },
+    { path: `/events/${eventId}/analytics`, labelKey: "analytics", icon: BarChart3, suffix: "analytics" },
+    { path: `/events/${eventId}/settings`, labelKey: "settings", icon: Settings, suffix: "settings" },
   ];
 
   return (
@@ -57,12 +59,13 @@ export function EventNav({ eventId, eventSlug, className }: EventNavProps) {
     >
       {navItems.map((item) => {
         const Icon = item.icon;
+        const href = orgPath(item.path);
         const isActive = pathname.includes(`/events/${eventId}/${item.suffix}`);
 
         return (
           <Link
-            key={item.href}
-            href={item.href}
+            key={item.path}
+            href={href}
             className={cn(
               "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all",
               isActive

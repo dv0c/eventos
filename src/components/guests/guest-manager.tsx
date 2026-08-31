@@ -8,6 +8,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { GuestImportWizard } from "@/components/guests/guest-import-wizard";
+import { useOrgPath } from "@/components/providers/org-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,6 +85,7 @@ export function GuestManager({
   const t = useTranslations("guests");
   const tCommon = useTranslations("common");
   const router = useRouter();
+  const orgPath = useOrgPath;
 
   const [guests, setGuests] = useState(initialGuests);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -210,7 +212,7 @@ export function GuestManager({
     if (search) params.set("search", search);
     if (statusFilter !== "all") params.set("status", statusFilter);
     params.set("page", "1");
-    router.push(`/events/${eventId}/guests?${params.toString()}`);
+    router.push(`${orgPath(`/events/${eventId}/guests`)}?${params.toString()}`);
   }
 
   function renderGuestRow(guest: Guest) {
@@ -380,7 +382,7 @@ export function GuestManager({
           {totalPages > 1 ? (
             <div className="flex items-center justify-between">
               <Button variant="outline" size="sm" disabled={initialPage <= 1} asChild>
-                <Link href={`/events/${eventId}/guests?page=${initialPage - 1}`}>
+                <Link href={`${orgPath(`/events/${eventId}/guests`)}?page=${initialPage - 1}`}>
                   {tCommon("previous")}
                 </Link>
               </Button>
@@ -388,7 +390,7 @@ export function GuestManager({
                 {initialPage} / {totalPages}
               </span>
               <Button variant="outline" size="sm" disabled={initialPage >= totalPages} asChild>
-                <Link href={`/events/${eventId}/guests?page=${initialPage + 1}`}>
+                <Link href={`${orgPath(`/events/${eventId}/guests`)}?page=${initialPage + 1}`}>
                   {tCommon("next")}
                 </Link>
               </Button>

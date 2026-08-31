@@ -1,5 +1,6 @@
-import { Sparkles } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+
+import { Logo } from "@/components/shared/logo";
 
 export default async function AuthLayout({
   children,
@@ -12,11 +13,8 @@ export default async function AuthLayout({
   return (
     <div className="flex min-h-screen">
       <div className="hidden w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
-            <Sparkles className="h-5 w-5 text-white" />
-          </span>
-          <span className="text-xl font-semibold text-white">{t("appName")}</span>
+        <div className="flex items-center">
+          <Logo variant="full" theme="light" size="lg" priority />
         </div>
         <div>
           <h2 className="text-3xl font-bold text-white">{t("tagline")}</h2>

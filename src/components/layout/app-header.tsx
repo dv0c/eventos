@@ -2,6 +2,7 @@
 
 import type { OrganizationSummary } from "@/components/layout/org-switcher";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
+import { useOrgPath } from "@/components/providers/org-provider";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface AppHeaderProps {
@@ -29,6 +30,7 @@ interface AppHeaderProps {
   organizations?: OrganizationSummary[];
   activeOrganizationId?: string | null;
   onOrganizationChange?: (organizationId: string) => void;
+  onCreateOrganization?: () => void;
   onSignOut?: () => void;
 }
 
@@ -51,10 +53,12 @@ export function AppHeader({
   organizations = [],
   activeOrganizationId,
   onOrganizationChange,
+  onCreateOrganization,
   onSignOut,
 }: AppHeaderProps) {
   const t = useTranslations("auth");
   const tNav = useTranslations("nav");
+  const orgPath = useOrgPath;
 
   return (
     <header
@@ -67,6 +71,7 @@ export function AppHeader({
         organizations={organizations}
         activeOrganizationId={activeOrganizationId}
         onOrganizationChange={onOrganizationChange}
+        onCreateOrganization={onCreateOrganization}
       />
 
       <div className="flex items-center gap-2">
@@ -100,13 +105,7 @@ export function AppHeader({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/settings/profile" className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                {t("profile")}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings" className="cursor-pointer">
+              <Link href={orgPath("/settings")} className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 {tNav("settings")}
               </Link>

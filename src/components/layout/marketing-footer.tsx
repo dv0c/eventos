@@ -1,8 +1,8 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Logo } from "@/components/shared/logo";
 import { Separator } from "@/components/ui/separator";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -22,11 +22,8 @@ export function MarketingFooter({ className }: { className?: string }) {
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-12 md:grid-cols-4">
           <div className="md:col-span-1">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
-                <Sparkles className="h-4 w-4 text-primary-foreground" />
-              </span>
-              <span className="text-lg font-semibold">Eventos</span>
+            <Link href="/" className="flex items-center">
+              <Logo variant="full" size="md" />
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               {t("heroSubtitle")}

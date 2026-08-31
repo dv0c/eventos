@@ -8,9 +8,13 @@ import { auth } from "@/server/auth";
 const intlMiddleware = createIntlMiddleware(routing);
 
 const PROTECTED_PREFIXES = [
+  "/org",
+  "/admin",
+  "/setup",
+  "/organizations",
+  "/invite",
   "/dashboard",
   "/events",
-  "/admin",
   "/clients",
   "/templates",
   "/team",

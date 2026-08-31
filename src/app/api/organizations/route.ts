@@ -6,7 +6,7 @@ import {
   getClientIp,
   handleServiceError,
 } from "@/lib/api-response";
-import { AuthError, getActiveOrganizationId, requireAuth } from "@/server/auth/session";
+import { AuthError, getActiveOrganizationId, requireAuth, setActiveOrganization } from "@/server/auth/session";
 import { organizationRepository } from "@/server/repositories/organization.repository";
 import { organizationService } from "@/server/services/organization.service";
 
@@ -58,6 +58,8 @@ export async function POST(request: Request) {
       parsed.data,
       getClientIp(request),
     );
+
+    await setActiveOrganization(organization.id);
 
     return apiSuccess({ organization }, 201);
   } catch (error) {
