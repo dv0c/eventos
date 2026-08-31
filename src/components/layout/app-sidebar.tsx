@@ -6,7 +6,6 @@ import {
   CreditCard,
   FileStack,
   LayoutDashboard,
-  Mail,
   Settings,
   Shield,
   Users,
@@ -36,7 +35,6 @@ const mainNavItems: NavItem[] = [
   { path: "/events", labelKey: "events", icon: CalendarDays },
   { path: "/clients", labelKey: "clients", icon: Users },
   { path: "/templates", labelKey: "templates", icon: FileStack },
-  { path: "/invitations", labelKey: "invitations", icon: Mail },
   { path: "/analytics", labelKey: "analytics", icon: BarChart3 },
 ];
 

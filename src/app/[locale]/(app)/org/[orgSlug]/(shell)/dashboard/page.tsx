@@ -1,20 +1,61 @@
 import { Suspense } from "react";
-import { CalendarDays, Plus, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, Plus, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import { DashboardEmptyEvents } from "@/components/dashboard/dashboard-empty-events";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
-import { EmptyState } from "@/components/shared/empty-state";
+import { DashboardHostIllustration } from "@/components/dashboard/dashboard-host-illustration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { orgPath } from "@/lib/org-path";
 import { formatDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { EventTimeframe } from "@/server/repositories/event.repository";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
 import { clientService } from "@/server/services/client.service";
 import { eventService } from "@/server/services/event.service";
+
+function getFirstName(name?: string | null, email?: string | null): string {
+  const fromName = name?.trim().split(/\s+/)[0];
+  if (fromName) {
+    return fromName;
+  }
+
+  const fromEmail = email?.split("@")[0]?.replace(/[._-]+/g, " ").trim().split(/\s+/)[0];
+  return fromEmail || "there";
+}
+
+interface StatCardProps {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  delayMs: number;
+}
+
+function StatCard({ label, value, icon: Icon, delayMs }: StatCardProps) {
+  return (
+    <Card
+      className={cn(
+        "dashboard-stat-enter rounded-2xl border-border/50 bg-card shadow-none",
+      )}
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
+      <CardContent className="flex items-center gap-4 p-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/8">
+          <Icon className="h-5 w-5 text-primary/80" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-xl font-semibold tracking-tight tabular-nums">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default async function DashboardPage({
   params,
@@ -30,6 +71,7 @@ export default async function DashboardPage({
   const tEvents = await getTranslations("events");
   const session = await requireAuth();
   const organizationId = (await getOrganizationBySlug(session.user.id, orgSlug)).id;
+  const firstName = getFirstName(session.user.name, session.user.email);
 
   const [{ clients }, activeResult, upcomingResult, completedResult, allResult] =
     await Promise.all([
@@ -66,13 +108,34 @@ export default async function DashboardPage({
   const events = allResult.events;
   const total = allResult.total;
 
+  const stats = [
+    { label: t("totalEvents"), value: total, icon: CalendarDays, delayMs: 0 },
+    { label: t("activeEvents"), value: activeResult.total, icon: CalendarDays, delayMs: 60 },
+    { label: t("upcomingEvents"), value: upcomingResult.total, icon: Users, delayMs: 120 },
+    {
+      label: t("completedEvents"),
+      value: completedResult.total,
+      icon: CheckCircle2,
+      delayMs: 180,
+    },
+  ] as const;
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground">
-          {t("welcome", { name: session.user.name ?? session.user.email ?? "" })}
-        </p>
+    <div className="relative space-y-8 lg:pr-[min(24vw,360px)]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+          <p className="text-base text-foreground/90">
+            {t("welcomeWarm", { firstName })}
+          </p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        </div>
+        <Button variant="gold" asChild className="shrink-0">
+          <Link href={orgPath(orgSlug, "/events/new")}>
+            <Plus className="h-4 w-4" />
+            {t("createEvent")}
+          </Link>
+        </Button>
       </div>
 
       <Suspense fallback={null}>
@@ -83,79 +146,30 @@ export default async function DashboardPage({
         />
       </Suspense>
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card className="surface-elevated">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <CalendarDays className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">{t("totalEvents")}</p>
-              <p className="text-2xl font-bold">{total}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
-              <CalendarDays className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">{t("activeEvents")}</p>
-              <p className="text-2xl font-bold">{activeResult.total}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/20">
-              <Users className="h-5 w-5 text-accent-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">{t("upcomingEvents")}</p>
-              <p className="text-2xl font-bold">{upcomingResult.total}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div>
-              <p className="text-sm text-muted-foreground">{t("completedEvents")}</p>
-              <p className="text-2xl font-bold">{completedResult.total}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <StatCard key={stat.label} {...stat} />
+        ))}
       </div>
 
-      <Card className="surface-elevated flex items-center justify-center p-4">
-        <Button variant="gold" asChild>
-          <Link href={orgPath(orgSlug, "/events/new")}>
-            <Plus className="h-4 w-4" />
-            {t("createEvent")}
-          </Link>
-        </Button>
-      </Card>
-
       <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t("recentEvents")}</h2>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold tracking-tight">{t("recentEvents")}</h2>
           <Button variant="ghost" size="sm" asChild>
             <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
           </Button>
         </div>
 
         {events.length === 0 ? (
-          <EmptyState
-            icon={CalendarDays}
+          <DashboardEmptyEvents
             title={t("noEvents")}
             description={t("noEventsDesc")}
-            action={{ label: t("createEvent"), href: orgPath(orgSlug, "/events/new") }}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => (
               <Link key={event.id} href={orgPath(orgSlug, `/events/${event.id}/overview`)}>
-                <Card className="surface-elevated transition-shadow hover:shadow-md">
+                <Card className="rounded-2xl border-border/50 bg-card shadow-none transition-shadow hover:shadow-md">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-semibold">{event.name}</h3>
@@ -179,6 +193,8 @@ export default async function DashboardPage({
           </div>
         )}
       </div>
+
+      <DashboardHostIllustration />
     </div>
   );
 }

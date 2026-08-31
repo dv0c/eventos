@@ -1,14 +1,16 @@
 "use client";
 
 import type { TaskPriority, TaskStatus } from "@prisma/client";
-import { CheckCircle2, Circle, Clock, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ClipboardList, Plus, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { EventPageHeader } from "@/components/events/event-page-header";
+import { EventSection } from "@/components/events/event-section";
+import { EventStatStrip } from "@/components/events/event-stat-strip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -189,43 +191,24 @@ export function TaskBoard({ eventId, initialTasks, initialStats }: TaskBoardProp
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <Button variant="gold" onClick={() => setShowAdd(true)} disabled={isLoading}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("addTask")}
-        </Button>
-      </div>
+      <EventPageHeader
+        title={t("title")}
+        action={
+          <Button variant="gold" onClick={() => setShowAdd(true)} disabled={isLoading}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("addTask")}
+          </Button>
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.total")}</p>
-            <p className="text-2xl font-semibold">{stats.total}</p>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.todo")}</p>
-            <p className="text-2xl font-semibold">{stats.todo}</p>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.inProgress")}</p>
-            <p className="text-2xl font-semibold">{stats.inProgress}</p>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.done")}</p>
-            <p className="text-2xl font-semibold">{stats.done}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <EventStatStrip
+        stats={[
+          { label: t("stats.total"), value: stats.total },
+          { label: t("stats.todo"), value: stats.todo },
+          { label: t("stats.inProgress"), value: stats.inProgress },
+          { label: t("stats.done"), value: stats.done },
+        ]}
+      />
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Input
@@ -252,15 +235,23 @@ export function TaskBoard({ eventId, initialTasks, initialStats }: TaskBoardProp
         </Select>
       </div>
 
-      <Card className="surface-elevated">
-        <CardHeader>
-          <CardTitle>{t("listTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <EventSection title={t("listTitle")}>
           {filteredTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noTasks")}</p>
+            <div className="flex flex-col items-center py-8 text-center">
+              <ClipboardList className="mb-3 h-8 w-8 text-muted-foreground/60" />
+              <p className="text-sm text-muted-foreground">{t("noTasks")}</p>
+              <Button
+                variant="gold"
+                size="sm"
+                className="mt-4"
+                onClick={() => setShowAdd(true)}
+              >
+                {t("addTask")}
+              </Button>
+            </div>
           ) : (
-            filteredTasks.map((task) => {
+            <div className="space-y-3">
+            {filteredTasks.map((task) => {
               const StatusIcon = STATUS_ICONS[task.status];
 
               return (
@@ -329,10 +320,10 @@ export function TaskBoard({ eventId, initialTasks, initialStats }: TaskBoardProp
                   </div>
                 </div>
               );
-            })
+            })}
+            </div>
           )}
-        </CardContent>
-      </Card>
+      </EventSection>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>

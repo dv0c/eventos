@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-import { QrCodesPanel } from "@/components/media/qr-codes-panel";
+import { EventPageHeader } from "@/components/events/event-page-header";
+import { EventSection } from "@/components/events/event-section";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Link } from "@/i18n/navigation";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
 
 interface EventSettingsFormProps {
@@ -17,8 +19,15 @@ interface EventSettingsFormProps {
 
 export function EventSettingsForm({ event }: EventSettingsFormProps) {
   const t = useTranslations("events");
+  const tVisibility = useTranslations("events.settingsVisibility");
   const tCommon = useTranslations("common");
   const [isLoading, setIsLoading] = useState(false);
+  const [isVisibilityLoading, setIsVisibilityLoading] = useState(false);
+  const [isPublic, setIsPublic] = useState(event.settings?.isPublic ?? false);
+  const [enableGallery, setEnableGallery] = useState(
+    event.settings?.enableGallery ?? false,
+  );
+  const [enableWall, setEnableWall] = useState(event.settings?.enableWall ?? false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -45,28 +54,106 @@ export function EventSettingsForm({ event }: EventSettingsFormProps) {
       });
 
       if (!response.ok) {
-        toast.error(tCommon("save") + " failed");
+        toast.error(t("saveFailed"));
         setIsLoading(false);
         return;
       }
 
       toast.success(tCommon("save"));
     } catch {
-      toast.error(tCommon("save") + " failed");
+      toast.error(t("saveFailed"));
     }
 
     setIsLoading(false);
   }
 
+  async function handleVisibilitySave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsVisibilityLoading(true);
+
+    try {
+      const response = await fetch(`/api/events/${event.id}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic, enableGallery, enableWall }),
+      });
+
+      if (!response.ok) {
+        toast.error(t("saveFailed"));
+        setIsVisibilityLoading(false);
+        return;
+      }
+
+      toast.success(tCommon("save"));
+    } catch {
+      toast.error(t("saveFailed"));
+    }
+
+    setIsVisibilityLoading(false);
+  }
+
   const dateStr = event.date.toISOString().split("T")[0];
+  const publicPath = `/e/${event.slug}`;
 
   return (
     <div className="space-y-6">
-    <Card className="surface-elevated max-w-2xl">
-      <CardHeader>
-        <CardTitle>{t("settings")}</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <EventPageHeader title={t("settings")} />
+
+      <EventSection title={tVisibility("visibility")} className="max-w-2xl">
+        <form onSubmit={handleVisibilitySave} className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="isPublic"
+              checked={isPublic}
+              onCheckedChange={(checked) => setIsPublic(checked === true)}
+            />
+            <Label htmlFor="isPublic" className="cursor-pointer">
+              {tVisibility("isPublic")}
+            </Label>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="enableGallery"
+              checked={enableGallery}
+              onCheckedChange={(checked) => setEnableGallery(checked === true)}
+            />
+            <Label htmlFor="enableGallery" className="cursor-pointer">
+              {tVisibility("enableGallery")}
+            </Label>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="enableWall"
+              checked={enableWall}
+              onCheckedChange={(checked) => setEnableWall(checked === true)}
+            />
+            <Label htmlFor="enableWall" className="cursor-pointer">
+              {tVisibility("enableWall")}
+            </Label>
+          </div>
+
+          {isPublic ? (
+            <div className="rounded-xl bg-secondary/40 px-3 py-2">
+              <p className="text-xs text-muted-foreground">{tVisibility("publicUrl")}</p>
+              <Link
+                href={publicPath}
+                target="_blank"
+                className="text-sm font-medium hover:underline"
+              >
+                {publicPath}
+              </Link>
+            </div>
+          ) : null}
+
+          <Button type="submit" variant="gold" disabled={isVisibilityLoading}>
+            {isVisibilityLoading ? tCommon("loading") : tCommon("save")}
+          </Button>
+        </form>
+      </EventSection>
+
+      <EventSection title={t("details")} className="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">{t("name")}</Label>
@@ -106,7 +193,7 @@ export function EventSettingsForm({ event }: EventSettingsFormProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="hostName">Host</Label>
+            <Label htmlFor="hostName">{t("hostName")}</Label>
             <Input
               id="hostName"
               name="hostName"
@@ -115,7 +202,7 @@ export function EventSettingsForm({ event }: EventSettingsFormProps) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="hostEmail">Host email</Label>
+              <Label htmlFor="hostEmail">{t("hostEmail")}</Label>
               <Input
                 id="hostEmail"
                 name="hostEmail"
@@ -124,7 +211,7 @@ export function EventSettingsForm({ event }: EventSettingsFormProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="hostPhone">Host phone</Label>
+              <Label htmlFor="hostPhone">{t("hostPhone")}</Label>
               <Input
                 id="hostPhone"
                 name="hostPhone"
@@ -136,9 +223,7 @@ export function EventSettingsForm({ event }: EventSettingsFormProps) {
             {isLoading ? tCommon("loading") : tCommon("save")}
           </Button>
         </form>
-      </CardContent>
-    </Card>
-    <QrCodesPanel eventId={event.id} />
+      </EventSection>
     </div>
   );
 }

@@ -104,13 +104,13 @@ export const qrService = {
         errorCorrectionLevel: "M",
       });
 
-      await storage.upload(storageKey, pngBuffer, {
+      const storedKey = await storage.upload(storageKey, pngBuffer, {
         contentType: "image/png",
       });
 
       const updated = await prisma.qRCode.update({
         where: { id: existing.id },
-        data: { storageKey },
+        data: { storageKey: storedKey },
       });
 
       results.push({
@@ -118,7 +118,7 @@ export const qrService = {
         type: updated.type,
         url: updated.url,
         storageKey: updated.storageKey,
-        downloadUrl: storage.getPublicUrl(storageKey),
+        downloadUrl: storage.getPublicUrl(storedKey),
       });
     }
 

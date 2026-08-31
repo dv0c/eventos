@@ -4,36 +4,18 @@ import { Calendar, MapPin, Palette, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { UseFormReturn } from "react-hook-form";
 
-import {
-  getEventTypeConfig,
-  type GuestFieldKey,
-} from "@/components/events/wizard/event-type-config";
+import { getEventTypeConfig } from "@/components/events/wizard/event-type-config";
 import type { WizardFormData } from "@/components/events/wizard/wizard-schema";
 
 interface ReviewStepProps {
   form: UseFormReturn<WizardFormData>;
 }
 
-const GUEST_FIELDS: GuestFieldKey[] = [
-  "expectedGuests",
-  "expectedCouples",
-  "expectedChildren",
-  "expectedVip",
-];
-
-const DEFAULT_GUEST_LABELS: Record<GuestFieldKey, string> = {
-  expectedGuests: "expectedGuests",
-  expectedCouples: "expectedCouples",
-  expectedChildren: "expectedChildren",
-  expectedVip: "expectedVip",
-};
-
 export function ReviewStep({ form }: ReviewStepProps) {
   const t = useTranslations("wizard");
   const tEvents = useTranslations("events");
   const values = form.watch();
   const config = getEventTypeConfig(values.type);
-  const visibleGuestFields = GUEST_FIELDS.filter((field) => config.guests[field]);
 
   return (
     <div className="space-y-4">
@@ -77,20 +59,6 @@ export function ReviewStep({ form }: ReviewStepProps) {
             label={t(config.host.labelKeys.name as "hostLabels.coupleName")}
             value={values.hostName}
             subValue={values.hostEmail || values.hostPhone || undefined}
-          />
-        ) : null}
-        {visibleGuestFields.some((field) => values[field] > 0) ? (
-          <ReviewItem
-            icon={Users}
-            label={t("peopleGuestsTitle")}
-            value={visibleGuestFields
-              .filter((field) => values[field] > 0)
-              .map((field) => {
-                const labelKey =
-                  config.guestLabelKeys[field] ?? DEFAULT_GUEST_LABELS[field];
-                return `${t(labelKey as "expectedGuests")}: ${values[field]}`;
-              })
-              .join(" · ")}
           />
         ) : null}
         <ReviewItem

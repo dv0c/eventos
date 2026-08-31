@@ -1,5 +1,6 @@
 "use client";
 
+import { Users } from "lucide-react";
 import type { Guest, GuestStatus } from "@prisma/client";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRouter } from "@/i18n/navigation";
@@ -9,9 +10,10 @@ import { toast } from "sonner";
 
 import { GuestImportWizard } from "@/components/guests/guest-import-wizard";
 import { useOrgPath } from "@/components/providers/org-provider";
+import { EventPageHeader } from "@/components/events/event-page-header";
+import { EventSection } from "@/components/events/event-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -244,22 +246,26 @@ export function GuestManager({
 
   return (
     <>
-      <Card className="surface-elevated">
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>{t("title")}</CardTitle>
-            <p className="text-sm text-muted-foreground">{total} total</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-              {t("import")}
-            </Button>
-            <Button variant="gold" size="sm" onClick={openCreate}>
-              {t("add")}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="space-y-6">
+        <EventPageHeader
+          title={t("title")}
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                {t("import")}
+              </Button>
+              <Button variant="gold" size="sm" onClick={openCreate}>
+                {t("add")}
+              </Button>
+            </div>
+          }
+        />
+
+      <EventSection>
+        <p className="mb-4 text-sm text-muted-foreground">
+          {t("totalCount", { count: total })}
+        </p>
+        <div className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder={t("searchPlaceholder")}
@@ -275,7 +281,7 @@ export function GuestManager({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">{tCommon("all")}</SelectItem>
                 {ALL_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
                     {t(`statuses.${STATUS_KEYS[s]}`)}
@@ -297,6 +303,15 @@ export function GuestManager({
             </div>
           ) : null}
 
+          {guests.length === 0 ? (
+            <div className="flex flex-col items-center py-8 text-center">
+              <Users className="mb-3 h-8 w-8 text-muted-foreground/60" />
+              <p className="text-sm text-muted-foreground">{t("noGuests")}</p>
+              <Button variant="gold" size="sm" className="mt-4" onClick={openCreate}>
+                {t("add")}
+              </Button>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -378,6 +393,7 @@ export function GuestManager({
               </table>
             )}
           </div>
+          )}
 
           {totalPages > 1 ? (
             <div className="flex items-center justify-between">
@@ -396,8 +412,9 @@ export function GuestManager({
               </Button>
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </EventSection>
+      </div>
 
       <GuestImportWizard
         eventId={eventId}

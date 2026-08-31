@@ -1,14 +1,15 @@
 import { notFound } from "next/navigation";
 
 import { LiveWall } from "@/components/media/live-wall";
+import { getEventAdminContext } from "@/server/events/event-admin";
 import { eventRepository } from "@/server/repositories/event.repository";
 
 interface PublicEventWallPageProps {
-  params: Promise<{ eventSlug: string }>;
+  params: Promise<{ locale: string; eventSlug: string }>;
 }
 
 export default async function PublicEventWallPage({ params }: PublicEventWallPageProps) {
-  const { eventSlug } = await params;
+  const { locale, eventSlug } = await params;
 
   const event = await eventRepository.findBySlugPublic(eventSlug);
 
@@ -20,9 +21,15 @@ export default async function PublicEventWallPage({ params }: PublicEventWallPag
     notFound();
   }
 
+  const { canEdit } = await getEventAdminContext(event.id);
+  const callbackUrl = `/${locale}/e/${eventSlug}/wall`;
+
   return (
     <LiveWall
       eventSlug={eventSlug}
+      eventId={event.id}
+      canEdit={canEdit}
+      callbackUrl={callbackUrl}
       primaryColor={event.theme?.primaryColor}
       secondaryColor={event.theme?.secondaryColor}
     />

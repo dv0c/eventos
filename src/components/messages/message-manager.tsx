@@ -4,11 +4,13 @@ import type { DeliveryStatus, MessageChannel, MessageType } from "@prisma/client
 import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { Mail, Send, Clock } from "lucide-react";
+import { Mail, Clock, Inbox } from "lucide-react";
 
+import { EventPageHeader } from "@/components/events/event-page-header";
+import { EventSection } from "@/components/events/event-section";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -125,24 +127,16 @@ export function MessageManager({
 
   return (
     <div className="space-y-6">
+      <EventPageHeader title={t("title")} />
+
       {!emailConfigured ? (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
-          <CardContent className="pt-6">
-            <p className="text-sm text-amber-800 dark:text-amber-200">
-              {t("emailNotConfigured")}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+          {t("emailNotConfigured")}
+        </div>
       ) : null}
 
-      <Card className="surface-elevated">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" />
-            {t("sendCampaign")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <EventSection title={t("sendCampaign")}>
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label>{t("selectTemplate")}</Label>
             <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
@@ -177,42 +171,39 @@ export function MessageManager({
               {t("sendReminder")}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </EventSection>
 
-      <Card className="surface-elevated">
-        <CardHeader>
-          <CardTitle>{t("history")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noMessages")}</p>
-          ) : (
-            <ul className="divide-y">
-              {messages.map((msg) => (
-                <li key={msg.id} className="flex items-start justify-between gap-4 py-4">
-                  <div>
-                    <p className="font-medium">{msg.subject ?? msg.type}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("recipientCount", { count: msg.deliveries.length })}
-                      {" · "}
-                      {msg.channel}
+      <EventSection title={t("history")}>
+        {messages.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title={t("noMessages")}
+            className="border-0 bg-transparent py-8"
+          />
+        ) : (
+          <ul className="divide-y divide-border/50">
+            {messages.map((msg) => (
+              <li key={msg.id} className="flex items-start justify-between gap-4 py-4 first:pt-0">
+                <div>
+                  <p className="font-medium">{msg.subject ?? msg.type}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("recipientCount", { count: msg.deliveries.length })}
+                  </p>
+                  {msg.scheduledAt ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("scheduled")}: {new Date(msg.scheduledAt).toLocaleString()}
                     </p>
-                    {msg.scheduledAt ? (
-                      <p className="text-xs text-muted-foreground">
-                        {t("scheduled")}: {new Date(msg.scheduledAt).toLocaleString()}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Badge variant={statusVariant[msg.status]}>
-                    {t(`status.${msg.status.toLowerCase()}` as "status.queued")}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                  ) : null}
+                </div>
+                <Badge variant={statusVariant[msg.status]}>
+                  {t(`status.${msg.status.toLowerCase()}` as "status.queued")}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </EventSection>
     </div>
   );
 }

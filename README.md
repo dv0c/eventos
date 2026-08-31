@@ -11,14 +11,14 @@ Production-ready event management platform for the Greek market with full Greek/
 - Marketing website (Greek-first, bilingual)
 - Guest list (read-only from seed data)
 - Public event pages
-- Provider abstractions: Storage (S3/MinIO), Messaging (Email/SMS/WhatsApp), Jobs (BullMQ), Stripe webhooks
+- Provider abstractions: Storage (Openinary CDN), Messaging (Email/SMS/WhatsApp), Jobs (BullMQ), Stripe webhooks
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 20+
-- Docker Desktop (for PostgreSQL, Redis, MinIO)
+- Docker Desktop (for PostgreSQL and Redis)
 
 ### Setup
 
@@ -84,9 +84,14 @@ Copy `.env.example` to `.env`. Key variables:
 - `DATABASE_URL` — PostgreSQL connection
 - `AUTH_SECRET` — Auth.js secret
 - `REDIS_URL` — Redis for jobs/rate limiting
-- `S3_*` — MinIO/S3 storage config
+- `OPENINARY_API_URL` — Openinary API base (e.g. `https://evento-cdn.efindly.gr/api`)
+- `OPENINARY_PUBLIC_URL` — CDN delivery base (e.g. `https://evento-cdn.efindly.gr`)
+- `OPENINARY_API_KEY` — API key from the Openinary dashboard (required for uploads)
+- `S3_*` — Optional MinIO/S3 fallback when `STORAGE_PROVIDER=s3`
 - `RESEND_API_KEY` — Email (optional, console fallback in dev)
 - `STRIPE_*` — Payments (Phase 7)
+
+Create an API key at your Openinary instance before uploading media. When `OPENINARY_API_KEY` is set, Eventos uses Openinary for all storage; otherwise it falls back to S3/MinIO.
 
 ## Architecture
 
@@ -95,7 +100,7 @@ Copy `.env.example` to `.env`. Key variables:
 - **Auth.js v5** with database sessions
 - **next-intl** for Greek/English i18n
 - **BullMQ + Redis** for background jobs
-- **S3-compatible storage** for media
+- **Openinary CDN** for media storage and delivery
 
 ## License
 

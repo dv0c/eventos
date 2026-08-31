@@ -6,6 +6,9 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { EventPageHeader } from "@/components/events/event-page-header";
+import { EventSection } from "@/components/events/event-section";
+import { EventStatStrip } from "@/components/events/event-stat-strip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -264,55 +267,32 @@ export function SeatingPlanner({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleSuggest} disabled={isLoading}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            {t("autoSuggest")}
-          </Button>
-          <Button variant="gold" onClick={() => setShowAddTable(true)} disabled={isLoading}>
-            {t("addTable")}
-          </Button>
-        </div>
-      </div>
+      <EventPageHeader
+        title={t("title")}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleSuggest} disabled={isLoading}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              {t("autoSuggest")}
+            </Button>
+            <Button variant="gold" onClick={() => setShowAddTable(true)} disabled={isLoading}>
+              {t("addTable")}
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.tables")}</p>
-            <p className="text-2xl font-semibold">{stats.totalTables}</p>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.capacity")}</p>
-            <p className="text-2xl font-semibold">{stats.totalCapacity}</p>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.assigned")}</p>
-            <p className="text-2xl font-semibold">{stats.assignedGuests}</p>
-          </CardContent>
-        </Card>
-        <Card className="surface-elevated">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">{t("stats.unassigned")}</p>
-            <p className="text-2xl font-semibold">{stats.unassignedGuests}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <EventStatStrip
+        stats={[
+          { label: t("stats.tables"), value: stats.totalTables },
+          { label: t("stats.capacity"), value: stats.totalCapacity },
+          { label: t("stats.assigned"), value: stats.assignedGuests },
+          { label: t("stats.unassigned"), value: stats.unassignedGuests },
+        ]}
+      />
 
       {suggestions && suggestions.length > 0 ? (
-        <Card className="surface-elevated border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-base">{t("suggestionsTitle")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <EventSection title={t("suggestionsTitle")} className="border-accent/30">
             {suggestions.map((suggestion) => (
               <div
                 key={suggestion.guestId}
@@ -343,8 +323,7 @@ export function SeatingPlanner({
             <Button variant="ghost" size="sm" onClick={() => setSuggestions(null)}>
               {tCommon("close")}
             </Button>
-          </CardContent>
-        </Card>
+        </EventSection>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -401,7 +380,7 @@ export function SeatingPlanner({
                             {assignment.guest.firstName} {assignment.guest.lastName}
                             {assignment.guest.isVip ? (
                               <Badge variant="outline" className="ml-2 text-xs">
-                                VIP
+                                {t("vipBadge")}
                               </Badge>
                             ) : null}
                           </span>
@@ -451,7 +430,7 @@ export function SeatingPlanner({
                       {guest.firstName} {guest.lastName}
                       {guest.isVip ? (
                         <Badge variant="outline" className="ml-2 text-xs">
-                          VIP
+                          {t("vipBadge")}
                         </Badge>
                       ) : null}
                     </p>

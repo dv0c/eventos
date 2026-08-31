@@ -1,14 +1,15 @@
 import {
   EventStatus,
   EventType,
-  GuestStatus,
+  MediaStatus,
   type Prisma,
   TaskStatus,
 } from "@prisma/client";
 
+import { DEFAULT_EVENT_SETTINGS } from "@/server/events/default-settings";
 import { prisma } from "@/server/db";
 
-import { eventOrganizationScope, eventScope, emptyGuestStatusCounts } from "./base";
+import { eventOrganizationScope, eventScope } from "./base";
 
 export type EventWithRelations = Prisma.EventGetPayload<{
   include: {
@@ -44,12 +45,9 @@ export interface CreateEventData {
 
 export interface EventOverviewStats {
   eventId: string;
-  totalGuests: number;
-  guestsByStatus: Record<GuestStatus, number>;
-  confirmedCount: number;
-  declinedCount: number;
-  pendingCount: number;
-  rsvpRate: number;
+  totalMedia: number;
+  pendingMedia: number;
+  approvedMedia: number;
   totalTasks: number;
   completedTasks: number;
   daysUntilEvent: number;
@@ -197,7 +195,7 @@ export const eventRepository = {
         organizationId,
         slug,
         settings: {
-          create: settings ?? {},
+          create: { ...DEFAULT_EVENT_SETTINGS, ...settings },
         },
         theme: {
           create: theme ?? {},
@@ -227,13 +225,10 @@ export const eventRepository = {
       return null;
     }
 
-    const [guestCounts, taskCounts] = await Promise.all([
-      prisma.guest.groupBy({
+    const [mediaCounts, taskCounts] = await Promise.all([
+      prisma.media.groupBy({
         by: ["status"],
-        where: {
-          eventId,
-          deletedAt: null,
-        },
+        where: { eventId },
         _count: { _all: true },
       }),
       prisma.task.groupBy({
@@ -243,24 +238,19 @@ export const eventRepository = {
       }),
     ]);
 
-    const guestsByStatus = emptyGuestStatusCounts();
+    let totalMedia = 0;
+    let pendingMedia = 0;
+    let approvedMedia = 0;
 
-    let totalGuests = 0;
-    for (const row of guestCounts) {
-      guestsByStatus[row.status] = row._count._all;
-      totalGuests += row._count._all;
+    for (const row of mediaCounts) {
+      totalMedia += row._count._all;
+      if (row.status === MediaStatus.PENDING) {
+        pendingMedia += row._count._all;
+      }
+      if (row.status === MediaStatus.APPROVED || row.status === MediaStatus.FEATURED) {
+        approvedMedia += row._count._all;
+      }
     }
-
-    const confirmedCount = guestsByStatus.CONFIRMED;
-    const declinedCount = guestsByStatus.DECLINED;
-    const pendingCount =
-      guestsByStatus.PENDING +
-      guestsByStatus.INVITED +
-      guestsByStatus.NO_RESPONSE +
-      guestsByStatus.MAYBE;
-
-    const respondedCount = confirmedCount + declinedCount + guestsByStatus.MAYBE;
-    const rsvpRate = totalGuests > 0 ? respondedCount / totalGuests : 0;
 
     let totalTasks = 0;
     let completedTasks = 0;
@@ -276,12 +266,9 @@ export const eventRepository = {
 
     return {
       eventId: event.id,
-      totalGuests,
-      guestsByStatus,
-      confirmedCount,
-      declinedCount,
-      pendingCount,
-      rsvpRate,
+      totalMedia,
+      pendingMedia,
+      approvedMedia,
       totalTasks,
       completedTasks,
       daysUntilEvent,

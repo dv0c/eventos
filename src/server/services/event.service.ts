@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 
 import { generateUniqueEventSlug } from "@/lib/slug";
+import { DEFAULT_EVENT_SETTINGS } from "@/server/events/default-settings";
 import { prisma } from "@/server/db";
 import { enforceEventAccess, enforceOrganizationAccess } from "@/server/permissions/enforce";
 import {
@@ -106,7 +107,7 @@ export const eventService = {
       expectedCouples: input.expectedCouples ?? 0,
       expectedChildren: input.expectedChildren ?? 0,
       expectedVip: input.expectedVip ?? 0,
-      settings: input.settings,
+      settings: { ...DEFAULT_EVENT_SETTINGS, ...input.settings },
       theme: input.theme,
     });
 

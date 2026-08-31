@@ -37,11 +37,11 @@ export async function POST(request: Request) {
     const key = `${folder}/${organizationId}/${session.user.id}/${Date.now()}.${ext}`;
 
     const storage = getStorageProvider();
-    await storage.upload(key, buffer, { contentType: file.type });
+    const storedKey = await storage.upload(key, buffer, { contentType: file.type });
 
     return apiSuccess({
-      key,
-      url: storage.getPublicUrl(key),
+      key: storedKey,
+      url: storage.getPublicUrl(storedKey),
     });
   } catch (error) {
     if (error instanceof AuthError) {

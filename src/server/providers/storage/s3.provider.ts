@@ -43,16 +43,20 @@ export class S3StorageProvider implements StorageProvider {
     key: string,
     body: Buffer | Uint8Array,
     options: UploadOptions,
-  ): Promise<void> {
+  ): Promise<string> {
+    const normalizedKey = key.replace(/^\//, "");
+
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: key,
+        Key: normalizedKey,
         Body: body,
         ContentType: options.contentType,
         Metadata: options.metadata,
       }),
     );
+
+    return normalizedKey;
   }
 
   async delete(key: string): Promise<void> {

@@ -125,13 +125,13 @@ export const mediaService = {
     const storageKey = `media/${event.slug}/${mediaId}.${ext}`;
 
     const storage = getStorageProvider();
-    await storage.upload(storageKey, buffer, { contentType: file.type });
+    const storedKey = await storage.upload(storageKey, buffer, { contentType: file.type });
 
     const media = await prisma.media.create({
       data: {
         eventId: event.id,
         uploadToken: nanoid(21),
-        storageKey,
+        storageKey: storedKey,
         mimeType: file.type,
         fileName: file.name,
         fileSize: file.size,
@@ -270,6 +270,7 @@ export const mediaService = {
       url: storage.getPublicUrl(item.storageKey),
       caption: item.caption,
       isFeatured: item.isFeatured,
+      mimeType: item.mimeType,
       createdAt: item.createdAt.toISOString(),
     }));
   },
@@ -297,6 +298,7 @@ export const mediaService = {
       url: storage.getPublicUrl(item.storageKey),
       caption: item.caption,
       isFeatured: item.isFeatured,
+      mimeType: item.mimeType,
       createdAt: item.createdAt.toISOString(),
     }));
   },

@@ -1,96 +1,106 @@
 "use client";
 
-import { CheckCircle2, Circle, Clock } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { useOrgPath } from "@/components/providers/org-provider";
+import { EventSection } from "@/components/events/event-section";
+import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
 interface GuidancePanelProps {
+  eventId: string;
+  eventSlug: string;
   daysUntilEvent: number;
-  totalGuests: number;
-  confirmedCount: number;
+  enableGallery: boolean;
+  enableWall: boolean;
+  totalMedia: number;
+  approvedMedia: number;
   totalTasks: number;
   completedTasks: number;
   className?: string;
 }
 
 export function GuidancePanel({
+  eventId,
+  eventSlug,
   daysUntilEvent,
-  totalGuests,
-  confirmedCount,
+  enableGallery,
+  enableWall,
+  totalMedia,
+  approvedMedia,
   totalTasks,
   completedTasks,
   className,
 }: GuidancePanelProps) {
   const t = useTranslations("guidance");
+  const orgPath = useOrgPath;
+  const basePath = orgPath(`/events/${eventId}`);
 
   const checklist = [
     {
-      id: "guests",
-      label: t("checklistGuests"),
-      done: totalGuests > 0,
+      id: "gallery",
+      label: t("checklistGallery"),
+      done: enableGallery,
+      href: `${basePath}/settings`,
     },
     {
-      id: "rsvp",
-      label: t("checklistRsvp"),
-      done: confirmedCount > 0,
+      id: "share",
+      label: t("checklistShare"),
+      done: totalMedia > 0,
+      href: `${basePath}/overview`,
+    },
+    {
+      id: "approve",
+      label: t("checklistApprove"),
+      done: approvedMedia > 0,
+      href: `${basePath}/overview`,
+    },
+    {
+      id: "wall",
+      label: t("checklistWall"),
+      done: enableWall && approvedMedia > 0,
+      href: `/e/${eventSlug}/wall`,
     },
     {
       id: "tasks",
       label: t("checklistTasks"),
       done: totalTasks > 0 && completedTasks === totalTasks,
+      href: `${basePath}/tasks`,
     },
   ];
 
-  const completedChecklist = checklist.filter((item) => item.done).length;
-  const checklistProgress =
-    checklist.length > 0 ? (completedChecklist / checklist.length) * 100 : 0;
-
   return (
-    <Card className={cn("surface-elevated", className)}>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Clock className="h-5 w-5 text-primary" />
-          {t("title")}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-4">
-          <p className="text-sm text-muted-foreground">{t("daysUntil")}</p>
-          <p className="text-3xl font-bold text-gradient-gold">
-            {daysUntilEvent > 0 ? daysUntilEvent : 0}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {daysUntilEvent <= 0 ? t("eventToday") : t("daysLabel")}
-          </p>
-        </div>
+    <EventSection title={t("title")} className={className}>
+      <div className="mb-6 rounded-xl bg-secondary/50 px-4 py-3">
+        <p className="text-3xl font-semibold tabular-nums text-accent-foreground">
+          {daysUntilEvent > 0 ? daysUntilEvent : 0}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {daysUntilEvent <= 0 ? t("eventToday") : t("daysLabel")}
+        </p>
+      </div>
 
-        <div>
-          <div className="mb-3 flex items-center justify-between text-sm">
-            <span className="font-medium">{t("checklistTitle")}</span>
-            <span className="text-muted-foreground">
-              {completedChecklist}/{checklist.length}
-            </span>
-          </div>
-          <Progress value={checklistProgress} className="mb-4 h-2" />
-          <ul className="space-y-3">
-            {checklist.map((item) => (
-              <li key={item.id} className="flex items-center gap-3 text-sm">
-                {item.done ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                ) : (
-                  <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
-                )}
-                <span className={item.done ? "text-foreground" : "text-muted-foreground"}>
-                  {item.label}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+      <ul className="space-y-2">
+        {checklist.map((item) => (
+          <li key={item.id}>
+            <Link
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-secondary/60",
+                item.done ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {item.done ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-accent-foreground" />
+              ) : (
+                <Circle className="h-4 w-4 shrink-0" />
+              )}
+              <span>{item.label}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </EventSection>
   );
 }

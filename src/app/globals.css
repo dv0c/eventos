@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: oklch(0.99 0.005 85);
-  --foreground: oklch(0.2 0.02 285);
-  --card: oklch(1 0 0);
+  --background: oklch(0.985 0.012 85);
+  --foreground: oklch(0.22 0.02 285);
+  --card: oklch(0.995 0.008 85);
   --card-foreground: oklch(0.2 0.02 285);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.02 285);
@@ -17,7 +17,7 @@
   --accent-foreground: oklch(0.25 0.06 75);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.91 0.015 85);
+  --border: oklch(0.9 0.018 85);
   --input: oklch(0.91 0.015 85);
   --ring: oklch(0.55 0.16 295);
   --radius: 0.625rem;
@@ -121,11 +121,27 @@
 
 @layer utilities {
   .text-gradient-gold {
-    @apply bg-gradient-to-r from-primary via-accent to-gold bg-clip-text text-transparent;
+    @apply text-accent;
   }
 
   .surface-elevated {
     @apply bg-card/80 backdrop-blur-sm border border-border/60 shadow-sm;
+  }
+
+  .event-surface {
+    @apply rounded-2xl border border-border/50 bg-card;
+  }
+
+  .event-stat {
+    @apply flex flex-col gap-0.5;
+  }
+
+  .event-stat-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .event-stat-value {
+    @apply text-xl font-semibold tabular-nums text-foreground;
   }
 
   .wizard-scene-enter {
@@ -165,6 +181,11 @@
 
   .wizard-worm-progress {
     transition: stroke-dashoffset 300ms ease-out;
+  }
+
+  .dashboard-stat-enter {
+    animation: dashboard-stat-in 0.4s ease-out forwards;
+    opacity: 0;
   }
 }
 
@@ -213,6 +234,17 @@
   }
 }
 
+@keyframes dashboard-stat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes wizard-step-in-forward {
   from {
     opacity: 0;
@@ -254,7 +286,8 @@
   .wizard-ink-draw,
   .wizard-step-enter-forward,
   .wizard-step-enter-backward,
-  .wizard-form-section-enter {
+  .wizard-form-section-enter,
+  .dashboard-stat-enter {
     animation: none;
     opacity: 1;
     stroke-dashoffset: 0;

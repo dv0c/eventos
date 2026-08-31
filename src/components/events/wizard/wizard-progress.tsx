@@ -10,9 +10,9 @@ interface WizardProgressProps {
 }
 
 const VIEW_WIDTH = 320;
-const VIEW_HEIGHT = 40;
+const VIEW_HEIGHT = 28;
 const PADDING_X = 8;
-const AMPLITUDE = 10;
+const AMPLITUDE = 3;
 const CENTER_Y = VIEW_HEIGHT / 2;
 
 interface Point {
@@ -93,7 +93,7 @@ export function WizardProgress({
         aria-valuemax={steps.length}
         aria-valuenow={currentStep + 1}
         aria-label={currentLabel}
-        className="h-10 w-full"
+        className="h-7 w-full"
       >
         <svg
           viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
@@ -107,7 +107,7 @@ export function WizardProgress({
             fill="none"
             pathLength={1}
             className="stroke-secondary"
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -118,7 +118,7 @@ export function WizardProgress({
             strokeDasharray="1"
             strokeDashoffset={progressOffset}
             className="wizard-worm-progress stroke-primary"
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -131,13 +131,13 @@ export function WizardProgress({
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r={isCurrent ? 6 : 5}
+                  r={isCurrent ? 5 : 4}
                   className="fill-card"
                 />
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r={isCurrent ? 5 : 4}
+                  r={isCurrent ? 4 : 3}
                   className={cn(
                     "transition-all duration-300 ease-out",
                     isComplete ? "fill-primary" : "fill-secondary",

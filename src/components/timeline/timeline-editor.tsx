@@ -1,12 +1,14 @@
 "use client";
 
-import { Clock, MapPin, Plus, Trash2, User } from "lucide-react";
+import { Clock, MapPin, Plus, Trash2, User, CalendarClock } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { EventPageHeader } from "@/components/events/event-page-header";
+import { EventSection } from "@/components/events/event-section";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -112,37 +114,36 @@ export function TimelineEditor({ eventId, initialItems }: TimelineEditorProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <Button variant="gold" onClick={() => setShowAdd(true)} disabled={isLoading}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("addItem")}
-        </Button>
-      </div>
+      <EventPageHeader
+        title={t("title")}
+        action={
+          <Button variant="gold" onClick={() => setShowAdd(true)} disabled={isLoading}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("addItem")}
+          </Button>
+        }
+      />
 
-      <Card className="surface-elevated">
-        <CardHeader>
-          <CardTitle>{t("scheduleTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <EventSection title={t("scheduleTitle")}>
           {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noItems")}</p>
+            <EmptyState
+              icon={CalendarClock}
+              title={t("noItems")}
+              className="border-0 bg-transparent py-8"
+            />
           ) : (
             <div className="relative space-y-0">
-              <div className="absolute bottom-0 left-[1.125rem] top-0 w-px bg-border" />
+              <div className="absolute bottom-0 left-[1.125rem] top-0 w-px bg-border/60" />
               {items.map((item) => (
                 <div key={item.id} className="relative flex gap-4 pb-8 last:pb-0">
-                  <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border bg-background">
-                    <Clock className="h-4 w-4 text-primary" />
+                  <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/60 bg-secondary/40">
+                    <Clock className="h-4 w-4 text-accent-foreground" />
                   </div>
-                  <div className="min-w-0 flex-1 rounded-lg border border-border/60 p-4">
+                  <div className="min-w-0 flex-1 rounded-xl border border-border/40 bg-secondary/20 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-medium text-primary">{item.time}</p>
-                        <p className="mt-1 text-lg font-semibold">{item.title}</p>
+                        <p className="text-sm font-medium text-accent-foreground">{item.time}</p>
+                        <p className="mt-1 text-base font-medium">{item.title}</p>
                       </div>
                       <Button
                         variant="ghost"
@@ -176,8 +177,7 @@ export function TimelineEditor({ eventId, initialItems }: TimelineEditorProps) {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </EventSection>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>

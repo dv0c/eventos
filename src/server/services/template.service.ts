@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 
 import { generateUniqueEventSlug } from "@/lib/slug";
+import { DEFAULT_EVENT_SETTINGS } from "@/server/events/default-settings";
 import { prisma } from "@/server/db";
 import { enforceEventAccess, enforceOrganizationAccess } from "@/server/permissions/enforce";
 import { eventRepository } from "@/server/repositories/event.repository";
@@ -184,7 +185,10 @@ export const templateService = {
           clientId: eventInput.clientId ?? null,
           location: eventInput.location ?? null,
           settings: {
-            create: (defaults.settings ?? {}) as Prisma.EventSettingsCreateWithoutEventInput,
+            create: {
+              ...DEFAULT_EVENT_SETTINGS,
+              ...((defaults.settings ?? {}) as Prisma.EventSettingsCreateWithoutEventInput),
+            },
           },
           theme: {
             create: (defaults.theme ?? {}) as Prisma.EventThemeCreateWithoutEventInput,

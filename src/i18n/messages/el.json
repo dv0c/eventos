@@ -128,6 +128,8 @@
   "dashboard": {
     "title": "Πίνακας ελέγχου",
     "welcome": "Καλώς ήρθατε, {name}",
+    "welcomeWarm": "Χαίρομαι που σε βλέπω, {firstName}",
+    "subtitle": "Δες τι συμβαίνει με τις εκδηλώσεις σου.",
     "overview": "Επισκόπηση",
     "recentEvents": "Πρόσφατες εκδηλώσεις",
     "upcomingEvents": "Επερχόμενες εκδηλώσεις",
@@ -206,8 +208,73 @@
     "invitations": "Προσκλήσεις",
     "settings": "Ρυθμίσεις εκδήλωσης",
     "publicPage": "Δημόσια σελίδα",
+    "settingsVisibility": {
+      "visibility": "Δημόσια ορατότητα",
+      "isPublic": "Δημοσίευση δημόσιας σελίδας",
+      "isPublicDesc": "Όταν είναι ενεργή, οι καλεσμένοι μπορούν να δουν τη σελίδα της εκδήλωσης στο δημόσιο URL.",
+      "enableGallery": "Ενεργοποίηση ανεβάσματος φωτογραφιών",
+      "enableWall": "Ενεργοποίηση live wall",
+      "publicUrl": "Δημόσιο URL",
+      "saveVisibility": "Αποθήκευση ορατότητας"
+    },
     "deleteConfirm": "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εκδήλωση;",
-    "deleteWarning": "Αυτή η ενέργεια δεν μπορεί να αναιρεθεί."
+    "deleteWarning": "Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.",
+    "details": "Λεπτομέρειες",
+    "hostName": "Οικοδεσπότης",
+    "hostEmail": "Email οικοδεσπότη",
+    "hostPhone": "Τηλέφωνο οικοδεσπότη",
+    "saveFailed": "Αποτυχία αποθήκευσης",
+    "mediaHub": {
+      "albumTitle": "Το Ψηφιακό σας Άλμπουμ",
+      "albumDescription": "Οι καλεσμένοι μπορούν να ανεβάσουν ή να δουν φωτογραφίες. Μοιραστείτε τον σύνδεσμο ή τον QR κωδικό.",
+      "wallTitle": "Ο Photo Wall σας",
+      "wallDescription": "Κάθε ανέβασμα εμφανίζεται σε live wall για προβολή σε projector, TV ή laptop.",
+      "open": "Άνοιγμα",
+      "copied": "Ο σύνδεσμος αντιγράφηκε",
+      "copyFailed": "Αποτυχία αντιγραφής",
+      "downloadQr": "Λήψη QR",
+      "loadError": "Αποτυχία φόρτωσης συνδέσμων",
+      "galleryDisabled": "Το ανέβασμα φωτογραφιών είναι απενεργοποιημένο.",
+      "wallDisabled": "Το live wall είναι απενεργοποιημένο.",
+      "wallPreview": "Προεπισκόπηση wall",
+      "displayOn": "Προβολή σε:",
+      "displayProjector": "Projector",
+      "displayTv": "TV",
+      "displayLaptop": "Laptop",
+      "customizeWall": "Προσαρμογή wall",
+      "goToSettings": "Ρυθμίσεις εκδήλωσης"
+    },
+    "wallCustomization": {
+      "title": "Προσαρμογή Photo Wall",
+      "settingsHint": "Οι αλλαγές εφαρμόζονται αμέσως στο live wall.",
+      "durations": "Διάρκεια μέσων (δευτερόλεπτα)",
+      "imageDuration": "Εικόνα",
+      "videoDuration": "Βίντεο",
+      "textDuration": "Κείμενο",
+      "playVideoFullLength": "Αναπαραγωγή βίντεο σε πλήρη διάρκεια",
+      "background": "Προσαρμογή φόντου",
+      "uploadBackground": "Ανέβασμα φόντου",
+      "removeBackground": "Αφαίρεση φόντου",
+      "displayOptions": "Επιλογές προβολής",
+      "hideSideImages": "Απόκρυψη πλαϊνών εικόνων",
+      "hideQrCode": "Απόκρυψη QR κωδικού",
+      "hideCaption": "Απόκρυψη λεζαντών",
+      "hideLikes": "Απόκρυψη likes",
+      "enterFullscreen": "Πλήρης οθόνη",
+      "turnSoundOn": "Ενεργοποίηση ήχου",
+      "turnSoundOff": "Απενεργοποίηση ήχου",
+      "moreOptions": "Περισσότερες επιλογές",
+      "customize": "Προσαρμογή",
+      "loadError": "Αποτυχία φόρτωσης ρυθμίσεων",
+      "saveError": "Αποτυχία αποθήκευσης",
+      "uploadError": "Αποτυχία ανεβάσματος φόντου"
+    },
+    "adminLogin": {
+      "title": "Σύνδεση ως admin",
+      "description": "Μόνο οι διοργανωτές της εκδήλωσης μπορούν να προσαρμόσουν το photo wall. Συνδεθείτε ως admin.",
+      "dismiss": "Κλείσιμο",
+      "login": "Σύνδεση"
+    }
   },
   "guests": {
     "title": "Καλεσμένοι",
@@ -230,6 +297,7 @@
     "rsvp": "RSVP",
     "noGuests": "Δεν υπάρχουν καλεσμένοι",
     "noGuestsDesc": "Προσθέστε καλεσμένους χειροκίνητα ή εισάγετε από αρχείο.",
+    "totalCount": "{count} καλεσμένοι",
     "sendInvitation": "Αποστολή πρόσκλησης",
     "sendReminder": "Αποστολή υπενθύμισης",
     "bulkActions": "Μαζικές ενέργειες",
@@ -375,31 +443,27 @@
     "collaborators": "Συνεργάτες",
     "analytics": "Αναλυτικά",
     "settings": "Ρυθμίσεις",
-    "publicPage": "Δημόσια σελίδα"
+    "publicPage": "Δημόσια σελίδα",
+    "more": "Περισσότερα"
   },
   "guidance": {
-    "title": "Οδηγός εκδήλωσης",
+    "title": "Επόμενα βήματα",
     "daysUntil": "Ημέρες μέχρι την εκδήλωση",
     "daysLabel": "ημέρες απομένουν",
-    "eventToday": "Η εκδήλωση είναι σήμερα!",
-    "checklistTitle": "Checklist ρύθμισης",
-    "checklistGuests": "Προσθήκη λίστας καλεσμένων",
-    "checklistRsvp": "Συλλογή RSVPs",
-    "checklistTasks": "Ολοκλήρωση όλων των εργασιών"
+    "eventToday": "Είναι σήμερα",
+    "checklistGallery": "Ενεργοποίηση ανεβάσματος",
+    "checklistShare": "Κοινοποίηση συνδέσμου",
+    "checklistApprove": "Έγκριση φωτογραφιών",
+    "checklistWall": "Άνοιγμα live wall",
+    "checklistTasks": "Ολοκλήρωση εργασιών"
   },
   "overview": {
-    "subtitle": "Πίνακας εκδήλωσης σε πραγματικό χρόνο",
-    "totalGuests": "Σύνολο καλεσμένων",
-    "rsvpRate": "Ποσοστό RSVP",
+    "totalPhotos": "Φωτογραφίες",
+    "approvedPhotos": "Εγκεκριμένες",
+    "pendingPhotos": "Εκκρεμούν",
     "tasksProgress": "Εργασίες",
-    "daysUntilEvent": "Ημέρες μέχρι το event",
-    "todayOrPast": "Σήμερα ή παρελθόν",
-    "rsvpBreakdown": "Ανάλυση RSVP",
-    "rsvpSummary": "Σύνοψη απαντήσεων",
-    "confirmed": "Επιβεβαιωμένοι",
-    "declined": "Αρνηθέντες",
-    "pending": "Εκκρεμούν",
-    "noGuestData": "Δεν υπάρχουν δεδομένα καλεσμένων"
+    "daysUntilEvent": "Ημέρες",
+    "todayOrPast": "Σήμερα"
   },
   "wizard": {
     "title": "Νέα εκδήλωση",
@@ -554,6 +618,7 @@
     "capacity": "Χωρητικότητα",
     "shape": "Σχήμα",
     "seats": "θέσεις",
+    "vipBadge": "VIP",
     "seatsLeft": "ελεύθερες",
     "full": "Πλήρες",
     "unassign": "Αφαίρεση",
@@ -666,7 +731,11 @@
     "collaboratorsTitle": "Συνεργάτες",
     "collaboratorsDesc": "Προσκαλέστε μέλη της ομάδας να βοηθήσουν στον σχεδιασμό.",
     "analyticsTitle": "Αναλυτικά — Φάση 8",
-    "analyticsDesc": "Βαθιά αναλυτικά και αναφορές στη Φάση 8."
+    "analyticsDesc": "Βαθιά αναλυτικά και αναφορές στη Φάση 8.",
+    "comingSoonTitle": "Σύντομα διαθέσιμο",
+    "comingSoonDesc": "Αυτή η λειτουργία δεν είναι ακόμα έτοιμη.",
+    "backToOverview": "Πίσω στην επισκόπηση",
+    "collaboratorsDesc": "Προσκαλέστε συνεργάτες για να βοηθήσουν στον σχεδιασμό."
   },
   "admin": {
     "title": "Διαχείριση πλατφόρμας",
@@ -725,10 +794,12 @@
     "wallEmpty": "Αναμονή φωτογραφιών…",
     "wallEmptyDesc": "Οι εγκεκριμένες φωτογραφίες θα εμφανίζονται εδώ live.",
     "wallLive": "Live",
-    "wallOffline": "Επανασύνδεση…"
+    "wallOffline": "Επανασύνδεση…",
+    "scanToUpload": "Σκανάρετε για να δείτε ή να προσθέσετε φωτογραφίες!"
   },
   "messages": {
-    "sendCampaign": "Αποστολή καμπάνιας",
+    "title": "Μηνύματα",
+    "sendCampaign": "Αποστολή μηνύματος",
     "selectTemplate": "Επιλογή προτύπου",
     "sendInvitation": "Αποστολή προσκλήσεων",
     "sendReminder": "Υπενθύμιση RSVP",
