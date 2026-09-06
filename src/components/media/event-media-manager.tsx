@@ -253,38 +253,56 @@ export function EventMediaManager({ eventId, eventSlug, albumHref }: EventMediaM
             })}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button
-            size="sm"
-            className="h-9 gap-2"
+            size="icon"
+            className="size-9"
             disabled={isUploading}
             onClick={() => fileInputRef.current?.click()}
+            aria-label={isUploading ? t("uploading") : t("uploadPhotos")}
+            title={isUploading ? t("uploading") : t("uploadPhotos")}
           >
-            <Upload className="h-4 w-4" />
-            {isUploading ? t("uploading") : t("uploadPhotos")}
+            <Upload className="size-4" />
           </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-2 bg-background" asChild>
-            <Link href={`/mod/${eventId}`}>
-              <Smartphone className="h-4 w-4" />
-              {tMod("openModeratorApp")}
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-2 bg-background" asChild>
-            <Link href={`/mod/${eventId}/dj`}>
-              <Music2 className="h-4 w-4" />
-              {t("openDjBooth")}
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 bg-background"
+            asChild
+          >
+            <Link
+              href={`/mod/${eventId}`}
+              aria-label={tMod("openModeratorApp")}
+              title={tMod("openModeratorApp")}
+            >
+              <Smartphone className="size-4" />
             </Link>
           </Button>
           <Button
             variant="outline"
-            size="sm"
-            className="h-9 gap-2 bg-background"
+            size="icon"
+            className="size-9 bg-background"
+            asChild
+          >
+            <Link
+              href={`/mod/${eventId}/dj`}
+              aria-label={t("openDjBooth")}
+              title={t("openDjBooth")}
+            >
+              <Music2 className="size-4" />
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 bg-background"
             onClick={() => {
               window.location.href = `/api/events/${eventId}/media/download`;
             }}
+            aria-label={t("downloadAll")}
+            title={t("downloadAll")}
           >
-            <Download className="h-4 w-4" />
-            {t("downloadAll")}
+            <Download className="size-4" />
           </Button>
         </div>
         <input
