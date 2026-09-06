@@ -1,10 +1,24 @@
+import { PlatformRole } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 
 import { CreateOrganizationForm } from "@/components/organization/create-organization-form";
 import { Logo } from "@/components/shared/logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { redirectToActiveOrganizationDashboard } from "@/server/auth/organization-guard";
+import { requireAuth } from "@/server/auth/session";
 
-export default async function NewOrganizationPage() {
+type NewOrganizationPageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function NewOrganizationPage({ params }: NewOrganizationPageProps) {
+  const { locale } = await params;
+  const session = await requireAuth();
+
+  if (session.user.platformRole !== PlatformRole.ADMIN) {
+    await redirectToActiveOrganizationDashboard(locale, session.user.id);
+  }
+
   const t = await getTranslations("organizations");
 
   return (

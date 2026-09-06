@@ -7,6 +7,7 @@ import Google from "next-auth/providers/google";
 
 import { prisma } from "@/server/db";
 import { auditService } from "@/server/services/audit.service";
+import { platformOrgService } from "@/server/services/platform-org.service";
 
 const googleClientId = process.env.AUTH_GOOGLE_ID;
 const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
@@ -99,6 +100,13 @@ export const authConfig = {
     },
   },
   events: {
+    async createUser({ user }) {
+      if (!user.id) {
+        return;
+      }
+
+      await platformOrgService.ensurePlatformMembership(user.id);
+    },
     async signIn({ user }) {
       if (!user.id) {
         return;

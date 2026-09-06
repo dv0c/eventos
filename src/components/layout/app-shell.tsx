@@ -107,7 +107,7 @@ export function AppShell({
               organizations={organizations}
               activeOrganizationId={activeOrganizationId}
               onOrganizationChange={handleOrganizationChange}
-              onCreateOrganization={handleCreateOrganization}
+              onCreateOrganization={isAdmin ? handleCreateOrganization : undefined}
               onSignOut={handleSignOut}
             />
           ) : null}

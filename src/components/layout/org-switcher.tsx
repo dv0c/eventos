@@ -88,14 +88,18 @@ export function OrgSwitcher({
             {t("currentOrg")}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuSeparator className="bg-white/10" />
-        <DropdownMenuItem
-          className="cursor-pointer rounded-lg text-gold focus:bg-white/10 focus:text-gold"
-          onClick={onCreateOrganization}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {t("createOrg")}
-        </DropdownMenuItem>
+        {onCreateOrganization ? (
+          <>
+            <DropdownMenuSeparator className="bg-white/10" />
+            <DropdownMenuItem
+              className="cursor-pointer rounded-lg text-gold focus:bg-white/10 focus:text-gold"
+              onClick={onCreateOrganization}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t("createOrg")}
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

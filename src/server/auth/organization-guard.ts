@@ -5,6 +5,7 @@ import { orgPath } from "@/lib/org-path";
 import { redirect } from "@/i18n/navigation";
 import { getActiveOrganizationId } from "@/server/auth/session";
 import { organizationRepository } from "@/server/repositories/organization.repository";
+import { platformOrgService } from "@/server/services/platform-org.service";
 
 export interface OrganizationSummary {
   id: string;
@@ -109,10 +110,15 @@ export async function redirectIfNoOrganizations(
   locale: string,
   userId: string,
 ): Promise<OrganizationSummary[]> {
-  const organizations = await getUserOrganizationsSummary(userId);
+  let organizations = await getUserOrganizationsSummary(userId);
 
   if (organizations.length === 0) {
-    redirect({ href: "/setup", locale });
+    await platformOrgService.ensurePlatformMembership(userId);
+    organizations = await getUserOrganizationsSummary(userId);
+  }
+
+  if (organizations.length === 0) {
+    redirect({ href: "/dashboard", locale });
   }
 
   return organizations;
@@ -133,10 +139,18 @@ export async function redirectToActiveOrganizationDashboard(
   locale: string,
   userId: string,
 ): Promise<never> {
-  const active = await resolveActiveOrganization(userId);
+  let active = await resolveActiveOrganization(userId);
 
   if (!active) {
-    return redirect({ href: "/setup", locale });
+    await platformOrgService.ensurePlatformMembership(userId);
+    active = await resolveActiveOrganization(userId);
+  }
+
+  if (!active) {
+    throw new OrganizationAccessError(
+      "Platform organization is not available",
+      "PLATFORM_ORG_MISSING",
+    );
   }
 
   return redirect({ href: orgPath(active.slug, "/dashboard"), locale });

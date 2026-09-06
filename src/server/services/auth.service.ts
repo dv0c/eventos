@@ -6,6 +6,7 @@ import { prisma } from "@/server/db";
 import { getMessagingProvider } from "@/server/providers/messaging";
 
 import { auditService } from "./audit.service";
+import { platformOrgService } from "./platform-org.service";
 
 const BCRYPT_ROUNDS = 12;
 const EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
@@ -72,6 +73,8 @@ export const authService = {
 
       return created;
     });
+
+    await platformOrgService.ensurePlatformMembership(user.id);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const verifyUrl = `${appUrl}/api/auth/verify-email?token=${verificationToken}`;

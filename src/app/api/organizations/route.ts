@@ -6,7 +6,7 @@ import {
   getClientIp,
   handleServiceError,
 } from "@/lib/api-response";
-import { AuthError, getActiveOrganizationId, requireAuth, setActiveOrganization } from "@/server/auth/session";
+import { AuthError, getActiveOrganizationId, requireAdmin, requireAuth, setActiveOrganization } from "@/server/auth/session";
 import { organizationRepository } from "@/server/repositories/organization.repository";
 import { organizationService } from "@/server/services/organization.service";
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const session = await requireAuth();
+    const session = await requireAdmin();
     const organization = await organizationService.createOrganization(
       session.user.id,
       parsed.data,

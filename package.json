@@ -13,6 +13,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:platform": "tsx prisma/seed-platform.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "worker": "tsx workers/index.ts",

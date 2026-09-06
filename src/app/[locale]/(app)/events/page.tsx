@@ -1,8 +1,8 @@
 import { redirect } from "@/i18n/navigation";
 import { getSession } from "@/server/auth/session";
-import { redirectToActiveOrganizationDashboard } from "@/server/auth/organization-guard";
-import { orgPath } from "@/lib/org-path";
 import { resolveActiveOrganization } from "@/server/auth/organization-guard";
+import { orgPath } from "@/lib/org-path";
+import { platformOrgService } from "@/server/services/platform-org.service";
 
 export default async function LegacyEventsRedirect({
   params,
@@ -16,10 +16,15 @@ export default async function LegacyEventsRedirect({
     redirect({ href: "/login", locale });
   }
 
-  const active = await resolveActiveOrganization(session!.user.id);
+  let active = await resolveActiveOrganization(session!.user.id);
 
   if (!active) {
-    redirect({ href: "/setup", locale });
+    await platformOrgService.ensurePlatformMembership(session!.user.id);
+    active = await resolveActiveOrganization(session!.user.id);
+  }
+
+  if (!active) {
+    redirect({ href: "/dashboard", locale });
   }
 
   redirect({ href: orgPath(active!.slug, "/events"), locale });
