@@ -37,7 +37,13 @@ export default async function OrgSlugRootLayout({
   }
 
   return (
-    <OrgProvider orgId={activeOrg.id} orgSlug={activeOrg.slug} orgName={activeOrg.name}>
+    <OrgProvider
+      orgId={activeOrg.id}
+      orgSlug={activeOrg.slug}
+      orgName={activeOrg.name}
+      planName={activeOrg.planName}
+      planSlug={activeOrg.planSlug}
+    >
       {children}
     </OrgProvider>
   );

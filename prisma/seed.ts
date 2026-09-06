@@ -387,6 +387,7 @@ async function seedEvent(
 }
 
 async function seedEventSettings(eventId: string, rsvpDeadline: Date) {
+  const mediaUploadToken = nanoid(24);
   return prisma.eventSettings.create({
     data: {
       eventId,
@@ -408,6 +409,7 @@ async function seedEventSettings(eventId: string, rsvpDeadline: Date) {
         gallery: true,
         map: true,
         contact: true,
+        mediaUploadToken,
       },
     },
   });
@@ -591,24 +593,27 @@ async function seedTimeline(eventId: string) {
   });
 }
 
-async function seedQRCodes(eventId: string) {
+async function seedQRCodes(eventId: string, albumToken: string, orgSlug: string) {
   const baseUrl = `https://eventos.gr/e/${EVENT_SLUG}`;
-  const types: { type: QRCodeType; path: string }[] = [
-    { type: QRCodeType.EVENT, path: "" },
-    { type: QRCodeType.RSVP, path: "/rsvp" },
-    { type: QRCodeType.UPLOAD, path: "/upload" },
-    { type: QRCodeType.WALL, path: "/wall" },
+  const types: { type: QRCodeType; url: string }[] = [
+    { type: QRCodeType.EVENT, url: baseUrl },
+    { type: QRCodeType.RSVP, url: `${baseUrl}/rsvp` },
+    { type: QRCodeType.UPLOAD, url: `https://eventos.gr/a/${albumToken}` },
+    { type: QRCodeType.WALL, url: `${baseUrl}/wall` },
+    {
+      type: QRCodeType.MODERATION,
+      url: `https://eventos.gr/el/org/${orgSlug}/events/${eventId}/mod`,
+    },
   ];
 
-  for (const { type, path } of types) {
+  for (const { type, url } of types) {
     const existing = await prisma.qRCode.findFirst({
       where: { eventId, type },
     });
-    const url = `${baseUrl}${path}`;
     if (existing) {
       await prisma.qRCode.update({
         where: { id: existing.id },
-        data: { url },
+        data: { url, storageKey: null },
       });
     } else {
       await prisma.qRCode.create({
@@ -616,7 +621,6 @@ async function seedQRCodes(eventId: string) {
           eventId,
           type,
           url,
-          storageKey: `qr/${EVENT_SLUG}/${type.toLowerCase()}.png`,
         },
       });
     }
@@ -651,7 +655,7 @@ async function main() {
   const rsvpDeadline = addDays(eventDate, -14);
 
   const event = await seedEvent(org.id, client.id, eventDate);
-  await seedEventSettings(event.id, rsvpDeadline);
+  const settings = await seedEventSettings(event.id, rsvpDeadline);
   await seedEventTheme(event.id);
   await seedCollaborators(event.id, planner.id, manager.id);
   console.log(`✓ Event: ${event.name} (${eventDate.toLocaleDateString("el-GR")})`);
@@ -672,8 +676,11 @@ async function main() {
   await seedTimeline(event.id);
   console.log("✓ 8 timeline items");
 
-  await seedQRCodes(event.id);
-  console.log("✓ 4 QR codes (EVENT, RSVP, UPLOAD, WALL)");
+  const albumToken =
+    ((settings.sections as { mediaUploadToken?: string } | null)?.mediaUploadToken) ??
+    nanoid(24);
+  await seedQRCodes(event.id, albumToken, ORG_SLUG);
+  console.log("✓ 5 QR codes (EVENT, RSVP, UPLOAD, WALL, MODERATION)");
 
   const guestRecords = await prisma.guest.findMany({
     where: { eventId: event.id },

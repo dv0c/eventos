@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Settings,
   Shield,
+  Star,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -16,8 +17,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { useOrgPath } from "@/components/providers/org-provider";
 import { Logo } from "@/components/shared/logo";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,6 @@ interface NavItem {
   path: string;
   labelKey: string;
   icon: LucideIcon;
-  badge?: string;
   adminOnly?: boolean;
   orgScoped?: boolean;
 }
@@ -48,10 +47,18 @@ const secondaryNavItems: NavItem[] = [
 interface AppSidebarProps {
   className?: string;
   isAdmin?: boolean;
+  userEmail?: string | null;
+  userName?: string | null;
 }
 
-export function AppSidebar({ className, isAdmin = false }: AppSidebarProps) {
+export function AppSidebar({
+  className,
+  isAdmin = false,
+  userEmail,
+  userName,
+}: AppSidebarProps) {
   const t = useTranslations("nav");
+  const tWorkspace = useTranslations("eventWorkspace");
   const pathname = usePathname();
   const orgPath = useOrgPath;
 
@@ -68,6 +75,14 @@ export function AppSidebar({ className, isAdmin = false }: AppSidebarProps) {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
+  const displayName = userName?.trim() || tWorkspace("myAccount");
+  const initials = (userName?.trim() || userEmail || "U")
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   const renderNavItem = (item: NavItem) => {
     if (item.adminOnly && !isAdmin) {
       return null;
@@ -82,24 +97,19 @@ export function AppSidebar({ className, isAdmin = false }: AppSidebarProps) {
         key={item.path}
         href={href}
         className={cn(
-          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+          "group relative flex items-center gap-2.5 rounded-full px-2.5 py-2 text-[13px] font-medium transition-all",
           active
-            ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+            ? "border border-white/20 bg-black/45 text-foreground backdrop-blur-md"
+            : "border border-transparent text-sidebar-foreground/70 hover:border-white/10 hover:bg-white/5 hover:text-foreground",
         )}
       >
         <Icon
           className={cn(
             "h-4 w-4 shrink-0 transition-colors",
-            active ? "text-primary" : "text-muted-foreground group-hover:text-primary",
+            active ? "text-gold" : "text-muted-foreground group-hover:text-foreground",
           )}
         />
-        <span className="flex-1">{t(item.labelKey)}</span>
-        {item.badge ? (
-          <Badge variant="gold" className="h-5 px-1.5 text-[10px]">
-            {item.badge}
-          </Badge>
-        ) : null}
+        {t(item.labelKey)}
       </Link>
     );
   };
@@ -107,27 +117,47 @@ export function AppSidebar({ className, isAdmin = false }: AppSidebarProps) {
   return (
     <aside
       className={cn(
-        "flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar",
+        "flex h-full w-56 shrink-0 flex-col border-r border-white/10 bg-sidebar/60 backdrop-blur-xl",
         className,
       )}
     >
-      <div className="flex h-16 items-center border-b border-sidebar-border px-5">
-        <Logo variant="full" size="md" />
+      <div className="flex h-14 items-center px-4">
+        <Logo variant="full" size="sm" theme="light" />
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Menu
-        </p>
+      <div className="space-y-2 px-3 pb-3">
+        <Button variant="gold" size="sm" className="h-9 w-full gap-2 rounded-full" asChild>
+          <Link href={orgPath("/billing")}>
+            <Star className="h-3.5 w-3.5" />
+            {tWorkspace("upgradeEvent")}
+          </Link>
+        </Button>
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2">
         {mainNavItems.map(renderNavItem)}
 
-        <Separator className="my-3" />
+        <div className="my-2 border-t border-white/10" />
 
-        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Organization
-        </p>
         {secondaryNavItems.map(renderNavItem)}
       </nav>
+
+      <div className="border-t border-white/10 p-3">
+        <Link
+          href={orgPath("/settings")}
+          className="flex items-center gap-2.5 rounded-full border border-transparent px-1.5 py-1.5 transition-colors hover:border-white/10 hover:bg-white/5"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/45 text-[11px] font-semibold text-foreground backdrop-blur-md">
+            {initials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium text-foreground">{displayName}</p>
+            {userEmail ? (
+              <p className="truncate text-[11px] text-muted-foreground">{userEmail}</p>
+            ) : null}
+          </div>
+        </Link>
+      </div>
     </aside>
   );
 }

@@ -48,6 +48,8 @@ export interface EventOverviewStats {
   totalMedia: number;
   pendingMedia: number;
   approvedMedia: number;
+  mediaToday: number;
+  guestCount: number;
   totalTasks: number;
   completedTasks: number;
   daysUntilEvent: number;
@@ -225,7 +227,10 @@ export const eventRepository = {
       return null;
     }
 
-    const [mediaCounts, taskCounts] = await Promise.all([
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [mediaCounts, taskCounts, mediaToday, guestCount] = await Promise.all([
       prisma.media.groupBy({
         by: ["status"],
         where: { eventId },
@@ -235,6 +240,18 @@ export const eventRepository = {
         by: ["status"],
         where: { eventId },
         _count: { _all: true },
+      }),
+      prisma.media.count({
+        where: {
+          eventId,
+          createdAt: { gte: startOfToday },
+        },
+      }),
+      prisma.guest.count({
+        where: {
+          eventId,
+          deletedAt: null,
+        },
       }),
     ]);
 
@@ -269,6 +286,8 @@ export const eventRepository = {
       totalMedia,
       pendingMedia,
       approvedMedia,
+      mediaToday,
+      guestCount,
       totalTasks,
       completedTasks,
       daysUntilEvent,

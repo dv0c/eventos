@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useRouter } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+
+const fieldClassName =
+  "h-11 rounded-xl border-white/15 bg-black/35 text-base shadow-none backdrop-blur-sm placeholder:text-white/35";
 
 interface RegisterFormProps {
   callbackUrl?: string;
@@ -64,23 +66,37 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <Label htmlFor="name">{t("name")}</Label>
-        <Input id="name" name="name" required autoComplete="name" />
+        <Label htmlFor="name" className="text-muted-foreground">
+          {t("name")}
+        </Label>
+        <Input
+          id="name"
+          name="name"
+          required
+          autoComplete="name"
+          className={fieldClassName}
+        />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="email">{t("email")}</Label>
+        <Label htmlFor="email" className="text-muted-foreground">
+          {t("email")}
+        </Label>
         <Input
           id="email"
           name="email"
           type="email"
           required
           autoComplete="email"
+          placeholder="you@example.com"
+          className={fieldClassName}
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">{t("password")}</Label>
+        <Label htmlFor="password" className="text-muted-foreground">
+          {t("password")}
+        </Label>
         <Input
           id="password"
           name="password"
@@ -88,10 +104,13 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
           required
           minLength={8}
           autoComplete="new-password"
+          className={fieldClassName}
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">{t("confirmPassword")}</Label>
+        <Label htmlFor="confirmPassword" className="text-muted-foreground">
+          {t("confirmPassword")}
+        </Label>
         <Input
           id="confirmPassword"
           name="confirmPassword"
@@ -99,16 +118,26 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
           required
           minLength={8}
           autoComplete="new-password"
+          className={fieldClassName}
         />
       </div>
-      <Button type="submit" variant="gold" className="w-full" disabled={isLoading}>
+      <Button
+        type="submit"
+        variant="gold"
+        className="h-11 w-full rounded-xl text-base font-semibold"
+        disabled={isLoading}
+      >
         {isLoading ? t("register") + "..." : t("signUp")}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {t("hasAccount")}{" "}
         <Link
-          href={callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login"}
-          className="font-medium text-primary hover:underline"
+          href={
+            callbackUrl
+              ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+              : "/login"
+          }
+          className="font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("signIn")}
         </Link>

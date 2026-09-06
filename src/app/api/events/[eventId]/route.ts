@@ -11,6 +11,13 @@ import { auditService } from "@/server/services/audit.service";
 const updateEventSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
+    slug: z
+      .string()
+      .trim()
+      .min(2)
+      .max(64)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .optional(),
     type: z.nativeEnum(EventType).optional(),
     status: z.nativeEnum(EventStatus).optional(),
     description: z.string().nullable().optional(),
@@ -27,6 +34,15 @@ const updateEventSchema = z
     expectedCouples: z.number().int().min(0).optional(),
     expectedChildren: z.number().int().min(0).optional(),
     expectedVip: z.number().int().min(0).optional(),
+    theme: z
+      .object({
+        primaryColor: z.string().optional(),
+        secondaryColor: z.string().optional(),
+        accentColor: z.string().optional(),
+        logoUrl: z.string().url().nullable().optional(),
+        albumBackgroundUrl: z.string().url().nullable().optional(),
+      })
+      .optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided",
@@ -84,9 +100,36 @@ export async function PATCH(request: Request, context: RouteContext) {
       return apiError("Event not found", "EVENT_NOT_FOUND", 404);
     }
 
+    const { theme, ...eventData } = parsed.data;
+
+    if (theme) {
+      await prisma.eventTheme.upsert({
+        where: { eventId },
+        create: {
+          eventId,
+          primaryColor: theme.primaryColor ?? "#8B5CF6",
+          secondaryColor: theme.secondaryColor ?? "#F59E0B",
+          accentColor: theme.accentColor ?? "#10B981",
+          logoUrl: theme.logoUrl ?? null,
+          albumBackgroundUrl: theme.albumBackgroundUrl ?? null,
+        },
+        update: {
+          ...(theme.primaryColor !== undefined ? { primaryColor: theme.primaryColor } : {}),
+          ...(theme.secondaryColor !== undefined
+            ? { secondaryColor: theme.secondaryColor }
+            : {}),
+          ...(theme.accentColor !== undefined ? { accentColor: theme.accentColor } : {}),
+          ...(theme.logoUrl !== undefined ? { logoUrl: theme.logoUrl } : {}),
+          ...(theme.albumBackgroundUrl !== undefined
+            ? { albumBackgroundUrl: theme.albumBackgroundUrl }
+            : {}),
+        },
+      });
+    }
+
     const event = await prisma.event.update({
       where: { id: eventId },
-      data: parsed.data,
+      data: eventData,
       include: {
         settings: true,
         theme: true,

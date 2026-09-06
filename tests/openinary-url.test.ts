@@ -27,4 +27,14 @@ describe("openinary-url", () => {
       "https://evento-cdn.efindly.gr/t/w_800,h_600,c_fill,f_webp/media/event/abc.jpg",
     );
   });
+
+  it("applies a_auto for image display URLs", async () => {
+    const { openinaryDisplayUrl } = await import("@/lib/openinary-url");
+    expect(openinaryDisplayUrl(publicUrl, "media/event/abc.jpg")).toBe(
+      "https://evento-cdn.efindly.gr/t/a_auto/media/event/abc.jpg",
+    );
+    expect(openinaryDisplayUrl(publicUrl, "media/event/clip.mp4")).toBe(
+      "https://evento-cdn.efindly.gr/t/media/event/clip.mp4",
+    );
+  });
 });

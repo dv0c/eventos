@@ -15,6 +15,8 @@ export interface OrganizationSummary {
 
 export interface ResolvedOrganization extends OrganizationSummary {
   role: OrgRole;
+  planName: string;
+  planSlug: string;
 }
 
 export class OrganizationAccessError extends Error {
@@ -65,6 +67,8 @@ export async function resolveOrganizationBySlug(
     slug: organization.slug,
     logoUrl: organization.logoUrl,
     role: membership.role,
+    planName: organization.plan.name,
+    planSlug: organization.plan.slug,
   };
 }
 
@@ -86,26 +90,19 @@ export async function resolveActiveOrganization(
   const activeFromCookie = organizations.find((org) => org.id === activeOrganizationId);
 
   if (activeFromCookie) {
-    const membership = await organizationRepository.getMembership(activeFromCookie.id, userId);
-    if (membership) {
-      return {
-        ...activeFromCookie,
-        role: membership.role,
-      };
+    try {
+      return await resolveOrganizationBySlug(userId, activeFromCookie.slug);
+    } catch {
+      // fall through to first org
     }
   }
 
   const fallback = organizations[0];
-  const membership = await organizationRepository.getMembership(fallback.id, userId);
-
-  if (!membership) {
+  try {
+    return await resolveOrganizationBySlug(userId, fallback.slug);
+  } catch {
     return null;
   }
-
-  return {
-    ...fallback,
-    role: membership.role,
-  };
 }
 
 export async function redirectIfNoOrganizations(

@@ -114,6 +114,7 @@ enum QRCodeType {
   RSVP
   UPLOAD
   WALL
+  MODERATION
 }
 
 enum MediaStatus {
@@ -195,6 +196,7 @@ model User {
   organizationMembers   OrganizationMember[]
   organizationInvites   OrganizationInvite[] @relation("InvitedBy")
   collaborators         Collaborator[]
+  eventCollaborators    EventCollaborator[]
   assignedTasks         Task[]               @relation("TaskAssignee")
   notifications         Notification[]
   auditLogs             AuditLog[]
@@ -477,8 +479,11 @@ model Event {
   tasks          Task[]
   timelineItems  TimelineItem[]
   collaborators  Collaborator[]
+  eventCollaborators EventCollaborator[]
   messages       Message[]
   media          Media[]
+  mediaReactions MediaReaction[]
+  voiceWishes    VoiceWish[]
   qrCodes        QRCode[]
   auditLogs      AuditLog[]
 
@@ -502,8 +507,10 @@ model EventSettings {
   allowMaybe      Boolean @default(true)
   enableGallery   Boolean @default(false)
   enableWall      Boolean @default(false)
+  enableVoiceWishes Boolean @default(true)
   indexable       Boolean @default(false)
-  sections        Json    @default("{}") // hero, schedule, rsvp, gallery, map, contact toggles
+  requireManualApproval Boolean @default(false)
+  sections        Json    @default("{}") // hero, schedule, rsvp, gallery, map, contact, appearance, moderation, wall
   rsvpDeadline    DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -517,6 +524,8 @@ model EventTheme {
   id           String  @id @default(cuid())
   eventId      String  @unique
   coverImageKey String?
+  logoUrl      String?
+  albumBackgroundUrl String?
   primaryColor String  @default("#8B5CF6")
   secondaryColor String @default("#F59E0B")
   accentColor  String  @default("#10B981")
@@ -775,6 +784,25 @@ model Collaborator {
   @@map("collaborators")
 }
 
+model EventCollaborator {
+  id        String       @id @default(cuid())
+  eventId   String
+  email     String
+  role      String       @default("EDITOR")
+  userId    String?
+  invitedBy String?
+  status    InviteStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, email])
+  @@index([eventId])
+  @@map("event_collaborators")
+}
+
 // ─── Messaging ───────────────────────────────────────────────────────────────
 
 model MessageTemplate {
@@ -915,6 +943,7 @@ model Media {
   fileName    String
   fileSize    Int
   caption     String?
+  challengeId String?
   status      MediaStatus @default(PENDING)
   isFeatured  Boolean     @default(false)
   uploadedBy  String?
@@ -923,11 +952,48 @@ model Media {
 
   event      Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
   moderation MediaModeration[]
+  reactions  MediaReaction[]
 
   @@index([eventId])
   @@index([status])
   @@index([uploadToken])
+  @@index([challengeId])
   @@map("media")
+}
+
+model VoiceWish {
+  id          String   @id @default(cuid())
+  eventId     String
+  storageKey  String
+  mimeType    String
+  fileName    String
+  fileSize    Int
+  durationMs  Int
+  uploadedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([createdAt])
+  @@map("voice_wishes")
+}
+
+model MediaReaction {
+  id        String   @id @default(cuid())
+  mediaId   String
+  eventId   String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([mediaId])
+  @@index([eventId])
+  @@index([createdAt])
+  @@map("media_reactions")
 }
 
 model MediaModeration {

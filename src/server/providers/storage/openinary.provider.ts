@@ -1,4 +1,4 @@
-import { openinaryDeliveryUrl } from "@/lib/openinary-url";
+import { openinaryDisplayUrl } from "@/lib/openinary-url";
 
 import type { StorageProvider, UploadOptions } from "./types";
 
@@ -115,6 +115,6 @@ export class OpeninaryStorageProvider implements StorageProvider {
   }
 
   getPublicUrl(key: string): string {
-    return openinaryDeliveryUrl(this.publicUrl, key);
+    return openinaryDisplayUrl(this.publicUrl, key);
   }
 }

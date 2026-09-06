@@ -63,7 +63,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl sm:px-6",
+        "flex h-14 items-center justify-between border-b border-white/10 bg-black/35 px-4 backdrop-blur-xl sm:px-6",
         className,
       )}
     >
@@ -75,16 +75,16 @@ export function AppHeader({
       />
 
       <div className="flex items-center gap-2">
-        <LocaleSwitcher variant="outline" size="sm" />
+        <LocaleSwitcher variant="glass" size="sm" />
 
-        <Separator orientation="vertical" className="mx-1 h-6" />
+        <Separator orientation="vertical" className="mx-1 h-6 bg-white/15" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
+            <Button variant="glass" size="icon" className="relative h-8 w-8 rounded-full">
+              <Avatar className="h-7 w-7">
                 <AvatarImage src={user?.image ?? undefined} alt={user?.name ?? ""} />
-                <AvatarFallback>
+                <AvatarFallback className="bg-transparent text-[10px]">
                   {getInitials(user?.name, user?.email)}
                 </AvatarFallback>
               </Avatar>

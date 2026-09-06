@@ -219,14 +219,17 @@ export const messageService = {
     }
 
     const guestWhere = input.sendToAll
-      ? {
-          eventId,
-          deletedAt: null,
-          OR: [
-            ...(channel === MessageChannel.EMAIL ? [{ email: { not: null } }] : []),
-            ...(channel !== MessageChannel.EMAIL ? [{ phone: { not: null } }] : []),
-          ],
-        }
+      ? channel === MessageChannel.EMAIL
+        ? {
+            eventId,
+            deletedAt: null,
+            AND: [{ email: { not: null } }, { email: { not: "" } }],
+          }
+        : {
+            eventId,
+            deletedAt: null,
+            AND: [{ phone: { not: null } }, { phone: { not: "" } }],
+          }
       : {
           eventId,
           deletedAt: null,
@@ -239,7 +242,13 @@ export const messageService = {
     });
 
     if (guests.length === 0) {
-      throw new MessageServiceError("No recipients found", 400, "NO_RECIPIENTS");
+      throw new MessageServiceError(
+        channel === MessageChannel.EMAIL
+          ? "No guests with an email address found"
+          : "No guests with a phone number found",
+        400,
+        "NO_RECIPIENTS",
+      );
     }
 
     if (channel === MessageChannel.EMAIL) {
@@ -288,9 +297,13 @@ export const messageService = {
       });
 
       const recipientEmail =
-        channel === MessageChannel.EMAIL ? guest.email : null;
+        channel === MessageChannel.EMAIL
+          ? guest.email?.trim() || null
+          : null;
       const recipientPhone =
-        channel !== MessageChannel.EMAIL ? guest.phone : null;
+        channel !== MessageChannel.EMAIL
+          ? guest.phone?.trim() || null
+          : null;
 
       if (!recipientEmail && !recipientPhone) continue;
 
@@ -309,7 +322,9 @@ export const messageService = {
 
     if (deliveries.length === 0) {
       throw new MessageServiceError(
-        "No valid recipients for channel",
+        channel === MessageChannel.EMAIL
+          ? "No guests with an email address found"
+          : "No guests with a phone number found",
         400,
         "NO_RECIPIENTS",
       );

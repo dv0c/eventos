@@ -17,6 +17,7 @@ import {
 } from "@/server/repositories/event.repository";
 
 import { auditService } from "./audit.service";
+import { mediaService } from "./media.service";
 
 export interface CreateEventWizardInput {
   organizationId: string;
@@ -113,13 +114,22 @@ export const eventService = {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const publicBase = `${baseUrl}/el/e/${event.slug}`;
+    const albumToken = await mediaService.getUploadTokenForEvent(event.id);
+
+    const organization = await prisma.organization.findFirst({
+      where: { id: input.organizationId, deletedAt: null },
+      select: { slug: true },
+    });
+    const orgSlug = organization?.slug ?? input.organizationId;
+    const moderationUrl = `${baseUrl}/el/org/${orgSlug}/events/${event.id}/mod`;
 
     await prisma.qRCode.createMany({
       data: [
         { eventId: event.id, type: QRCodeType.EVENT, url: publicBase },
         { eventId: event.id, type: QRCodeType.RSVP, url: `${publicBase}?rsvp=1` },
-        { eventId: event.id, type: QRCodeType.UPLOAD, url: `${publicBase}/upload` },
+        { eventId: event.id, type: QRCodeType.UPLOAD, url: `${baseUrl}/el/a/${albumToken}` },
         { eventId: event.id, type: QRCodeType.WALL, url: `${publicBase}/wall` },
+        { eventId: event.id, type: QRCodeType.MODERATION, url: moderationUrl },
       ],
     });
 

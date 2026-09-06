@@ -22,8 +22,15 @@ const wallSettingsSchema = z
     hideSideImages: z.boolean().optional(),
     hideQrCode: z.boolean().optional(),
     hideCaption: z.boolean().optional(),
+    hideNickname: z.boolean().optional(),
     hideLikes: z.boolean().optional(),
+    hideMarquee: z.boolean().optional(),
+    qrSize: z.enum(["sm", "md", "lg", "xl"]).optional(),
+    marqueeSpeed: z.number().int().min(10).max(120).optional(),
+    marqueeText: z.string().max(500).optional(),
+    transitionMs: z.number().int().min(200).max(1200).optional(),
     backgroundUrl: z.string().url().nullable().optional(),
+    backgroundOpacity: z.number().int().min(0).max(100).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided",

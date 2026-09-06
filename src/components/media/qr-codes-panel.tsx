@@ -14,6 +14,7 @@ interface QrCodeItem {
   type: QRCodeType;
   url: string;
   storageKey: string | null;
+  imageUrl?: string;
   downloadUrl: string | null;
 }
 
@@ -26,6 +27,7 @@ const QR_TYPE_KEYS: Record<QRCodeType, string> = {
   RSVP: "rsvp",
   UPLOAD: "upload",
   WALL: "wall",
+  MODERATION: "moderation",
 };
 
 export function QrCodesPanel({ eventId }: QrCodesPanelProps) {
@@ -111,9 +113,18 @@ export function QrCodesPanel({ eventId }: QrCodesPanelProps) {
                     {code.url}
                   </p>
                 </div>
-                {code.downloadUrl ? (
+                {code.imageUrl || code.downloadUrl ? (
                   <Button variant="outline" size="sm" asChild>
-                    <a href={code.downloadUrl} download target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={
+                        code.imageUrl
+                          ? `${code.imageUrl}&download=1`
+                          : (code.downloadUrl as string)
+                      }
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Download className="mr-2 h-4 w-4" />
                       {t("downloadQr")}
                     </a>

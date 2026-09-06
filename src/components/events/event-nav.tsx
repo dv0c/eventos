@@ -19,8 +19,6 @@ interface NavItem {
 
 const PRIMARY_ITEMS: NavItem[] = [
   { path: "/overview", labelKey: "overview", suffix: "overview" },
-  { path: "/tasks", labelKey: "tasks", suffix: "tasks" },
-  { path: "/timeline", labelKey: "timeline", suffix: "timeline" },
   { path: "/settings", labelKey: "settings", suffix: "settings" },
 ];
 

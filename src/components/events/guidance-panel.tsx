@@ -16,8 +16,6 @@ interface GuidancePanelProps {
   enableWall: boolean;
   totalMedia: number;
   approvedMedia: number;
-  totalTasks: number;
-  completedTasks: number;
   className?: string;
 }
 
@@ -29,8 +27,6 @@ export function GuidancePanel({
   enableWall,
   totalMedia,
   approvedMedia,
-  totalTasks,
-  completedTasks,
   className,
 }: GuidancePanelProps) {
   const t = useTranslations("guidance");
@@ -61,12 +57,6 @@ export function GuidancePanel({
       label: t("checklistWall"),
       done: enableWall && approvedMedia > 0,
       href: `/e/${eventSlug}/wall`,
-    },
-    {
-      id: "tasks",
-      label: t("checklistTasks"),
-      done: totalTasks > 0 && completedTasks === totalTasks,
-      href: `${basePath}/tasks`,
     },
   ];
 

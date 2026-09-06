@@ -78,6 +78,16 @@ export const organizationRepository = {
     return prisma.organization.create({ data });
   },
 
+  async update(
+    id: string,
+    data: Prisma.OrganizationUpdateInput,
+  ): Promise<Organization> {
+    return prisma.organization.update({
+      where: { id },
+      data,
+    });
+  },
+
   async addMember(
     organizationId: string,
     userId: string,

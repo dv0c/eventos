@@ -21,7 +21,7 @@ const localeLabels: Record<Locale, string> = {
 };
 
 interface LocaleSwitcherProps {
-  variant?: "ghost" | "outline" | "default";
+  variant?: "ghost" | "outline" | "default" | "glass";
   size?: "sm" | "default" | "icon";
   className?: string;
 }

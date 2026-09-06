@@ -124,6 +124,36 @@ export const organizationService = {
     return organization;
   },
 
+  async updateLogoUrl(
+    userId: string,
+    organizationId: string,
+    logoUrl: string | null,
+    ipAddress?: string,
+  ): Promise<Organization> {
+    await enforceOrganizationAccess(userId, organizationId, "org:manage_settings");
+
+    const existing = await organizationRepository.findById(organizationId);
+    if (!existing) {
+      throw new OrganizationServiceError("Organization not found", 404, "ORG_NOT_FOUND");
+    }
+
+    const organization = await organizationRepository.update(organizationId, {
+      logoUrl,
+    });
+
+    await auditService.logAudit({
+      userId,
+      organizationId,
+      action: AuditAction.ORG_UPDATED,
+      entity: "Organization",
+      entityId: organizationId,
+      metadata: { logoUrl },
+      ipAddress,
+    });
+
+    return organization;
+  },
+
   async inviteMember(
     userId: string,
     organizationId: string,

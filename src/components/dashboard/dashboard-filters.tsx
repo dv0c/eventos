@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { useOrgPath } from "@/components/providers/org-provider";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -13,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 interface DashboardFiltersProps {
   clients: Array<{ id: string; name: string }>;
@@ -44,7 +44,7 @@ export function DashboardFilters({
         value={currentClientId ?? "all"}
         onValueChange={(v) => updateParam("clientId", v === "all" ? null : v)}
       >
-        <SelectTrigger className="w-[200px]">
+        <SelectTrigger className="w-[200px] rounded-full border-white/15 bg-black/40 backdrop-blur-md">
           <SelectValue placeholder={t("filterClient")} />
         </SelectTrigger>
         <SelectContent>
@@ -57,25 +57,28 @@ export function DashboardFilters({
         </SelectContent>
       </Select>
 
-      <div className="flex gap-1 rounded-lg border border-border/60 p-1">
-        {(["all", "active", "upcoming", "completed"] as const).map((tf) => (
-          <Button
-            key={tf}
-            variant={(currentTimeframe ?? "all") === tf ? "secondary" : "ghost"}
-            size="sm"
-            asChild
-          >
+      <div className="flex flex-wrap gap-1.5 rounded-full border border-white/10 bg-black/35 p-1.5 backdrop-blur-md">
+        {(["all", "active", "upcoming", "completed"] as const).map((tf) => {
+          const active = (currentTimeframe ?? "all") === tf;
+          return (
             <Link
+              key={tf}
               href={
                 tf === "all"
                   ? `${dashboardPath}${currentClientId ? `?clientId=${currentClientId}` : ""}`
                   : `${dashboardPath}?timeframe=${tf}${currentClientId ? `&clientId=${currentClientId}` : ""}`
               }
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                active
+                  ? "border border-white/20 bg-black/45 text-foreground backdrop-blur-md"
+                  : "border border-transparent text-muted-foreground hover:bg-white/10 hover:text-foreground",
+              )}
             >
               {t(`timeframe.${tf}`)}
             </Link>
-          </Button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

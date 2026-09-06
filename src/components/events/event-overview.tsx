@@ -1,67 +1,150 @@
 "use client";
 
+import { Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useLocale } from "next-intl";
 
-import { EventMediaHubCards } from "@/components/events/event-media-hub-cards";
-import { EventStatStrip } from "@/components/events/event-stat-strip";
-import { GuidancePanel } from "@/components/events/guidance-panel";
-import type { EventOverviewStats } from "@/server/repositories/event.repository";
-import { formatNumber } from "@/lib/format";
+import { EventHomeActivity } from "@/components/events/event-home-activity";
+import { EventHomeFeatures } from "@/components/events/event-home-features";
+import { EventHomeShare } from "@/components/events/event-home-share";
+import { useOrg } from "@/components/providers/org-provider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+interface EventOverviewStatsProps {
+  totalMedia: number;
+  pendingMedia: number;
+  mediaToday: number;
+  guestCount: number;
+}
 
 interface EventOverviewProps {
   eventId: string;
   eventSlug: string;
+  eventName: string;
+  orgSlug: string;
+  albumHref: string | null;
   enableGallery: boolean;
   enableWall: boolean;
   canEdit: boolean;
-  stats: EventOverviewStats;
+  stats: EventOverviewStatsProps;
 }
 
 export function EventOverview({
   eventId,
   eventSlug,
+  eventName,
+  orgSlug,
+  albumHref,
   enableGallery,
   enableWall,
   canEdit,
   stats,
 }: EventOverviewProps) {
-  const t = useTranslations("overview");
-  const locale = useLocale() as "el" | "en";
+  const t = useTranslations("eventWorkspace");
+  const tHome = useTranslations("eventWorkspace.home");
+  const { planName } = useOrg();
 
-  const statStrip = [
-    { label: t("totalPhotos"), value: formatNumber(stats.totalMedia, locale) },
-    { label: t("approvedPhotos"), value: formatNumber(stats.approvedMedia, locale) },
-    { label: t("pendingPhotos"), value: formatNumber(stats.pendingMedia, locale) },
-    {
-      label: t("daysUntilEvent"),
-      value: stats.daysUntilEvent > 0 ? stats.daysUntilEvent : t("todayOrPast"),
-    },
-  ];
+  const statusText =
+    stats.pendingMedia > 0
+      ? tHome("statusPending", { count: stats.pendingMedia })
+      : !enableGallery && !enableWall
+        ? tHome("statusInactive")
+        : tHome("statusReady");
+
+  function scrollToShare() {
+    document.getElementById("share-with-guests")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
 
   return (
-    <div className="space-y-6">
-      <EventStatStrip stats={statStrip} />
+    <div className="mx-auto w-full max-w-5xl space-y-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {eventName}
+            </h1>
+            <Badge
+              variant="outline"
+              className="rounded-md border-border/70 px-2 py-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+            >
+              {t("planBadge", { plan: planName })}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">{statusText}</p>
+        </div>
 
-      <EventMediaHubCards
+        <div className="hidden flex-wrap gap-2 sm:flex">
+          <Button type="button" size="sm" className="h-9" onClick={scrollToShare}>
+            <Share2 className="mr-1.5 h-3.5 w-3.5" />
+            {tHome("shareEvent")}
+          </Button>
+          <Button variant="outline" size="sm" className="h-9 bg-background" asChild disabled={!albumHref}>
+            <a href={albumHref ?? "#"} target="_blank" rel="noopener noreferrer">
+              {tHome("openAlbum")}
+            </a>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 bg-background"
+            asChild
+            disabled={!enableWall}
+          >
+            <a href={`/e/${eventSlug}/wall`} target="_blank" rel="noopener noreferrer">
+              {tHome("openWall")}
+            </a>
+          </Button>
+        </div>
+      </header>
+
+      <div className="space-y-3 sm:hidden">
+        <Button type="button" className="h-10 w-full" onClick={scrollToShare}>
+          <Share2 className="mr-1.5 h-4 w-4" />
+          {tHome("shareEvent")}
+        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" className="h-10 bg-background" asChild disabled={!albumHref}>
+            <a href={albumHref ?? "#"} target="_blank" rel="noopener noreferrer">
+              {tHome("openAlbum")}
+            </a>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-10 bg-background"
+            asChild
+            disabled={!enableWall}
+          >
+            <a href={`/e/${eventSlug}/wall`} target="_blank" rel="noopener noreferrer">
+              {tHome("openWall")}
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      <EventHomeShare
         eventId={eventId}
         eventSlug={eventSlug}
+        enableGallery={enableGallery}
+      />
+
+      <EventHomeActivity
+        totalMedia={stats.totalMedia}
+        guestCount={stats.guestCount}
+        mediaToday={stats.mediaToday}
+        pendingMedia={stats.pendingMedia}
+      />
+
+      <EventHomeFeatures
+        eventId={eventId}
+        eventSlug={eventSlug}
+        orgSlug={orgSlug}
+        albumHref={albumHref}
         enableGallery={enableGallery}
         enableWall={enableWall}
         canEdit={canEdit}
-        variant="host"
-      />
-
-      <GuidancePanel
-        eventId={eventId}
-        eventSlug={eventSlug}
-        daysUntilEvent={stats.daysUntilEvent}
-        enableGallery={enableGallery}
-        enableWall={enableWall}
-        totalMedia={stats.totalMedia}
-        approvedMedia={stats.approvedMedia}
-        totalTasks={stats.totalTasks}
-        completedTasks={stats.completedTasks}
       />
     </div>
   );

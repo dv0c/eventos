@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useRouter } from "@/i18n/navigation";
 
+const fieldClassName =
+  "h-11 rounded-xl border-white/15 bg-black/35 text-base shadow-none backdrop-blur-sm placeholder:text-white/35";
+
 interface LoginFormProps {
   callbackUrl?: string;
 }
@@ -45,9 +48,11 @@ export function LoginForm({ callbackUrl = "/dashboard" }: LoginFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <Label htmlFor="email">{t("email")}</Label>
+        <Label htmlFor="email" className="text-muted-foreground">
+          {t("email")}
+        </Label>
         <Input
           id="email"
           name="email"
@@ -55,14 +60,17 @@ export function LoginForm({ callbackUrl = "/dashboard" }: LoginFormProps) {
           required
           autoComplete="email"
           placeholder="you@example.com"
+          className={fieldClassName}
         />
       </div>
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password">{t("password")}</Label>
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="password" className="text-muted-foreground">
+            {t("password")}
+          </Label>
           <Link
             href="/forgot-password"
-            className="text-xs text-primary hover:underline"
+            className="text-xs text-white/55 transition-colors hover:text-white"
           >
             {t("forgotPassword")}
           </Link>
@@ -73,14 +81,23 @@ export function LoginForm({ callbackUrl = "/dashboard" }: LoginFormProps) {
           type="password"
           required
           autoComplete="current-password"
+          className={fieldClassName}
         />
       </div>
-      <Button type="submit" variant="gold" className="w-full" disabled={isLoading}>
+      <Button
+        type="submit"
+        variant="gold"
+        className="h-11 w-full rounded-xl text-base font-semibold"
+        disabled={isLoading}
+      >
         {isLoading ? t("login") + "..." : t("signIn")}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {t("noAccount")}{" "}
-        <Link href="/register" className="font-medium text-primary hover:underline">
+        <Link
+          href="/register"
+          className="font-medium text-accent underline-offset-4 hover:underline"
+        >
           {t("signUp")}
         </Link>
       </p>

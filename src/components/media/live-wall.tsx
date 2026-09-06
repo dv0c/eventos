@@ -1,21 +1,56 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminLoginDialog } from "@/components/media/admin-login-dialog";
 import { WallCustomizationSheet } from "@/components/media/wall-customization-sheet";
+import type {
+  WallAnnouncement,
+  WallMediaItem,
+  WallReactionEvent,
+} from "@/components/media/wall/types";
+import { WallAnnouncementOverlay } from "@/components/media/wall/wall-announcement";
+import { WallFloatingReactions } from "@/components/media/wall/wall-floating-reactions";
+import { WallMarquee } from "@/components/media/wall/wall-marquee";
+import { WallQrPanel } from "@/components/media/wall/wall-qr-panel";
+import { WallSideStream } from "@/components/media/wall/wall-side-stream";
+import { WallStage } from "@/components/media/wall/wall-stage";
 import { useWallSound, WallToolbar } from "@/components/media/wall-toolbar";
+import { cn } from "@/lib/utils";
 import type { WallDisplaySettings } from "@/server/events/wall-settings";
 import { DEFAULT_WALL_DISPLAY_SETTINGS } from "@/server/events/wall-settings";
 
-interface WallMediaItem {
-  id: string;
-  url: string;
-  caption: string | null;
-  isFeatured: boolean;
-  mimeType?: string;
-  createdAt: string;
+const CHROME_TOP_ZONE_PX = 72;
+const CHROME_HIDE_DELAY_MS = 2500;
+const DEFAULT_ANNOUNCEMENT_DISPLAY_SEC = 12;
+
+function seenAnnouncementStorageKey(eventSlug: string) {
+  return `eventos-wall-announcement-seen:${eventSlug}`;
+}
+
+function loadSeenAnnouncementIds(eventSlug: string): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(seenAnnouncementStorageKey(eventSlug));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistSeenAnnouncementId(eventSlug: string, id: string, seen: Set<string>) {
+  seen.add(id);
+  try {
+    sessionStorage.setItem(
+      seenAnnouncementStorageKey(eventSlug),
+      JSON.stringify([...seen].slice(-40)),
+    );
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 interface WallConfig {
@@ -23,6 +58,11 @@ interface WallConfig {
   theme: {
     primaryColor: string;
     secondaryColor: string;
+    logoUrl?: string | null;
+  };
+  appearance?: {
+    captionTheme?: "dark" | "light";
+    removeBranding?: boolean;
   };
   uploadUrl: string | null;
   uploadQrImageUrl: string | null;
@@ -36,6 +76,7 @@ interface LiveWallProps {
   callbackUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  settingsHref?: string;
 }
 
 export function LiveWall({
@@ -45,6 +86,7 @@ export function LiveWall({
   callbackUrl,
   primaryColor: fallbackPrimary = "#8B5CF6",
   secondaryColor: fallbackSecondary = "#F59E0B",
+  settingsHref,
 }: LiveWallProps) {
   const t = useTranslations("publicEvent");
   const [media, setMedia] = useState<WallMediaItem[]>([]);
@@ -53,11 +95,71 @@ export function LiveWall({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [reactionEvents, setReactionEvents] = useState<WallReactionEvent[]>([]);
+  const [activeAnnouncement, setActiveAnnouncement] = useState<WallAnnouncement | null>(
+    null,
+  );
+  const [liveMarqueeLine, setLiveMarqueeLine] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const hideChromeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenAnnouncementIdsRef = useRef<Set<string>>(new Set());
   const { soundEnabled, toggleSound } = useWallSound();
 
   const wallSettings = config?.wall ?? DEFAULT_WALL_DISPLAY_SETTINGS;
   const primaryColor = config?.theme.primaryColor ?? fallbackPrimary;
   const secondaryColor = config?.theme.secondaryColor ?? fallbackSecondary;
+
+  const clearHideChromeTimer = useCallback(() => {
+    if (hideChromeTimerRef.current) {
+      clearTimeout(hideChromeTimerRef.current);
+      hideChromeTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHideChrome = useCallback(() => {
+    clearHideChromeTimer();
+    hideChromeTimerRef.current = setTimeout(() => {
+      setChromeVisible(false);
+    }, CHROME_HIDE_DELAY_MS);
+  }, [clearHideChromeTimer]);
+
+  useEffect(() => {
+    function syncFullscreen() {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      if (!active) {
+        clearHideChromeTimer();
+        setChromeVisible(true);
+      } else {
+        setChromeVisible(true);
+        scheduleHideChrome();
+      }
+    }
+
+    syncFullscreen();
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      clearHideChromeTimer();
+    };
+  }, [clearHideChromeTimer, scheduleHideChrome]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    function onPointerMove(event: PointerEvent) {
+      if (event.clientY < CHROME_TOP_ZONE_PX) {
+        setChromeVisible(true);
+        clearHideChromeTimer();
+        return;
+      }
+      scheduleHideChrome();
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    return () => window.removeEventListener("pointermove", onPointerMove);
+  }, [isFullscreen, clearHideChromeTimer, scheduleHideChrome]);
 
   const loadConfig = useCallback(async () => {
     try {
@@ -84,17 +186,53 @@ export function LiveWall({
     source.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data) as {
-          media: WallMediaItem[];
+          media?: WallMediaItem[];
+          reactions?: WallReactionEvent[];
+          announcement?: WallAnnouncement | null;
           initial?: boolean;
         };
 
+        if (data.announcement?.id) {
+          const id = data.announcement.id;
+          const seen = seenAnnouncementIdsRef.current;
+          if (!seen.has(id)) {
+            persistSeenAnnouncementId(eventSlug, id, seen);
+            setActiveAnnouncement(data.announcement);
+          }
+        }
+
         if (data.initial) {
-          setMedia(data.media);
-        } else if (data.media.length > 0) {
+          setMedia(data.media ?? []);
+          return;
+        }
+
+        if (data.media && data.media.length > 0) {
           setMedia((prev) => {
             const existingIds = new Set(prev.map((m) => m.id));
-            const newItems = data.media.filter((m) => !existingIds.has(m.id));
+            const newItems = data.media!.filter((m) => !existingIds.has(m.id));
+            if (newItems.length > 0) {
+              setLiveMarqueeLine(t("wallNewPhoto"));
+              window.setTimeout(() => setLiveMarqueeLine(null), 12_000);
+            }
             return [...newItems, ...prev].slice(0, 100);
+          });
+        }
+
+        if (data.reactions && data.reactions.length > 0) {
+          setReactionEvents(data.reactions);
+          setMedia((prev) => {
+            let changed = false;
+            const next = prev.map((item) => {
+              const incoming = data.reactions!.filter((r) => r.mediaId === item.id);
+              if (incoming.length === 0) return item;
+              changed = true;
+              const reactionCounts = { ...(item.reactionCounts ?? {}) };
+              for (const reaction of incoming) {
+                reactionCounts[reaction.emoji] = (reactionCounts[reaction.emoji] ?? 0) + 1;
+              }
+              return { ...item, reactionCounts };
+            });
+            return changed ? next : prev;
           });
         }
       } catch {
@@ -103,17 +241,30 @@ export function LiveWall({
     };
 
     return () => source.close();
-  }, [eventSlug]);
-
-  const slideshowItems = useMemo(() => {
-    if (media.length === 0) return [];
-    return media;
-  }, [media]);
-
-  const currentItem = slideshowItems[currentIndex];
+  }, [eventSlug, t]);
 
   useEffect(() => {
-    if (slideshowItems.length <= 1) return;
+    seenAnnouncementIdsRef.current = loadSeenAnnouncementIds(eventSlug);
+  }, [eventSlug]);
+
+  const slideshowItems = media;
+  const currentItem = slideshowItems[currentIndex] ?? null;
+
+  useEffect(() => {
+    if (!activeAnnouncement) return;
+    const durationSec =
+      typeof activeAnnouncement.durationSec === "number" &&
+      Number.isFinite(activeAnnouncement.durationSec)
+        ? Math.min(60, Math.max(5, Math.round(activeAnnouncement.durationSec)))
+        : DEFAULT_ANNOUNCEMENT_DISPLAY_SEC;
+    const timer = window.setTimeout(() => {
+      setActiveAnnouncement(null);
+    }, durationSec * 1000);
+    return () => window.clearTimeout(timer);
+  }, [activeAnnouncement]);
+
+  useEffect(() => {
+    if (slideshowItems.length <= 1 || activeAnnouncement) return;
 
     const item = slideshowItems[currentIndex];
     const isVideo = item?.mimeType?.startsWith("video/");
@@ -121,7 +272,7 @@ export function LiveWall({
       ? wallSettings.playVideoFullLength
         ? wallSettings.videoDurationSec * 1000 * 2
         : wallSettings.videoDurationSec * 1000
-      : item?.caption
+      : item?.caption && !item.url
         ? wallSettings.textDurationSec * 1000
         : wallSettings.imageDurationSec * 1000;
 
@@ -130,12 +281,46 @@ export function LiveWall({
     }, durationMs);
 
     return () => window.clearTimeout(timer);
-  }, [currentIndex, slideshowItems, wallSettings]);
+  }, [currentIndex, slideshowItems, wallSettings, activeAnnouncement]);
 
-  const sideImages = useMemo(() => {
-    if (wallSettings.hideSideImages || slideshowItems.length < 3) return [];
-    return slideshowItems.filter((_, i) => i !== currentIndex).slice(0, 6);
-  }, [slideshowItems, currentIndex, wallSettings.hideSideImages]);
+  useEffect(() => {
+    if (currentIndex >= slideshowItems.length && slideshowItems.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [currentIndex, slideshowItems.length]);
+
+  // Preload next image
+  useEffect(() => {
+    if (slideshowItems.length < 2) return;
+    const next = slideshowItems[(currentIndex + 1) % slideshowItems.length];
+    if (!next || next.mimeType?.startsWith("video/")) return;
+    const img = new Image();
+    img.src = next.url;
+  }, [currentIndex, slideshowItems]);
+
+  const sidePhotos = useMemo(() => {
+    if (wallSettings.hideSideImages) return [];
+    return slideshowItems.filter((item) => !item.mimeType?.startsWith("video/"));
+  }, [slideshowItems, wallSettings.hideSideImages]);
+
+  const announcementImageUrls = useMemo(() => {
+    return slideshowItems
+      .filter((item) => item.url && !item.mimeType?.startsWith("video/"))
+      .slice(0, 9)
+      .map((item) => item.url);
+  }, [slideshowItems]);
+
+  const appearBurst = useMemo(
+    () =>
+      currentItem
+        ? {
+            mediaId: currentItem.id,
+            appearKey: `${currentIndex}-${currentItem.id}`,
+            reactionCounts: currentItem.reactionCounts,
+          }
+        : null,
+    [currentItem, currentIndex],
+  );
 
   function handleCustomize() {
     if (canEdit && eventId) {
@@ -145,97 +330,138 @@ export function LiveWall({
     setLoginOpen(true);
   }
 
-  const backgroundStyle = wallSettings.backgroundUrl
-    ? {
-        backgroundImage: `url(${wallSettings.backgroundUrl})`,
-        backgroundSize: "cover" as const,
-        backgroundPosition: "center" as const,
-      }
-    : {
-        background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
-      };
+  const marqueeText =
+    wallSettings.marqueeText?.trim() ||
+    [t("wallMarqueePrompt1"), t("wallMarqueePrompt2"), t("wallMarqueePrompt3")].join(
+      "   ·   ",
+    );
+
+  const backgroundOpacity = (wallSettings.backgroundOpacity ?? 100) / 100;
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden text-white">
-      <div className="absolute inset-0" style={backgroundStyle} />
+    <div className="relative flex h-dvh flex-col overflow-hidden text-white">
       {wallSettings.backgroundUrl ? (
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      ) : null}
-
-      <div className="relative z-10">
-        <WallToolbar
-          onCustomize={handleCustomize}
-          soundEnabled={soundEnabled}
-          onToggleSound={toggleSound}
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${wallSettings.backgroundUrl})`,
+              opacity: backgroundOpacity,
+            }}
+          />
+          <div className="absolute inset-0 bg-black/50" />
+        </>
+      ) : currentItem ? (
+        <div className="absolute inset-0 bg-neutral-950" />
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+          }}
         />
-      </div>
+      )}
 
-      <header className="relative z-10 flex items-center justify-between px-6 py-2">
-        <h1 className="text-xl font-bold tracking-tight">
+      <header
+        className={cn(
+          "absolute inset-x-0 top-0 z-40 flex h-14 items-center gap-3 px-4 sm:px-6",
+          "motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out",
+          chromeVisible ? "translate-y-0 pointer-events-auto" : "-translate-y-full pointer-events-none",
+        )}
+        onPointerEnter={() => {
+          if (!isFullscreen) return;
+          setChromeVisible(true);
+          clearHideChromeTimer();
+        }}
+        onPointerLeave={() => {
+          if (!isFullscreen) return;
+          scheduleHideChrome();
+        }}
+      >
+        <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight sm:text-xl">
           {config?.eventName ?? t("wallTitle")}
         </h1>
-        <span
-          className={`h-2 w-2 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
-          title={connected ? t("wallLive") : t("wallOffline")}
-        />
+
+        <div className="flex shrink-0 justify-center">
+          <WallToolbar
+            onCustomize={handleCustomize}
+            soundEnabled={soundEnabled}
+            onToggleSound={toggleSound}
+            eventId={eventId}
+            canNotify={Boolean(canEdit && eventId)}
+          />
+        </div>
+
+        <div className="flex flex-1 items-center justify-end">
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
+            title={connected ? t("wallLive") : t("wallOffline")}
+          />
+        </div>
       </header>
 
-      <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-8">
-        {!wallSettings.hideSideImages && sideImages.length > 0 ? (
-          <SideImageColumn items={sideImages.slice(0, 3)} position="left" />
-        ) : null}
-
-        <div className="mx-auto flex max-w-3xl flex-1 flex-col items-center justify-center gap-6">
-          {slideshowItems.length === 0 ? (
+      <main className="absolute inset-0 z-10">
+        <WallStage
+          item={currentItem}
+          transitionMs={wallSettings.transitionMs}
+          soundEnabled={soundEnabled}
+          playVideoFullLength={wallSettings.playVideoFullLength}
+          customBackgroundUrl={wallSettings.backgroundUrl}
+          hideReactions={wallSettings.hideLikes}
+          hideNickname={wallSettings.hideNickname || Boolean(activeAnnouncement)}
+          hideCaption={wallSettings.hideCaption || Boolean(activeAnnouncement)}
+          captionTheme={config?.appearance?.captionTheme ?? "dark"}
+          emptyState={
             <div className="text-center">
               <p className="text-xl font-medium">{t("wallEmpty")}</p>
               <p className="mt-2 max-w-md text-white/70">{t("wallEmptyDesc")}</p>
             </div>
-          ) : currentItem ? (
-            <figure className="relative w-full overflow-hidden rounded-2xl shadow-2xl">
-              {currentItem.mimeType?.startsWith("video/") ? (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video
-                  key={currentItem.id}
-                  src={currentItem.url}
-                  className="max-h-[50vh] w-full object-cover"
-                  autoPlay
-                  muted={!soundEnabled}
-                  playsInline
-                  loop={!wallSettings.playVideoFullLength}
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={currentItem.id}
-                  src={currentItem.url}
-                  alt={currentItem.caption ?? ""}
-                  className="max-h-[50vh] w-full object-cover"
-                />
-              )}
-              {!wallSettings.hideCaption && currentItem.caption ? (
-                <figcaption className="absolute inset-x-0 bottom-0 bg-black/50 px-4 py-3 text-sm">
-                  {currentItem.caption}
-                </figcaption>
-              ) : null}
-            </figure>
-          ) : null}
+          }
+        />
 
-          {!wallSettings.hideQrCode && config?.uploadQrImageUrl ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/10 p-6 backdrop-blur-md">
-              <p className="text-sm font-medium">{t("scanToUpload")}</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={config.uploadQrImageUrl}
-                alt={t("scanToUpload")}
-                className="h-40 w-40 rounded-xl bg-white p-2"
-              />
-            </div>
-          ) : null}
-        </div>
+        {sidePhotos.length > 0 ? (
+          <>
+            <WallSideStream
+              items={sidePhotos}
+              selectedId={currentItem?.id}
+              side="left"
+            />
+            <WallSideStream
+              items={sidePhotos}
+              selectedId={currentItem?.id}
+              side="right"
+            />
+          </>
+        ) : null}
 
-        {!wallSettings.hideSideImages && sideImages.length > 3 ? (
-          <SideImageColumn items={sideImages.slice(3, 6)} position="right" />
+        <WallQrPanel
+          imageUrl={config?.uploadQrImageUrl ?? null}
+          uploadUrl={config?.uploadUrl}
+          size={wallSettings.qrSize}
+          label={t("scanToUpload")}
+          hidden={wallSettings.hideQrCode}
+        />
+
+        <WallFloatingReactions
+          events={reactionEvents}
+          appearBurst={appearBurst}
+          hidden={wallSettings.hideLikes || Boolean(activeAnnouncement)}
+        />
+
+        <WallMarquee
+          text={marqueeText}
+          speedSec={wallSettings.marqueeSpeed}
+          hidden={wallSettings.hideMarquee || Boolean(activeAnnouncement)}
+          liveLine={liveMarqueeLine}
+        />
+
+        {activeAnnouncement ? (
+          <WallAnnouncementOverlay
+            title={activeAnnouncement.title}
+            body={activeAnnouncement.body}
+            imageUrls={announcementImageUrls}
+            label={t("wallAnnouncementLabel")}
+          />
         ) : null}
       </main>
 
@@ -245,7 +471,11 @@ export function LiveWall({
           onOpenChange={setCustomizeOpen}
           eventId={eventId}
           initialSettings={wallSettings}
-          onSaved={(wall) => setConfig((prev) => (prev ? { ...prev, wall } : prev))}
+          onSaved={(wall) => {
+            setConfig((prev) => (prev ? { ...prev, wall } : prev));
+            void loadConfig();
+          }}
+          settingsHref={settingsHref}
         />
       ) : null}
 
@@ -254,31 +484,6 @@ export function LiveWall({
         onOpenChange={setLoginOpen}
         callbackUrl={callbackUrl ?? `/e/${eventSlug}/wall`}
       />
-    </div>
-  );
-}
-
-function SideImageColumn({
-  items,
-  position,
-}: {
-  items: WallMediaItem[];
-  position: "left" | "right";
-}) {
-  return (
-    <div
-      className={`hidden w-28 flex-col gap-3 lg:flex ${position === "left" ? "mr-4" : "ml-4"}`}
-    >
-      {items.map((item, index) => (
-        <div
-          key={item.id}
-          className="animate-pulse overflow-hidden rounded-lg opacity-70"
-          style={{ animationDelay: `${index * 200}ms` }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.url} alt="" className="h-20 w-full object-cover" />
-        </div>
-      ))}
     </div>
   );
 }

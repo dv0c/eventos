@@ -1,4 +1,5 @@
 import type { OrgRole } from "@prisma/client";
+import { InviteStatus } from "@prisma/client";
 
 import { prisma } from "@/server/db";
 
@@ -24,6 +25,14 @@ export interface OrganizationAccessContext {
 
 export interface EventAccessContext extends OrganizationAccessContext {
   eventId: string;
+}
+
+function mapCollaboratorRole(role: string): OrgRole {
+  if (role === "OWNER") return "OWNER";
+  if (role === "VIEWER") return "VIEWER";
+  if (role === "ADMIN") return "ADMIN";
+  if (role === "MANAGER") return "MANAGER";
+  return "EDITOR";
 }
 
 export async function enforceOrganizationAccess(
@@ -119,17 +128,72 @@ export async function enforceEventAccess(
     select: { role: true },
   });
 
-  if (!collaborator) {
+  if (collaborator) {
+    if (!can(collaborator.role, permission)) {
+      throw new AccessError("Insufficient permissions", 403, "PERMISSION_DENIED");
+    }
+
+    return {
+      eventId: event.id,
+      organizationId: event.organizationId,
+      role: collaborator.role,
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+
+  const eventCollaborator = await prisma.eventCollaborator.findFirst({
+    where: {
+      eventId,
+      OR: [
+        { userId },
+        ...(user?.email
+          ? [{ email: user.email.toLowerCase() }]
+          : []),
+      ],
+    },
+    select: { id: true, role: true, userId: true, status: true },
+  });
+
+  if (!eventCollaborator) {
     throw new AccessError("You do not have access to this event", 403, "EVENT_FORBIDDEN");
   }
 
-  if (!can(collaborator.role, permission)) {
+  // Link invite to the signed-in user and grant access on first visit
+  if (!eventCollaborator.userId || eventCollaborator.status !== InviteStatus.ACCEPTED) {
+    await prisma.eventCollaborator.update({
+      where: { id: eventCollaborator.id },
+      data: {
+        userId,
+        status: InviteStatus.ACCEPTED,
+      },
+    });
+  }
+
+  const role = mapCollaboratorRole(eventCollaborator.role);
+
+  await prisma.collaborator.upsert({
+    where: {
+      eventId_userId: { eventId, userId },
+    },
+    create: {
+      eventId,
+      userId,
+      role,
+    },
+    update: { role },
+  });
+
+  if (!can(role, permission)) {
     throw new AccessError("Insufficient permissions", 403, "PERMISSION_DENIED");
   }
 
   return {
     eventId: event.id,
     organizationId: event.organizationId,
-    role: collaborator.role,
+    role,
   };
 }

@@ -41,6 +41,32 @@ export async function GET(request: Request, context: RouteContext) {
   }
 }
 
+export async function POST(request: Request, context: RouteContext) {
+  const { eventId } = await context.params;
+
+  try {
+    const session = await requireAuth();
+    const formData = await request.formData();
+    const file = formData.get("file");
+
+    if (!(file instanceof File)) {
+      return apiError("File is required", "VALIDATION_ERROR", 400);
+    }
+
+    const caption = formData.get("caption")?.toString();
+    const media = await mediaService.uploadHost(session.user.id, eventId, file, caption);
+    return apiSuccess({ media }, 201);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return apiError(error.message, error.code, error.statusCode);
+    }
+    if (error instanceof AccessError) {
+      return apiError(error.message, error.code, error.statusCode);
+    }
+    return handleServiceError(error);
+  }
+}
+
 export async function PATCH(request: Request, context: RouteContext) {
   const { eventId } = await context.params;
 

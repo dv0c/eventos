@@ -9,6 +9,8 @@ interface OrgContextValue {
   orgId: string;
   orgSlug: string;
   orgName: string;
+  planName: string;
+  planSlug: string;
 }
 
 const OrgContext = createContext<OrgContextValue | null>(null);
@@ -17,13 +19,22 @@ interface OrgProviderProps {
   orgId: string;
   orgSlug: string;
   orgName: string;
+  planName: string;
+  planSlug: string;
   children: React.ReactNode;
 }
 
-export function OrgProvider({ orgId, orgSlug, orgName, children }: OrgProviderProps) {
+export function OrgProvider({
+  orgId,
+  orgSlug,
+  orgName,
+  planName,
+  planSlug,
+  children,
+}: OrgProviderProps) {
   const value = useMemo(
-    () => ({ orgId, orgSlug, orgName }),
-    [orgId, orgSlug, orgName],
+    () => ({ orgId, orgSlug, orgName, planName, planSlug }),
+    [orgId, orgSlug, orgName, planName, planSlug],
   );
 
   return (
@@ -42,6 +53,10 @@ export function useOrg(): OrgContextValue {
   }
 
   return context;
+}
+
+export function useOptionalOrg(): OrgContextValue | null {
+  return useContext(OrgContext);
 }
 
 export function useOrgPath(path: string): string {

@@ -1,10 +1,9 @@
-import { CalendarDays, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { EmptyState } from "@/components/shared/empty-state";
+import { DashboardEmptyEvents } from "@/components/dashboard/dashboard-empty-events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { formatDate } from "@/lib/format";
 import { orgPath } from "@/lib/org-path";
@@ -28,54 +27,59 @@ export default async function EventsPage({
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="text-muted-foreground">{t("subtitle")}</p>
+    <div className="mx-auto w-full max-w-5xl space-y-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+            {t("title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button variant="gold" asChild>
+        <Button variant="gold" asChild className="h-9 shrink-0">
           <Link href={orgPath(orgSlug, "/events/new")}>
             <Plus className="h-4 w-4" />
             {t("create")}
           </Link>
         </Button>
-      </div>
+      </header>
 
       {events.length === 0 ? (
-        <EmptyState
-          icon={CalendarDays}
+        <DashboardEmptyEvents
           title={t("noEvents")}
           description={t("noEventsDesc")}
-          action={{ label: t("create"), href: orgPath(orgSlug, "/events/new") }}
+          actionLabel={t("create")}
+          actionHref={orgPath(orgSlug, "/events/new")}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((event) => (
-            <Link key={event.id} href={orgPath(orgSlug, `/events/${event.id}/overview`)}>
-              <Card className="surface-elevated transition-all hover:shadow-md hover:ring-1 hover:ring-primary/20">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold">{event.name}</h3>
-                    <Badge variant="outline">
-                      {t(`types.${event.type.toLowerCase()}` as "types.wedding")}
-                    </Badge>
-                  </div>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    {formatDate(event.date, locale as "el" | "en")}
-                  </p>
-                  {event.location ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {event.location}
-                    </p>
-                  ) : null}
-                  <div className="mt-3">
-                    <Badge variant="secondary">
-                      {t(`statuses.${event.status.toLowerCase()}` as "statuses.draft")}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+            <Link
+              key={event.id}
+              href={orgPath(orgSlug, `/events/${event.id}/overview`)}
+              className="group"
+            >
+              <article className="dashboard-surface h-full p-5 transition-colors hover:border-white/20 hover:bg-black/50">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold group-hover:text-primary">{event.name}</h3>
+                  <Badge
+                    variant="secondary"
+                    className="bg-primary/10 text-primary hover:bg-primary/10"
+                  >
+                    {t(`types.${event.type.toLowerCase()}` as "types.wedding")}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {formatDate(event.date, locale as "el" | "en")}
+                </p>
+                {event.location ? (
+                  <p className="mt-1 text-sm text-muted-foreground">{event.location}</p>
+                ) : null}
+                <div className="mt-3">
+                  <Badge variant="outline" className="border-primary/20 text-muted-foreground">
+                    {t(`statuses.${event.status.toLowerCase()}` as "statuses.draft")}
+                  </Badge>
+                </div>
+              </article>
             </Link>
           ))}
         </div>

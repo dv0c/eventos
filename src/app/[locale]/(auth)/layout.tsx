@@ -8,22 +8,18 @@ export default async function AuthLayout({
   children: React.ReactNode;
 }) {
   const t = await getTranslations("common");
-  const tAuth = await getTranslations("auth");
 
   return (
-    <div className="flex min-h-screen">
-      <div className="hidden w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div className="flex items-center">
+    <div className="org-app dark relative min-h-dvh overflow-hidden bg-background text-foreground">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,oklch(0.32_0.06_55/0.45),transparent_55%),radial-gradient(ellipse_at_90%_10%,oklch(0.28_0.05_75/0.35),transparent_50%),radial-gradient(ellipse_at_50%_100%,oklch(0.22_0.04_40/0.4),transparent_55%)]"
+      />
+      <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-4 py-12">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <Logo variant="full" theme="light" size="lg" priority />
+          <p className="max-w-sm text-sm text-muted-foreground">{t("tagline")}</p>
         </div>
-        <div>
-          <h2 className="text-3xl font-bold text-white">{t("tagline")}</h2>
-          <p className="mt-4 max-w-md text-white/80">{tAuth("registerSubtitle")}</p>
-        </div>
-        <p className="text-sm text-white/60">© {new Date().getFullYear()} Eventos</p>
-      </div>
-
-      <div className="flex w-full flex-col items-center justify-center px-4 py-12 lg:w-1/2">
         <div className="w-full max-w-md">{children}</div>
       </div>
     </div>

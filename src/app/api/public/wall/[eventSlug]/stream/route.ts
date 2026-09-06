@@ -10,15 +10,36 @@ export async function GET(request: Request, context: RouteContext) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      let lastPoll = new Date(0);
+      let lastMediaPoll = new Date(0);
+      let lastReactionPoll = new Date();
+      let lastAnnouncementId: string | null = null;
 
       const poll = async () => {
         try {
-          const media = await mediaService.getWallMedia(eventSlug, lastPoll);
-          if (media.length > 0) {
-            lastPoll = new Date();
+          const [media, reactions, announcement] = await Promise.all([
+            mediaService.getWallMedia(eventSlug, lastMediaPoll),
+            mediaService.getWallReactions(eventSlug, lastReactionPoll),
+            mediaService.getWallAnnouncement(eventSlug),
+          ]);
+
+          const now = new Date();
+          const hasMedia = media.length > 0;
+          const hasReactions = reactions.length > 0;
+          const freshAnnouncement =
+            announcement && announcement.id !== lastAnnouncementId ? announcement : null;
+
+          if (hasMedia || hasReactions || freshAnnouncement) {
+            if (hasMedia) lastMediaPoll = now;
+            if (hasReactions) lastReactionPoll = now;
+            if (freshAnnouncement) lastAnnouncementId = freshAnnouncement.id;
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ media })}\n\n`),
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  media: hasMedia ? media : [],
+                  reactions: hasReactions ? reactions : [],
+                  announcement: freshAnnouncement,
+                })}\n\n`,
+              ),
             );
           } else {
             controller.enqueue(encoder.encode(": keepalive\n\n"));
@@ -28,11 +49,20 @@ export async function GET(request: Request, context: RouteContext) {
         }
       };
 
-      const initial = await mediaService.getAllWallMedia(eventSlug);
+      const initialMedia = await mediaService.getAllWallMedia(eventSlug);
+
+      // Never replay announcements on connect/refresh — only via live poll deltas.
       controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify({ media: initial, initial: true })}\n\n`),
+        encoder.encode(
+          `data: ${JSON.stringify({
+            media: initialMedia,
+            reactions: [],
+            initial: true,
+          })}\n\n`,
+        ),
       );
-      lastPoll = new Date();
+      lastMediaPoll = new Date();
+      lastReactionPoll = new Date();
 
       const interval = setInterval(poll, 5000);
 

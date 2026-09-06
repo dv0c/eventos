@@ -1,6 +1,7 @@
 import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import { OrgBrandingForm } from "@/components/organization/org-branding-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { orgPath } from "@/lib/org-path";
@@ -35,15 +36,23 @@ export default async function SettingsPage({
             </CardTitle>
             <CardDescription>{t("organizationDesc")}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              <span className="text-muted-foreground">{t("orgName")}: </span>
-              {org?.name ?? "—"}
-            </p>
-            <p>
-              <span className="text-muted-foreground">{t("plan")}: </span>
-              {org?.plan.name ?? "—"}
-            </p>
+          <CardContent className="space-y-4 text-sm">
+            <div className="space-y-2">
+              <p>
+                <span className="text-muted-foreground">{t("orgName")}: </span>
+                {org?.name ?? "—"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">{t("plan")}: </span>
+                {org?.plan.name ?? "—"}
+              </p>
+            </div>
+            {org ? (
+              <OrgBrandingForm
+                organizationId={org.id}
+                initialLogoUrl={org.logoUrl}
+              />
+            ) : null}
           </CardContent>
         </Card>
 
