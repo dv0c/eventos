@@ -1,4 +1,5 @@
 import {
+  OrgMode,
   OrgRole,
   PlatformRole,
   SubscriptionStatus,
@@ -6,6 +7,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 
+import { generateUniqueSlug } from "@/lib/slug";
 import { prisma } from "@/server/db";
 import {
   DEFAULT_PLANS,
@@ -14,6 +16,11 @@ import {
   PLATFORM_PLAN_SLUG,
   getPlatformOrgSlug,
 } from "@/server/plans/default-plans";
+
+function personalOrgName(displayName: string | null | undefined, email: string): string {
+  const base = displayName?.trim() || email.split("@")[0] || "My";
+  return `${base}'s workspace`;
+}
 
 export const platformOrgService = {
   async ensurePlans(
@@ -75,12 +82,14 @@ export const platformOrgService = {
         update: {
           name: PLATFORM_ORG_NAME,
           planId: enterprise.id,
+          mode: OrgMode.B2B,
           deletedAt: null,
         },
         create: {
           name: PLATFORM_ORG_NAME,
           slug,
           planId: enterprise.id,
+          mode: OrgMode.B2B,
         },
       });
 
@@ -127,28 +136,90 @@ export const platformOrgService = {
     });
   },
 
-  async ensurePlatformMembership(userId: string): Promise<Organization> {
-    const org = await this.ensurePlatformOrganization();
-
-    const existing = await prisma.organizationMember.findUnique({
+  /**
+   * Ensures the user owns a personal B2C organization (silent onboarding).
+   * Does not auto-join the shared platform org.
+   */
+  async ensurePersonalOrganization(userId: string): Promise<Organization> {
+    const owned = await prisma.organizationMember.findFirst({
       where: {
-        organizationId_userId: {
-          organizationId: org.id,
-          userId,
+        userId,
+        role: OrgRole.OWNER,
+        organization: {
+          deletedAt: null,
+          mode: OrgMode.B2C,
         },
       },
+      include: { organization: true },
+      orderBy: { createdAt: "asc" },
     });
 
-    if (!existing) {
-      await prisma.organizationMember.create({
-        data: {
-          organizationId: org.id,
-          userId,
-          role: OrgRole.EDITOR,
-        },
-      });
+    if (owned?.organization) {
+      return owned.organization;
     }
 
-    return org;
+    // Any owned org (including B2B they converted) counts — don't create a second.
+    const anyOwned = await prisma.organizationMember.findFirst({
+      where: {
+        userId,
+        role: OrgRole.OWNER,
+        organization: { deletedAt: null },
+      },
+      include: { organization: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (anyOwned?.organization) {
+      return anyOwned.organization;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const plans = await this.ensurePlans();
+    const freePlan = plans.free;
+    if (!freePlan) {
+      throw new Error("Missing free plan");
+    }
+
+    const name = personalOrgName(user.name, user.email);
+    const slug = await generateUniqueSlug(name, async (candidate) => {
+      const existing = await prisma.organization.findUnique({
+        where: { slug: candidate },
+        select: { id: true },
+      });
+      return existing !== null;
+    });
+
+    return prisma.$transaction(async (tx) => {
+      const org = await tx.organization.create({
+        data: {
+          name,
+          slug,
+          mode: OrgMode.B2C,
+          planId: freePlan.id,
+          members: {
+            create: {
+              userId,
+              role: OrgRole.OWNER,
+            },
+          },
+          subscriptions: {
+            create: {
+              planId: freePlan.id,
+              status: SubscriptionStatus.TRIALING,
+            },
+          },
+        },
+      });
+
+      return org;
+    });
   },
 };

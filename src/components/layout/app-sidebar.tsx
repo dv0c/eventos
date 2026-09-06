@@ -51,6 +51,7 @@ interface AppSidebarProps {
   isAdmin?: boolean;
   userEmail?: string | null;
   userName?: string | null;
+  onNavigate?: () => void;
 }
 
 export function AppSidebar({
@@ -58,12 +59,13 @@ export function AppSidebar({
   isAdmin = false,
   userEmail,
   userName,
+  onNavigate,
 }: AppSidebarProps) {
   const t = useTranslations("nav");
   const tWorkspace = useTranslations("eventWorkspace");
   const pathname = usePathname();
   const orgPath = useOrgPath;
-  const { orgRole } = useOrg();
+  const { orgRole, mode, logoUrl, displayName: brandDisplayName } = useOrg();
   const canManageBilling = can(orgRole, "org:manage_billing");
 
   const resolveHref = (item: NavItem) =>
@@ -79,7 +81,7 @@ export function AppSidebar({
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const displayName = userName?.trim() || tWorkspace("myAccount");
+  const accountDisplayName = userName?.trim() || tWorkspace("myAccount");
   const initials = (userName?.trim() || userEmail || "U")
     .split(/\s+/)
     .map((part) => part[0])
@@ -104,6 +106,7 @@ export function AppSidebar({
       <Link
         key={item.path}
         href={href}
+        onClick={onNavigate}
         className={cn(
           "group relative flex items-center gap-2.5 rounded-full px-2.5 py-2 text-[13px] font-medium transition-all",
           active
@@ -129,14 +132,24 @@ export function AppSidebar({
         className,
       )}
     >
-      <div className="flex h-14 items-center px-4">
-        <Logo variant="full" size="sm" theme="light" />
+      <div className="flex h-14 items-center gap-2 px-4">
+        {mode === "B2B" && logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt={brandDisplayName} className="h-7 max-w-[140px] object-contain" />
+        ) : (
+          <Logo variant="full" size="sm" theme="light" />
+        )}
+        {mode === "B2B" && brandDisplayName ? (
+          <span className="truncate text-sm font-semibold text-foreground md:hidden">
+            {brandDisplayName}
+          </span>
+        ) : null}
       </div>
 
       {canManageBilling ? (
         <div className="space-y-2 px-3 pb-3">
           <Button variant="gold" size="sm" className="h-9 w-full gap-2 rounded-full" asChild>
-            <Link href={orgPath("/billing")}>
+            <Link href={orgPath("/billing")} onClick={onNavigate}>
               <Star className="h-3.5 w-3.5" />
               {tWorkspace("upgradeEvent")}
             </Link>
@@ -155,13 +168,14 @@ export function AppSidebar({
       <div className="border-t border-white/10 p-3">
         <Link
           href={orgPath("/settings")}
+          onClick={onNavigate}
           className="flex items-center gap-2.5 rounded-full border border-transparent px-1.5 py-1.5 transition-colors hover:border-white/10 hover:bg-white/5"
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/45 text-[11px] font-semibold text-foreground backdrop-blur-md">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-foreground">{displayName}</p>
+            <p className="truncate text-[13px] font-medium text-foreground">{accountDisplayName}</p>
             {userEmail ? (
               <p className="truncate text-[11px] text-muted-foreground">{userEmail}</p>
             ) : null}

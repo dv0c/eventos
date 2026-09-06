@@ -44,6 +44,11 @@ export default async function OrgSlugRootLayout({
       planName={activeOrg.planName}
       planSlug={activeOrg.planSlug}
       orgRole={activeOrg.role}
+      mode={activeOrg.mode}
+      brandName={activeOrg.brandName}
+      logoUrl={activeOrg.logoUrl}
+      primaryColor={activeOrg.primaryColor}
+      secondaryColor={activeOrg.secondaryColor}
     >
       {children}
     </OrgProvider>

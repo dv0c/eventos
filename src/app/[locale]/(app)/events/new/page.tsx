@@ -19,7 +19,7 @@ export default async function LegacyNewEventRedirect({
   let active = await resolveActiveOrganization(session!.user.id);
 
   if (!active) {
-    await platformOrgService.ensurePlatformMembership(session!.user.id);
+    await platformOrgService.ensurePersonalOrganization(session!.user.id);
     active = await resolveActiveOrganization(session!.user.id);
   }
 

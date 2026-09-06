@@ -1,7 +1,5 @@
-"use client";
-
 import { createContext, useContext, useMemo } from "react";
-import type { OrgRole } from "@prisma/client";
+import type { OrgMode, OrgRole } from "@prisma/client";
 
 import { OrgCookieSync } from "@/components/organization/org-cookie-sync";
 import { orgPath } from "@/lib/org-path";
@@ -13,6 +11,12 @@ interface OrgContextValue {
   planName: string;
   planSlug: string;
   orgRole: OrgRole;
+  mode: OrgMode;
+  brandName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  displayName: string;
 }
 
 const OrgContext = createContext<OrgContextValue | null>(null);
@@ -24,6 +28,11 @@ interface OrgProviderProps {
   planName: string;
   planSlug: string;
   orgRole: OrgRole;
+  mode: OrgMode;
+  brandName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
   children: React.ReactNode;
 }
 
@@ -34,11 +43,41 @@ export function OrgProvider({
   planName,
   planSlug,
   orgRole,
+  mode,
+  brandName,
+  logoUrl,
+  primaryColor,
+  secondaryColor,
   children,
 }: OrgProviderProps) {
   const value = useMemo(
-    () => ({ orgId, orgSlug, orgName, planName, planSlug, orgRole }),
-    [orgId, orgSlug, orgName, planName, planSlug, orgRole],
+    () => ({
+      orgId,
+      orgSlug,
+      orgName,
+      planName,
+      planSlug,
+      orgRole,
+      mode,
+      brandName,
+      logoUrl,
+      primaryColor,
+      secondaryColor,
+      displayName: brandName?.trim() || orgName,
+    }),
+    [
+      orgId,
+      orgSlug,
+      orgName,
+      planName,
+      planSlug,
+      orgRole,
+      mode,
+      brandName,
+      logoUrl,
+      primaryColor,
+      secondaryColor,
+    ],
   );
 
   return (

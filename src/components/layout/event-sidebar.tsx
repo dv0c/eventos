@@ -39,6 +39,8 @@ interface EventSidebarProps {
   userEmail?: string | null;
   userName?: string | null;
   className?: string;
+  isAdmin?: boolean;
+  onNavigate?: () => void;
 }
 
 export function EventSidebar({
@@ -46,6 +48,7 @@ export function EventSidebar({
   userEmail,
   userName,
   className,
+  onNavigate,
 }: EventSidebarProps) {
   const t = useTranslations("eventWorkspace");
   const pathname = usePathname();
@@ -252,6 +255,7 @@ export function EventSidebar({
                 <Link
                   key={item.label}
                   href={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     navClass,
                     isActive(item.match)
@@ -277,6 +281,7 @@ export function EventSidebar({
                 href={item.href}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={onNavigate}
                 className={cn(
                   navClass,
                   "border border-transparent text-sidebar-foreground/70 hover:border-white/10 hover:bg-white/5 hover:text-foreground",
@@ -295,6 +300,7 @@ export function EventSidebar({
             <Link
               key={item.path}
               href={orgPath(item.path)}
+              onClick={onNavigate}
               className={cn(
                 navClass,
                 active
@@ -322,6 +328,7 @@ export function EventSidebar({
             <Link
               key={item.path}
               href={orgPath(item.path)}
+              onClick={onNavigate}
               className={cn(
                 "group relative flex items-center gap-2.5 rounded-full px-2.5 py-2 text-[13px] font-medium transition-all",
                 active

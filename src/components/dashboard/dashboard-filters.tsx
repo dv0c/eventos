@@ -44,7 +44,7 @@ export function DashboardFilters({
         value={currentClientId ?? "all"}
         onValueChange={(v) => updateParam("clientId", v === "all" ? null : v)}
       >
-        <SelectTrigger className="w-[200px] rounded-full border-white/15 bg-black/40 backdrop-blur-md">
+        <SelectTrigger className="w-full rounded-full border-white/15 bg-black/40 backdrop-blur-md sm:w-[200px]">
           <SelectValue placeholder={t("filterClient")} />
         </SelectTrigger>
         <SelectContent>

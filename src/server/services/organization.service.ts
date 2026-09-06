@@ -1,6 +1,7 @@
 import {
   AuditAction,
   InviteStatus,
+  OrgMode,
   OrgRole,
   SubscriptionStatus,
   type Organization,
@@ -130,6 +131,22 @@ export const organizationService = {
     logoUrl: string | null,
     ipAddress?: string,
   ): Promise<Organization> {
+    return this.updateBranding(userId, organizationId, { logoUrl }, ipAddress);
+  },
+
+  async updateBranding(
+    userId: string,
+    organizationId: string,
+    input: {
+      logoUrl?: string | null;
+      name?: string;
+      brandName?: string | null;
+      primaryColor?: string | null;
+      secondaryColor?: string | null;
+      mode?: "B2B";
+    },
+    ipAddress?: string,
+  ): Promise<Organization> {
     await enforceOrganizationAccess(userId, organizationId, "org:manage_settings");
 
     const existing = await organizationRepository.findById(organizationId);
@@ -137,9 +154,41 @@ export const organizationService = {
       throw new OrganizationServiceError("Organization not found", 404, "ORG_NOT_FOUND");
     }
 
-    const organization = await organizationRepository.update(organizationId, {
-      logoUrl,
-    });
+    if (input.mode === "B2B" && existing.mode === "B2C") {
+      const membership = await organizationRepository.getMembership(organizationId, userId);
+      if (membership?.role !== OrgRole.OWNER) {
+        throw new OrganizationServiceError(
+          "Only the owner can convert to B2B",
+          403,
+          "OWNER_REQUIRED",
+        );
+      }
+    }
+
+    if (
+      (input.name !== undefined ||
+        input.brandName !== undefined ||
+        input.primaryColor !== undefined ||
+        input.secondaryColor !== undefined) &&
+      existing.mode !== "B2B" &&
+      input.mode !== "B2B"
+    ) {
+      throw new OrganizationServiceError(
+        "Convert to B2B to edit whitelabel branding",
+        403,
+        "B2B_REQUIRED",
+      );
+    }
+
+    const data: Prisma.OrganizationUpdateInput = {};
+    if (input.logoUrl !== undefined) data.logoUrl = input.logoUrl;
+    if (input.name !== undefined) data.name = input.name.trim();
+    if (input.brandName !== undefined) data.brandName = input.brandName?.trim() || null;
+    if (input.primaryColor !== undefined) data.primaryColor = input.primaryColor;
+    if (input.secondaryColor !== undefined) data.secondaryColor = input.secondaryColor;
+    if (input.mode === "B2B") data.mode = OrgMode.B2B;
+
+    const organization = await organizationRepository.update(organizationId, data);
 
     await auditService.logAudit({
       userId,
@@ -147,7 +196,7 @@ export const organizationService = {
       action: AuditAction.ORG_UPDATED,
       entity: "Organization",
       entityId: organizationId,
-      metadata: { logoUrl },
+      metadata: { ...input },
       ipAddress,
     });
 

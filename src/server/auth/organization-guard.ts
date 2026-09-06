@@ -1,4 +1,4 @@
-import type { OrgRole } from "@prisma/client";
+import type { OrgMode, OrgRole } from "@prisma/client";
 import { cache } from "react";
 
 import { orgPath } from "@/lib/org-path";
@@ -12,12 +12,18 @@ export interface OrganizationSummary {
   name: string;
   slug: string;
   logoUrl: string | null;
+  brandName?: string | null;
+  mode?: OrgMode;
 }
 
 export interface ResolvedOrganization extends OrganizationSummary {
   role: OrgRole;
   planName: string;
   planSlug: string;
+  mode: OrgMode;
+  brandName: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
 }
 
 export class OrganizationAccessError extends Error {
@@ -35,11 +41,20 @@ export async function getUserOrganizationsSummary(
 ): Promise<OrganizationSummary[]> {
   const memberships = await organizationRepository.getUserOrganizations(userId);
 
-  return memberships.map((m) => ({
+  const sorted = [...memberships].sort((a, b) => {
+    const aOwned = a.role === "OWNER" ? 0 : 1;
+    const bOwned = b.role === "OWNER" ? 0 : 1;
+    if (aOwned !== bOwned) return aOwned - bOwned;
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
+
+  return sorted.map((m) => ({
     id: m.organization.id,
-    name: m.organization.name,
+    name: m.organization.brandName || m.organization.name,
     slug: m.organization.slug,
     logoUrl: m.organization.logoUrl,
+    brandName: m.organization.brandName,
+    mode: m.organization.mode,
   }));
 }
 
@@ -70,6 +85,10 @@ export async function resolveOrganizationBySlug(
     role: membership.role,
     planName: organization.plan.name,
     planSlug: organization.plan.slug,
+    mode: organization.mode,
+    brandName: organization.brandName,
+    primaryColor: organization.primaryColor,
+    secondaryColor: organization.secondaryColor,
   };
 }
 
@@ -94,7 +113,7 @@ export async function resolveActiveOrganization(
     try {
       return await resolveOrganizationBySlug(userId, activeFromCookie.slug);
     } catch {
-      // fall through to first org
+      // fall through to preferred org
     }
   }
 
@@ -113,7 +132,7 @@ export async function redirectIfNoOrganizations(
   let organizations = await getUserOrganizationsSummary(userId);
 
   if (organizations.length === 0) {
-    await platformOrgService.ensurePlatformMembership(userId);
+    await platformOrgService.ensurePersonalOrganization(userId);
     organizations = await getUserOrganizationsSummary(userId);
   }
 
@@ -142,14 +161,14 @@ export async function redirectToActiveOrganizationDashboard(
   let active = await resolveActiveOrganization(userId);
 
   if (!active) {
-    await platformOrgService.ensurePlatformMembership(userId);
+    await platformOrgService.ensurePersonalOrganization(userId);
     active = await resolveActiveOrganization(userId);
   }
 
   if (!active) {
     throw new OrganizationAccessError(
-      "Platform organization is not available",
-      "PLATFORM_ORG_MISSING",
+      "Personal organization is not available",
+      "PERSONAL_ORG_MISSING",
     );
   }
 

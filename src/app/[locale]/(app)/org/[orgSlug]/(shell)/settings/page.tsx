@@ -1,3 +1,4 @@
+import { OrgRole } from "@prisma/client";
 import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -19,6 +20,8 @@ export default async function SettingsPage({
   const session = await requireAuth();
   const resolvedOrg = await getOrganizationBySlug(session.user.id, orgSlug);
   const org = await organizationRepository.findById(resolvedOrg.id);
+  const canManage =
+    resolvedOrg.role === OrgRole.OWNER || resolvedOrg.role === OrgRole.ADMIN;
 
   return (
     <div className="space-y-8">
@@ -43,6 +46,10 @@ export default async function SettingsPage({
                 {org?.name ?? "—"}
               </p>
               <p>
+                <span className="text-muted-foreground">{t("mode")}: </span>
+                {org?.mode ?? "—"}
+              </p>
+              <p>
                 <span className="text-muted-foreground">{t("plan")}: </span>
                 {org?.plan.name ?? "—"}
               </p>
@@ -50,7 +57,13 @@ export default async function SettingsPage({
             {org ? (
               <OrgBrandingForm
                 organizationId={org.id}
+                mode={org.mode}
+                initialName={org.name}
+                initialBrandName={org.brandName}
                 initialLogoUrl={org.logoUrl}
+                initialPrimaryColor={org.primaryColor}
+                initialSecondaryColor={org.secondaryColor}
+                canManage={canManage}
               />
             ) : null}
           </CardContent>

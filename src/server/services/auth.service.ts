@@ -74,7 +74,7 @@ export const authService = {
       return created;
     });
 
-    await platformOrgService.ensurePlatformMembership(user.id);
+    await platformOrgService.ensurePersonalOrganization(user.id);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const verifyUrl = `${appUrl}/api/auth/verify-email?token=${verificationToken}`;

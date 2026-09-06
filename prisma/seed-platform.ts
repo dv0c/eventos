@@ -81,12 +81,14 @@ async function main() {
     update: {
       name: PLATFORM_ORG_NAME,
       planId: enterprise.id,
+      mode: "B2B",
       deletedAt: null,
     },
     create: {
       name: PLATFORM_ORG_NAME,
       slug,
       planId: enterprise.id,
+      mode: "B2B",
     },
   });
   console.log(`✓ Organization: ${org.name} (${org.slug})`);

@@ -185,10 +185,13 @@ export function SettingsFormSkeleton() {
   );
 }
 
-export function EventSidebarSkeleton() {
+export function EventSidebarSkeleton({ className }: { className?: string }) {
   return (
     <aside
-      className="flex h-full w-56 shrink-0 flex-col border-r border-white/10 bg-sidebar/60 backdrop-blur-xl"
+      className={cn(
+        "flex h-full w-56 shrink-0 flex-col border-r border-white/10 bg-sidebar/60 backdrop-blur-xl",
+        className,
+      )}
       aria-busy="true"
       aria-label="Loading"
     >

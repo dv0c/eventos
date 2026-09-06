@@ -105,7 +105,7 @@ export const authConfig = {
         return;
       }
 
-      await platformOrgService.ensurePlatformMembership(user.id);
+      await platformOrgService.ensurePersonalOrganization(user.id);
     },
     async signIn({ user }) {
       if (!user.id) {

@@ -22,6 +22,11 @@ enum OrgRole {
   VIEWER
 }
 
+enum OrgMode {
+  B2C
+  B2B
+}
+
 enum EventType {
   WEDDING
   BAPTISM
@@ -314,6 +319,8 @@ model Organization {
   id              String    @id @default(cuid())
   name            String
   slug            String    @unique
+  mode            OrgMode   @default(B2C)
+  brandName       String?
   logoUrl         String?
   primaryColor    String?
   secondaryColor  String?

@@ -17,7 +17,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Menu, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface AppHeaderProps {
@@ -32,6 +32,9 @@ interface AppHeaderProps {
   onOrganizationChange?: (organizationId: string) => void;
   onCreateOrganization?: () => void;
   onSignOut?: () => void;
+  onOpenMobileNav?: () => void;
+  /** Slimmer header for event workspace (still shows hamburger on mobile). */
+  compact?: boolean;
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -55,6 +58,8 @@ export function AppHeader({
   onOrganizationChange,
   onCreateOrganization,
   onSignOut,
+  onOpenMobileNav,
+  compact = false,
 }: AppHeaderProps) {
   const t = useTranslations("auth");
   const tNav = useTranslations("nav");
@@ -63,21 +68,39 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "flex h-14 items-center justify-between border-b border-white/10 bg-black/35 px-4 backdrop-blur-xl sm:px-6",
+        "flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-black/35 px-4 backdrop-blur-xl sm:px-6",
         className,
       )}
     >
-      <OrgSwitcher
-        organizations={organizations}
-        activeOrganizationId={activeOrganizationId}
-        onOrganizationChange={onOrganizationChange}
-        onCreateOrganization={onCreateOrganization}
-      />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {onOpenMobileNav ? (
+          <Button
+            type="button"
+            variant="glass"
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-full md:hidden"
+            onClick={onOpenMobileNav}
+            aria-label={tNav("menu")}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        ) : null}
 
-      <div className="flex items-center gap-2">
+        {!compact ? (
+          <OrgSwitcher
+            className="min-w-0 max-w-[min(200px,45vw)] sm:max-w-[240px]"
+            organizations={organizations}
+            activeOrganizationId={activeOrganizationId}
+            onOrganizationChange={onOrganizationChange}
+            onCreateOrganization={onCreateOrganization}
+          />
+        ) : null}
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
         <LocaleSwitcher variant="glass" size="sm" />
 
-        <Separator orientation="vertical" className="mx-1 h-6 bg-white/15" />
+        <Separator orientation="vertical" className="mx-1 hidden h-6 bg-white/15 sm:block" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

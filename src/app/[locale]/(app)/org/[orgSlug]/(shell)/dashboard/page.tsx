@@ -127,7 +127,7 @@ export default async function DashboardPage({
           <p className="text-sm text-foreground/90">{t("welcomeWarm", { firstName })}</p>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button variant="gold" asChild className="h-9 shrink-0">
+        <Button variant="gold" asChild className="h-9 w-full shrink-0 sm:w-auto">
           <Link href={orgPath(orgSlug, "/events/new")}>
             <Plus className="h-4 w-4" />
             {t("createEvent")}

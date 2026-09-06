@@ -49,7 +49,7 @@ export function OrgSwitcher({
           variant="glass"
           role="combobox"
           className={cn(
-            "h-9 w-[200px] justify-between rounded-full px-2.5 font-normal sm:w-[240px]",
+            "h-9 w-auto min-w-0 max-w-[min(200px,45vw)] justify-between rounded-full px-2.5 font-normal sm:max-w-[240px]",
             className,
           )}
         >
