@@ -15,17 +15,19 @@ import {
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 
-import { useOrgPath } from "@/components/providers/org-provider";
+import { useOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import { can } from "@/server/permissions/matrix";
 
 interface NavItem {
   path: string;
   labelKey: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  billingOnly?: boolean;
   orgScoped?: boolean;
 }
 
@@ -39,7 +41,7 @@ const mainNavItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
   { path: "/team", labelKey: "team", icon: UsersRound },
-  { path: "/billing", labelKey: "billing", icon: CreditCard },
+  { path: "/billing", labelKey: "billing", icon: CreditCard, billingOnly: true },
   { path: "/settings", labelKey: "settings", icon: Settings },
   { path: "/admin", labelKey: "admin", icon: Shield, adminOnly: true, orgScoped: false },
 ];
@@ -61,6 +63,8 @@ export function AppSidebar({
   const tWorkspace = useTranslations("eventWorkspace");
   const pathname = usePathname();
   const orgPath = useOrgPath;
+  const { orgRole } = useOrg();
+  const canManageBilling = can(orgRole, "org:manage_billing");
 
   const resolveHref = (item: NavItem) =>
     item.orgScoped === false ? item.path : orgPath(item.path);
@@ -85,6 +89,10 @@ export function AppSidebar({
 
   const renderNavItem = (item: NavItem) => {
     if (item.adminOnly && !isAdmin) {
+      return null;
+    }
+
+    if (item.billingOnly && !canManageBilling) {
       return null;
     }
 
@@ -125,14 +133,16 @@ export function AppSidebar({
         <Logo variant="full" size="sm" theme="light" />
       </div>
 
-      <div className="space-y-2 px-3 pb-3">
-        <Button variant="gold" size="sm" className="h-9 w-full gap-2 rounded-full" asChild>
-          <Link href={orgPath("/billing")}>
-            <Star className="h-3.5 w-3.5" />
-            {tWorkspace("upgradeEvent")}
-          </Link>
-        </Button>
-      </div>
+      {canManageBilling ? (
+        <div className="space-y-2 px-3 pb-3">
+          <Button variant="gold" size="sm" className="h-9 w-full gap-2 rounded-full" asChild>
+            <Link href={orgPath("/billing")}>
+              <Star className="h-3.5 w-3.5" />
+              {tWorkspace("upgradeEvent")}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2">
         {mainNavItems.map(renderNavItem)}

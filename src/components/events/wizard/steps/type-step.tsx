@@ -1,6 +1,5 @@
 "use client";
 
-import { EventType } from "@prisma/client";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import type { UseFormReturn } from "react-hook-form";
@@ -34,9 +33,9 @@ export function TypeStep({ form }: TypeStepProps) {
             onClick={() => form.setValue("type", type, { shouldDirty: true })}
             className={cn(
               "group flex items-center gap-3 rounded-xl border bg-card p-2.5 text-left transition-all",
-              "hover:border-foreground/20 hover:shadow-sm",
+              "hover:border-gold/30 hover:shadow-sm",
               isSelected
-                ? "border-foreground/20 shadow-sm ring-1 ring-foreground/10"
+                ? "border-gold/40 bg-gold/5 shadow-sm ring-1 ring-gold/20"
                 : "border-border/60",
             )}
           >

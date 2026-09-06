@@ -43,6 +43,7 @@ export default async function OrgSlugRootLayout({
       orgName={activeOrg.name}
       planName={activeOrg.planName}
       planSlug={activeOrg.planSlug}
+      orgRole={activeOrg.role}
     >
       {children}
     </OrgProvider>

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
+import type { OrgRole } from "@prisma/client";
 
 import { OrgCookieSync } from "@/components/organization/org-cookie-sync";
 import { orgPath } from "@/lib/org-path";
@@ -11,6 +12,7 @@ interface OrgContextValue {
   orgName: string;
   planName: string;
   planSlug: string;
+  orgRole: OrgRole;
 }
 
 const OrgContext = createContext<OrgContextValue | null>(null);
@@ -21,6 +23,7 @@ interface OrgProviderProps {
   orgName: string;
   planName: string;
   planSlug: string;
+  orgRole: OrgRole;
   children: React.ReactNode;
 }
 
@@ -30,11 +33,12 @@ export function OrgProvider({
   orgName,
   planName,
   planSlug,
+  orgRole,
   children,
 }: OrgProviderProps) {
   const value = useMemo(
-    () => ({ orgId, orgSlug, orgName, planName, planSlug }),
-    [orgId, orgSlug, orgName, planName, planSlug],
+    () => ({ orgId, orgSlug, orgName, planName, planSlug, orgRole }),
+    [orgId, orgSlug, orgName, planName, planSlug, orgRole],
   );
 
   return (

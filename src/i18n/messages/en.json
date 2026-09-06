@@ -1631,6 +1631,8 @@
     "perMonth": "/month",
     "status": "Status",
     "upgradeCta": "Upgrade plan",
+    "checkoutFailed": "Could not start checkout. Please try again.",
+    "checkoutNotConfigured": "Billing is not configured yet. Contact support or set Stripe price IDs.",
     "usageTitle": "Usage this period",
     "usageEvents": "Events",
     "usageGuests": "Guests",

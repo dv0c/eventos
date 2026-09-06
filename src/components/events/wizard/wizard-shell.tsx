@@ -38,7 +38,7 @@ export function WizardShell({
   return (
     <div className="flex h-full flex-col overflow-hidden lg:flex-row">
       <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/10 px-12 py-10 lg:flex lg:h-full lg:w-[42%]">
-        <Logo variant="full" size="sm" />
+        <Logo variant="full" size="sm" theme="light" />
 
         <div className="flex flex-1 flex-col items-center justify-center py-12">
           <WizardIllustrationScene step={step} />

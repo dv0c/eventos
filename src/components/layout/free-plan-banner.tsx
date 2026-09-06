@@ -7,13 +7,15 @@ import { useEffect, useState } from "react";
 import { useOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import { can } from "@/server/permissions/matrix";
 
 export function FreePlanBanner() {
   const t = useTranslations("eventWorkspace");
-  const { planSlug, orgId } = useOrg();
+  const { planSlug, orgId, orgRole } = useOrg();
   const orgPath = useOrgPath;
   const storageKey = `eventos-free-banner-dismissed:${orgId}`;
   const [dismissed, setDismissed] = useState(true);
+  const canManageBilling = can(orgRole, "org:manage_billing");
 
   useEffect(() => {
     try {
@@ -23,7 +25,7 @@ export function FreePlanBanner() {
     }
   }, [storageKey]);
 
-  if (planSlug !== "free" || dismissed) {
+  if (planSlug !== "free" || dismissed || !canManageBilling) {
     return null;
   }
 

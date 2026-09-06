@@ -1,8 +1,11 @@
 import { getTranslations } from "next-intl/server";
 
 import { BillingOverviewPanel } from "@/components/billing/billing-overview";
+import { orgPath } from "@/lib/org-path";
+import { redirect } from "@/i18n/navigation";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
+import { AccessError } from "@/server/permissions/enforce";
 import { billingService } from "@/server/services/billing.service";
 
 export default async function BillingPage({
@@ -13,12 +16,26 @@ export default async function BillingPage({
   const { locale, orgSlug } = await params;
   const t = await getTranslations("billing");
   const session = await requireAuth();
-  const organizationId = (await getOrganizationBySlug(session.user.id, orgSlug)).id;
+  const organization = await getOrganizationBySlug(session.user.id, orgSlug);
 
-  const overview = await billingService.getBillingOverview(
-    session.user.id,
-    organizationId,
-  );
+  let overview;
+
+  try {
+    overview = await billingService.getBillingOverview(
+      session.user.id,
+      organization.id,
+    );
+  } catch (error) {
+    if (error instanceof AccessError) {
+      if (error.code === "PERMISSION_DENIED" || error.code === "ORG_FORBIDDEN") {
+        redirect({ href: orgPath(orgSlug, "/dashboard"), locale });
+      }
+      if (error.code === "ORG_NOT_FOUND") {
+        redirect({ href: "/forbidden", locale });
+      }
+    }
+    throw error;
+  }
 
   return (
     <div className="space-y-6">
