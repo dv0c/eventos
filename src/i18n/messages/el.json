@@ -380,7 +380,10 @@
     "messagesSent": "Απεσταλμένα μηνύματα",
     "activeEvents": "Ενεργές εκδηλώσεις",
     "completedEvents": "Ολοκληρωμένες",
+    "filters": "Φίλτρα",
+    "filtersTitle": "Φιλτράρισμα εκδηλώσεων",
     "filterClient": "Φίλτρο πελάτη",
+    "filterTimeframe": "Χρονική περίοδος",
     "allClients": "Όλοι οι πελάτες",
     "timeframe": {
       "all": "Όλες",

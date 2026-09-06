@@ -380,7 +380,10 @@
     "messagesSent": "Messages sent",
     "activeEvents": "Active events",
     "completedEvents": "Completed events",
+    "filters": "Filters",
+    "filtersTitle": "Filter events",
     "filterClient": "Filter by client",
+    "filterTimeframe": "Timeframe",
     "allClients": "All clients",
     "timeframe": {
       "all": "All",

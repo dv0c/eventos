@@ -13,7 +13,9 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 import type { WallDisplaySettings } from "@/server/events/wall-settings";
 
 interface WallCustomizationSheetProps {
@@ -36,6 +38,7 @@ export function WallCustomizationSheet({
 }: WallCustomizationSheetProps) {
   const t = useTranslations("events.wallCustomization");
   const tCommon = useTranslations("common");
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const [settings, setSettings] = useState<WallDisplaySettings | null>(
     initialSettings ?? null,
   );
@@ -66,11 +69,16 @@ export function WallCustomizationSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side="right"
+        side={isDesktop ? "right" : "bottom"}
         showCloseButton={false}
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+        className={cn(
+          "flex w-full flex-col gap-0 p-0",
+          isDesktop
+            ? "sm:max-w-md"
+            : "max-h-[85dvh] rounded-t-2xl",
+        )}
       >
-        <div className="flex items-center gap-3 border-b px-5 py-4">
+        <div className="flex shrink-0 items-center gap-3 border-b px-5 py-4">
           <SheetClose asChild>
             <Button variant="ghost" size="icon">
               <X className="h-4 w-4" />
@@ -79,7 +87,7 @@ export function WallCustomizationSheet({
           <SheetTitle className="text-lg font-semibold">{t("title")}</SheetTitle>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 pb-8">
           {isLoading || !settings ? (
             <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>
           ) : (

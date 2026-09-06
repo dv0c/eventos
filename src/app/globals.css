@@ -260,62 +260,6 @@ html.org-app [role="option"]:focus {
     opacity: 0;
   }
 
-  .sheet-overlay-open {
-    animation: sheet-overlay-in 0.2s ease-out forwards;
-  }
-
-  .sheet-overlay-closed {
-    animation: sheet-overlay-out 0.2s ease-in forwards;
-  }
-
-  .sheet-slide-in-right {
-    animation: sheet-slide-in-right 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .sheet-slide-out-right {
-    animation: sheet-slide-out-right 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .sheet-slide-in-left {
-    animation: sheet-slide-in-left 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .sheet-slide-out-left {
-    animation: sheet-slide-out-left 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .sheet-slide-in-top {
-    animation: sheet-slide-in-top 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .sheet-slide-out-top {
-    animation: sheet-slide-out-top 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .sheet-slide-in-bottom {
-    animation: sheet-slide-in-bottom 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .sheet-slide-out-bottom {
-    animation: sheet-slide-out-bottom 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .dialog-overlay-open {
-    animation: sheet-overlay-in 0.2s ease-out forwards;
-  }
-
-  .dialog-overlay-closed {
-    animation: sheet-overlay-out 0.18s ease-in forwards;
-  }
-
-  .dialog-content-open {
-    animation: dialog-content-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  .dialog-content-closed {
-    animation: dialog-content-out 0.18s ease-in forwards;
-  }
-
   .animate-accordion-down {
     animation: accordion-down 0.2s ease-out;
   }
@@ -323,6 +267,64 @@ html.org-app [role="option"]:focus {
   .animate-accordion-up {
     animation: accordion-up 0.2s ease-out;
   }
+}
+
+/* Sheet/Dialog motion utilities — must use @utility so Tailwind v4
+   generates data-[state=*]: variants used by sheet.tsx / dialog.tsx */
+@utility sheet-overlay-open {
+  animation: sheet-overlay-in 0.2s ease-out forwards;
+}
+
+@utility sheet-overlay-closed {
+  animation: sheet-overlay-out 0.2s ease-in forwards;
+}
+
+@utility sheet-slide-in-right {
+  animation: sheet-slide-in-right 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility sheet-slide-out-right {
+  animation: sheet-slide-out-right 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility sheet-slide-in-left {
+  animation: sheet-slide-in-left 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility sheet-slide-out-left {
+  animation: sheet-slide-out-left 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility sheet-slide-in-top {
+  animation: sheet-slide-in-top 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility sheet-slide-out-top {
+  animation: sheet-slide-out-top 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility sheet-slide-in-bottom {
+  animation: sheet-slide-in-bottom 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility sheet-slide-out-bottom {
+  animation: sheet-slide-out-bottom 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@utility dialog-overlay-open {
+  animation: sheet-overlay-in 0.2s ease-out forwards;
+}
+
+@utility dialog-overlay-closed {
+  animation: sheet-overlay-out 0.18s ease-in forwards;
+}
+
+@utility dialog-content-open {
+  animation: dialog-content-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@utility dialog-content-closed {
+  animation: dialog-content-out 0.18s ease-in forwards;
 }
 
 @keyframes wizard-float {
@@ -577,7 +579,11 @@ html.org-app [role="option"]:focus {
   .dialog-overlay-open,
   .dialog-overlay-closed,
   .dialog-content-open,
-  .dialog-content-closed {
+  .dialog-content-closed,
+  [class*=":sheet-overlay-"],
+  [class*=":sheet-slide-"],
+  [class*=":dialog-overlay-"],
+  [class*=":dialog-content-"] {
     animation: none;
   }
 
