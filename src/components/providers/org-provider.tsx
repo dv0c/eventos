@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useMemo } from "react";
 import type { OrgMode, OrgRole } from "@prisma/client";
 
