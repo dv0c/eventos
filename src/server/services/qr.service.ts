@@ -87,7 +87,7 @@ async function resolveQrUrl(
     case QRCodeType.WALL:
       return `${publicBase}/wall`;
     case QRCodeType.MODERATION:
-      return `${baseUrl}/el/org/${orgSlug}/events/${eventId}/mod`;
+      return `${baseUrl}/el/mod/${eventId}`;
     default:
       return publicBase;
   }

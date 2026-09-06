@@ -195,8 +195,18 @@ export function CollaboratorsTab({ event }: { event: EventWithRelations }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EDITOR">{t("roleEditor")}</SelectItem>
-                  <SelectItem value="VIEWER">{t("roleViewer")}</SelectItem>
+                  <SelectItem value="EDITOR">
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span>{t("roleEditor")}</span>
+                      <span className="text-xs text-muted-foreground">{t("roleEditorDesc")}</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="VIEWER">
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span>{t("roleViewer")}</span>
+                      <span className="text-xs text-muted-foreground">{t("roleViewerDesc")}</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

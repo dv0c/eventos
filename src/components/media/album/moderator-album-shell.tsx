@@ -24,11 +24,11 @@ import {
   ModFeedListSkeleton,
   WishCountSkeleton,
 } from "@/components/media/album/album-app-skeletons";
-import { useOrgPath } from "@/components/providers/org-provider";
 import { GuestNotifyForm } from "@/components/media/guest-notify-form";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "@/i18n/navigation";
+import { orgPath } from "@/lib/org-path";
 import type { AlbumPermission } from "@/server/events/wall-settings";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +66,6 @@ export function ModeratorAlbumShell({
   initialSettings,
 }: ModeratorAlbumShellProps) {
   const t = useTranslations("moderatorAlbum");
-  const orgPath = useOrgPath;
   const [tab, setTab] = useState<ModTab>("inbox");
   const [items, setItems] = useState<ModMediaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -401,7 +400,7 @@ export function ModeratorAlbumShell({
                 className="h-11 w-full gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10"
                 asChild
               >
-                <Link href={orgPath(`/events/${eventId}/media`)}>
+                <Link href={orgPath(orgSlug, `/events/${eventId}/media`)}>
                   <ExternalLink className="size-4" />
                   {t("openDesktopMedia")}
                 </Link>

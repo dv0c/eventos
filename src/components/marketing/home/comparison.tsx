@@ -25,12 +25,12 @@ export function HomeComparison() {
 
       <div className="mt-14 grid gap-6 lg:grid-cols-2">
         <Reveal>
-          <div className="h-full rounded-2xl border-2 border-primary/30 bg-primary/5 p-6 sm:p-8">
-            <h3 className="text-xl font-bold text-primary">{t("compareUsTitle")}</h3>
+          <div className="glass-panel h-full border-accent/30 bg-accent/5 p-6 sm:p-8">
+            <h3 className="text-xl font-bold text-accent">{t("compareUsTitle")}</h3>
             <ul className="mt-6 space-y-3.5">
               {US_KEYS.map((key) => (
                 <li key={key} className="flex items-start gap-3 text-sm sm:text-base">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
                     <Check className="h-3 w-3" />
                   </span>
                   {t(`compareUs.${key}`)}
@@ -40,7 +40,7 @@ export function HomeComparison() {
           </div>
         </Reveal>
         <Reveal delay={0.08}>
-          <div className="h-full rounded-2xl border border-border/60 bg-card p-6 sm:p-8">
+          <div className="glass-panel h-full p-6 sm:p-8">
             <h3 className="text-xl font-bold text-muted-foreground">
               {t("compareThemTitle")}
             </h3>
@@ -50,7 +50,7 @@ export function HomeComparison() {
                   key={key}
                   className="flex items-start gap-3 text-sm text-muted-foreground sm:text-base"
                 >
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10">
                     <X className="h-3 w-3" />
                   </span>
                   {t(`compareThem.${key}`)}
@@ -62,7 +62,7 @@ export function HomeComparison() {
       </div>
 
       <Reveal className="mt-10 text-center">
-        <Button size="lg" className="h-12 rounded-xl px-8" asChild>
+        <Button variant="gold" size="lg" className="h-12 rounded-xl px-8" asChild>
           <Link href="/register">{t("compareCta")}</Link>
         </Button>
       </Reveal>

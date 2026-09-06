@@ -5,6 +5,10 @@ import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import {
+  AuthMethodDivider,
+  GoogleAuthButton,
+} from "@/components/auth/google-auth-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,59 +52,69 @@ export function LoginForm({ callbackUrl = "/dashboard" }: LoginFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="space-y-2">
-        <Label htmlFor="email" className="text-muted-foreground">
-          {t("email")}
-        </Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@example.com"
-          className={fieldClassName}
-        />
-      </div>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <Label htmlFor="password" className="text-muted-foreground">
-            {t("password")}
+    <div className="space-y-5">
+      <GoogleAuthButton callbackUrl={callbackUrl} />
+      <AuthMethodDivider />
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-muted-foreground">
+            {t("email")}
           </Label>
-          <Link
-            href="/forgot-password"
-            className="text-xs text-white/55 transition-colors hover:text-white"
-          >
-            {t("forgotPassword")}
-          </Link>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            className={fieldClassName}
+          />
         </div>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          className={fieldClassName}
-        />
-      </div>
-      <Button
-        type="submit"
-        variant="gold"
-        className="h-11 w-full rounded-xl text-base font-semibold"
-        disabled={isLoading}
-      >
-        {isLoading ? t("login") + "..." : t("signIn")}
-      </Button>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="password" className="text-muted-foreground">
+              {t("password")}
+            </Label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-white/55 transition-colors hover:text-white"
+            >
+              {t("forgotPassword")}
+            </Link>
+          </div>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            className={fieldClassName}
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="gold"
+          className="h-11 w-full rounded-xl text-base font-semibold"
+          disabled={isLoading}
+        >
+          {isLoading ? `${t("login")}...` : t("signIn")}
+        </Button>
+      </form>
+
       <p className="text-center text-sm text-muted-foreground">
         {t("noAccount")}{" "}
         <Link
-          href="/register"
+          href={
+            callbackUrl && callbackUrl !== "/dashboard"
+              ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
+              : "/register"
+          }
           className="font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("signUp")}
         </Link>
       </p>
-    </form>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { SettingsRow } from "@/components/events/settings/settings-ui";
+import { ModeratorInviteSection } from "@/components/events/settings/moderator-invite-section";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -292,6 +293,8 @@ export function ModerationTab({ event }: { event: EventWithRelations }) {
           onCheckedChange={(checked) => void patchVoiceWishes(checked)}
         />
       </SettingsRow>
+
+      <ModeratorInviteSection eventId={event.id} />
     </div>
   );
 }

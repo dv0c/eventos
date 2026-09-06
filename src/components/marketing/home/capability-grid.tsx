@@ -38,8 +38,8 @@ export function HomeCapabilityGrid() {
       <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {CAPS.map(({ key, icon: Icon }, i) => (
           <Reveal key={key} delay={i * 0.04}>
-            <div className="h-full rounded-2xl border border-border/60 bg-card p-5 transition-all hover:-translate-y-1 hover:border-primary/25 hover:shadow-md">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <div className="glass-panel h-full p-5 transition-all hover:-translate-y-1 hover:border-white/20">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-accent">
                 <Icon className="h-5 w-5" />
               </div>
               <h3 className="font-semibold">{t(`caps.${key}.title`)}</h3>

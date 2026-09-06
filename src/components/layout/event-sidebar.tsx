@@ -100,10 +100,11 @@ export function EventSidebar({
       match: "settings-moderation",
     },
     {
-      path: `/events/${eventId}/mod`,
+      href: `/mod/${eventId}`,
       label: t("navModeratorApp"),
       icon: Smartphone,
       match: "mod",
+      sameTab: true,
     },
   ];
 
@@ -130,7 +131,7 @@ export function EventSidebar({
       return pathname.includes(`/events/${eventId}/media`);
     }
     if (match === "mod") {
-      return pathname.includes(`/events/${eventId}/mod`);
+      return pathname.includes(`/mod/${eventId}`) || pathname.includes(`/events/${eventId}/mod`);
     }
     if (match === "settings-moderation") {
       return pathname.includes(`/events/${eventId}/settings`) && settingsTab === "moderation";
@@ -234,7 +235,7 @@ export function EventSidebar({
           const navClass =
             "group relative flex items-center gap-2.5 rounded-full px-2.5 py-2 text-[13px] font-medium transition-all";
 
-          if (item.external) {
+          if (item.external || item.sameTab) {
             if (!item.href) {
               return (
                 <span
@@ -244,6 +245,30 @@ export function EventSidebar({
                   <Icon className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                   {item.label}
                 </span>
+              );
+            }
+            if (item.sameTab) {
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={cn(
+                    navClass,
+                    isActive(item.match)
+                      ? "border border-white/20 bg-black/45 text-foreground backdrop-blur-md"
+                      : "border border-transparent text-sidebar-foreground/70 hover:border-white/10 hover:bg-white/5 hover:text-foreground",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      isActive(item.match)
+                        ? "text-gold"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                  />
+                  {item.label}
+                </Link>
               );
             }
             return (

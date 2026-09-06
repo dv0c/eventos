@@ -15,7 +15,7 @@ const STEPS = [
 function StepConnector() {
   return (
     <svg
-      className="mx-1 hidden h-7 w-12 shrink-0 text-foreground/35 lg:mx-2 lg:w-14 md:block"
+      className="mx-1 hidden h-7 w-12 shrink-0 text-white/35 lg:mx-2 lg:w-14 md:block"
       viewBox="0 0 56 28"
       fill="none"
       aria-hidden
@@ -43,7 +43,7 @@ export function HomeMiniSteps() {
   return (
     <SectionShell className="max-w-7xl pb-16 pt-2 sm:pb-20 sm:pt-4">
       <Reveal>
-        <div className="rounded-2xl border border-foreground/15 bg-card px-5 py-5 shadow-sm sm:px-7 sm:py-6">
+        <div className="glass-panel border-white/15 bg-black/45 px-5 py-5 backdrop-blur-xl sm:px-7 sm:py-6">
           <ul className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             {STEPS.map(({ key, icon: Icon }, i) => (
               <Fragment key={key}>
@@ -53,8 +53,8 @@ export function HomeMiniSteps() {
                   </li>
                 ) : null}
                 <li className="flex min-w-0 items-center gap-3 md:flex-1">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
-                    <Icon className="h-4 w-4 text-foreground" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10">
+                    <Icon className="h-4 w-4 text-accent" />
                   </div>
                   <p className="text-sm font-semibold leading-snug sm:text-[15px]">
                     <span className="text-muted-foreground">

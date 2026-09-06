@@ -9,6 +9,7 @@ const intlMiddleware = createIntlMiddleware(routing);
 
 const PROTECTED_PREFIXES = [
   "/org",
+  "/mod",
   "/admin",
   "/setup",
   "/organizations",
@@ -118,7 +119,7 @@ export default auth(async (req) => {
   if (isProtectedPath(pathname) && !isLoggedIn) {
     const locale = getLocaleFromPath(pathname);
     const loginUrl = new URL(`/${locale}/login`, req.nextUrl.origin);
-    loginUrl.searchParams.set("callbackUrl", pathname);
+    loginUrl.searchParams.set("callbackUrl", stripLocale(pathname));
     return NextResponse.redirect(loginUrl);
   }
 

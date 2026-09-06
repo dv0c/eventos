@@ -262,7 +262,7 @@ export function EventMediaManager({ eventId, eventSlug, albumHref }: EventMediaM
             {isUploading ? t("uploading") : t("uploadPhotos")}
           </Button>
           <Button variant="outline" size="sm" className="h-9 gap-2 bg-background" asChild>
-            <Link href={orgPath(`/events/${eventId}/mod`)}>
+            <Link href={`/mod/${eventId}`}>
               <Smartphone className="h-4 w-4" />
               {tMod("openModeratorApp")}
             </Link>

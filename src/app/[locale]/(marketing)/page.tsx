@@ -14,11 +14,6 @@ import { HomeValueProp } from "@/components/marketing/home/value-prop";
 export default function MarketingHomePage() {
   return (
     <div className="relative">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[42rem] overflow-hidden">
-        <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -right-20 top-32 h-80 w-80 rounded-full bg-accent/20 blur-3xl" />
-      </div>
-
       <HomeHero />
       <HomeMiniSteps />
       <HomeValueProp />

@@ -15,7 +15,7 @@ export function MarketingFooter({ className }: { className?: string }) {
   return (
     <footer
       className={cn(
-        "border-t border-border/40 bg-gradient-to-b from-background to-secondary/30",
+        "border-t border-white/10 bg-black/30 backdrop-blur-md",
         className,
       )}
     >
@@ -23,7 +23,7 @@ export function MarketingFooter({ className }: { className?: string }) {
         <div className="grid gap-12 md:grid-cols-4">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center">
-              <Logo variant="full" size="md" />
+              <Logo variant="full" theme="light" size="md" />
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               {t("heroSubtitle")}
@@ -31,12 +31,12 @@ export function MarketingFooter({ className }: { className?: string }) {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold">{t("footerProduct")}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("footerProduct")}</h3>
             <ul className="mt-4 space-y-3">
               <li>
                 <Link
                   href="/features"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm text-white/55 transition-colors hover:text-white"
                 >
                   {tNav("features")}
                 </Link>
@@ -44,7 +44,7 @@ export function MarketingFooter({ className }: { className?: string }) {
               <li>
                 <Link
                   href="/pricing"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm text-white/55 transition-colors hover:text-white"
                 >
                   {tNav("pricing")}
                 </Link>
@@ -53,51 +53,39 @@ export function MarketingFooter({ className }: { className?: string }) {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold">{t("footerCompany")}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("footerCompany")}</h3>
             <ul className="mt-4 space-y-3">
               <li>
-                <span className="text-sm text-muted-foreground">
-                  {t("footerAbout")}
-                </span>
+                <span className="text-sm text-white/55">{t("footerAbout")}</span>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">
-                  {t("footerBlog")}
-                </span>
+                <span className="text-sm text-white/55">{t("footerBlog")}</span>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">
-                  {t("footerContact")}
-                </span>
+                <span className="text-sm text-white/55">{t("footerContact")}</span>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold">{t("footerLegal")}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("footerLegal")}</h3>
             <ul className="mt-4 space-y-3">
               <li>
-                <span className="text-sm text-muted-foreground">
-                  {t("footerPrivacy")}
-                </span>
+                <span className="text-sm text-white/55">{t("footerPrivacy")}</span>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">
-                  {t("footerTerms")}
-                </span>
+                <span className="text-sm text-white/55">{t("footerTerms")}</span>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">
-                  {t("footerCookies")}
-                </span>
+                <span className="text-sm text-white/55">{t("footerCookies")}</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <Separator className="my-8" />
+        <Separator className="my-8 border-white/10 bg-white/10" />
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-white/45">
           {t("copyright", { year })}
         </p>
       </div>

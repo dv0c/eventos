@@ -31,20 +31,25 @@ export function HomeValueProp() {
         </h2>
         <p className="mt-4 text-muted-foreground sm:text-lg">{t("valueSubtitle")}</p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Button size="lg" className="h-11 rounded-xl px-7" asChild>
+          <Button variant="gold" size="lg" className="h-11 rounded-xl px-7" asChild>
             <Link href="/register">{t("valueCta")}</Link>
           </Button>
-          <Button variant="outline" size="lg" className="h-11 rounded-xl px-7" asChild>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-11 rounded-xl border-white/20 bg-black/35 px-7 backdrop-blur-sm"
+            asChild
+          >
             <Link href="/features">{t("valueDemo")}</Link>
           </Button>
         </div>
       </Reveal>
 
-      <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map(({ key, icon: Icon }, i) => (
           <Reveal key={key} delay={i * 0.06}>
-            <div className="group h-full rounded-2xl border border-transparent p-1 transition-transform hover:-translate-y-1">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <div className="group glass-panel h-full p-5 transition-transform hover:-translate-y-1">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-accent transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
                 <Icon className="h-5 w-5" />
               </div>
               <h3 className="text-lg font-semibold">{t(`features.${key}.title`)}</h3>

@@ -116,12 +116,7 @@ export const eventService = {
     const publicBase = `${baseUrl}/el/e/${event.slug}`;
     const albumToken = await mediaService.getUploadTokenForEvent(event.id);
 
-    const organization = await prisma.organization.findFirst({
-      where: { id: input.organizationId, deletedAt: null },
-      select: { slug: true },
-    });
-    const orgSlug = organization?.slug ?? input.organizationId;
-    const moderationUrl = `${baseUrl}/el/org/${orgSlug}/events/${event.id}/mod`;
+    const moderationUrl = `${baseUrl}/el/mod/${event.id}`;
 
     await prisma.qRCode.createMany({
       data: [
