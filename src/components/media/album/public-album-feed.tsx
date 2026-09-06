@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Gamepad2, Images, Mic } from "lucide-react";
+import { Camera, Gamepad2, Images, Mic, Music2 } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import {
@@ -18,6 +18,7 @@ import {
   MobileAppLock,
 } from "@/components/media/album/mobile-app-lock";
 import { AlbumAppShellSkeleton } from "@/components/media/album/album-app-skeletons";
+import { AlbumSongRequestPanel } from "@/components/media/album/album-song-request-panel";
 import { PublicUploadForm } from "@/components/media/public-upload-form";
 import { VoiceWishRecorder } from "@/components/media/album/voice-wish-recorder";
 import { Logo } from "@/components/shared/logo";
@@ -47,6 +48,7 @@ interface AlbumFeedData {
   eventName: string;
   canUpload: boolean;
   enableVoiceWishes?: boolean;
+  enableSongRequests?: boolean;
   reactionsEnabled: boolean;
   disableGuestDownload: boolean;
   takenNames?: string[];
@@ -71,7 +73,7 @@ interface AlbumFeedData {
   items: AlbumFeedItem[];
 }
 
-type AlbumTab = "feed" | "games" | "upload" | "wishes";
+type AlbumTab = "feed" | "games" | "upload" | "wishes" | "music";
 
 interface PublicAlbumShellProps {
   albumToken: string;
@@ -92,7 +94,13 @@ export function PublicAlbumShell({
 }: PublicAlbumShellProps) {
   const t = useTranslations("publicEvent");
   const [tab, setTab] = useState<AlbumTab>(
-    initialTab === "upload" ? "upload" : initialTab === "games" ? "games" : "feed",
+    initialTab === "upload"
+      ? "upload"
+      : initialTab === "games"
+        ? "games"
+        : initialTab === "music"
+          ? "music"
+          : "feed",
   );
   const [feed, setFeed] = useState<AlbumFeedData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -377,11 +385,13 @@ export function PublicAlbumShell({
 
   const showUpload = Boolean(feed.canUpload && uploadToken);
   const showWishes = feed.enableVoiceWishes !== false;
+  const showMusic = feed.enableSongRequests !== false;
   const primaryColor = feed.theme?.primaryColor;
   const logoUrl = feed.theme?.logoUrl;
   const watermarkUrl = feed.branding?.watermarkUrl ?? null;
   const removeBranding = feed.appearance?.removeBranding === true;
-  const showCenterBrand = Boolean(watermarkUrl) || !removeBranding;
+  const brandingEnabled = !removeBranding;
+  const brandSrc = logoUrl || watermarkUrl || null;
 
   return (
     <AlbumBackdrop urls={backdropUrls} backgroundUrl={feed.theme?.albumBackgroundUrl}>
@@ -390,47 +400,49 @@ export function PublicAlbumShell({
           className="fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-neutral-950/90 backdrop-blur-xl"
           style={{ paddingTop: "env(safe-area-inset-top)" }}
         >
-          <div className="relative mx-auto flex h-14 w-full max-w-lg items-center gap-3 px-4">
-            <div className="z-10 flex min-w-0 flex-1 items-center gap-3">
-              {logoUrl ? (
+          <div
+            className={cn(
+              "mx-auto flex h-14 w-full max-w-lg items-center px-4",
+              brandingEnabled ? "justify-center" : "gap-3",
+            )}
+          >
+            {brandingEnabled ? (
+              brandSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={logoUrl}
+                  src={brandSrc}
                   alt=""
-                  className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                  className="h-8 max-w-[10rem] object-contain"
                 />
-              ) : null}
-              <div className="min-w-0 flex-1">
-                <h1 className="truncate text-base font-semibold tracking-tight text-white">
-                  {feed.eventName}
-                </h1>
-                {guestName ? (
-                  <p className="truncate text-xs text-white/55">@{guestName}</p>
-                ) : null}
-              </div>
-            </div>
-
-            {showCenterBrand ? (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                {watermarkUrl ? (
+              ) : (
+                <Logo
+                  variant="full"
+                  theme="light"
+                  size="sm"
+                  className="h-7 w-auto"
+                  priority
+                />
+              )
+            ) : (
+              <>
+                {logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={watermarkUrl}
+                    src={logoUrl}
                     alt=""
-                    className="h-7 max-w-[7rem] object-contain"
+                    className="h-8 w-8 shrink-0 rounded-lg object-cover"
                   />
-                ) : (
-                  <Logo
-                    variant="mark"
-                    theme="light"
-                    size="sm"
-                    className="h-7 w-auto"
-                  />
-                )}
-              </div>
-            ) : null}
-
-            <div className="z-10 w-8 shrink-0" aria-hidden />
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-base font-semibold tracking-tight text-white">
+                    {feed.eventName}
+                  </h1>
+                  {guestName ? (
+                    <p className="truncate text-xs text-white/55">@{guestName}</p>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
         </header>
 
@@ -525,6 +537,8 @@ export function PublicAlbumShell({
             </div>
           ) : tab === "wishes" && guestName ? (
             <VoiceWishRecorder albumToken={albumToken} guestName={guestName} />
+          ) : tab === "music" && guestName ? (
+            <AlbumSongRequestPanel albumToken={albumToken} guestName={guestName} />
           ) : showUpload && uploadToken ? (
             <PublicUploadForm
               uploadToken={uploadToken}
@@ -594,6 +608,19 @@ export function PublicAlbumShell({
               >
                 <Mic className="size-5" />
                 {t("albumNavWishes")}
+              </button>
+            ) : null}
+            {showMusic ? (
+              <button
+                type="button"
+                onClick={() => setTab("music")}
+                className={cn(
+                  "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
+                  tab === "music" ? "text-white" : "text-white/45 active:text-white/75",
+                )}
+              >
+                <Music2 className="size-5" />
+                {t("albumNavMusic")}
               </button>
             ) : null}
             {showUpload ? (

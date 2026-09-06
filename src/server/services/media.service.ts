@@ -678,6 +678,7 @@ export const mediaService = {
       eventName: event.name,
       canUpload,
       enableVoiceWishes: event.settings.enableVoiceWishes ?? true,
+      enableSongRequests: event.settings.enableSongRequests ?? true,
       reactionsEnabled,
       disableGuestDownload: moderation.disableGuestDownload,
       uploadToken: canUpload ? albumToken : null,

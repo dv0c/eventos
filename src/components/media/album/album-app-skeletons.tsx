@@ -83,18 +83,8 @@ export function AlbumAppShellSkeleton() {
         className="fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-neutral-950/90 backdrop-blur-xl"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="relative mx-auto flex h-14 w-full max-w-lg items-center gap-3 px-4">
-          <div className="z-10 flex min-w-0 flex-1 items-center gap-3">
-            <AppBone className="size-8 shrink-0 rounded-lg" />
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <AppBone className="h-4 w-36" />
-              <AppBone className="h-2.5 w-20" />
-            </div>
-          </div>
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <AppBone className="h-7 w-7 rounded-md" />
-          </div>
-          <div className="z-10 w-8 shrink-0" aria-hidden />
+        <div className="mx-auto flex h-14 w-full max-w-lg items-center justify-center px-4">
+          <AppBone className="h-7 w-28 rounded-md" />
         </div>
       </header>
 

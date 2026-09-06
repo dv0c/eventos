@@ -33,7 +33,7 @@ export default async function AlbumTokenPage({
       redirect(`/${appearance.displayLanguage}/a/${albumToken}${qs}`);
     }
 
-    const initialTab = tab === "upload" ? "upload" : "feed";
+    const initialTab = tab === "upload" ? "upload" : tab === "music" ? "music" : "feed";
 
     return (
       <PublicAlbumShell

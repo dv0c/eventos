@@ -5,6 +5,7 @@ import {
   Check,
   Download,
   EyeOff,
+  Music2,
   Smartphone,
   Trash2,
   Upload,
@@ -13,6 +14,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { SongRequestsPanel } from "@/components/media/song-requests-panel";
 import { VoiceWishesPanel } from "@/components/media/voice-wishes-panel";
 import { useOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
@@ -267,6 +269,12 @@ export function EventMediaManager({ eventId, eventSlug, albumHref }: EventMediaM
               {tMod("openModeratorApp")}
             </Link>
           </Button>
+          <Button variant="outline" size="sm" className="h-9 gap-2 bg-background" asChild>
+            <Link href={`/mod/${eventId}/dj`}>
+              <Music2 className="h-4 w-4" />
+              {t("openDjBooth")}
+            </Link>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -331,6 +339,7 @@ export function EventMediaManager({ eventId, eventSlug, albumHref }: EventMediaM
       </section>
 
       <VoiceWishesPanel eventId={eventId} />
+      <SongRequestsPanel eventId={eventId} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">

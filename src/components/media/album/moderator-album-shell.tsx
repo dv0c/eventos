@@ -7,6 +7,7 @@ import {
   Images,
   MoreHorizontal,
   Bell,
+  Music2,
   Star,
   Trash2,
   X,
@@ -398,6 +399,16 @@ export function ModeratorAlbumShell({
               <Button
                 variant="outline"
                 className="h-11 w-full gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10"
+                asChild
+              >
+                <Link href={`/mod/${eventId}/dj`}>
+                  <Music2 className="size-4" />
+                  {t("openDjBooth")}
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="mt-2 h-11 w-full gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10"
                 asChild
               >
                 <Link href={orgPath(orgSlug, `/events/${eventId}/media`)}>

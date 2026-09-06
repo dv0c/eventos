@@ -125,6 +125,7 @@ export const eventService = {
         { eventId: event.id, type: QRCodeType.UPLOAD, url: `${baseUrl}/el/a/${albumToken}` },
         { eventId: event.id, type: QRCodeType.WALL, url: `${publicBase}/wall` },
         { eventId: event.id, type: QRCodeType.MODERATION, url: moderationUrl },
+        { eventId: event.id, type: QRCodeType.DJ, url: `${baseUrl}/el/mod/${event.id}/dj` },
       ],
     });
 

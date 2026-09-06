@@ -604,6 +604,10 @@ async function seedQRCodes(eventId: string, albumToken: string, orgSlug: string)
       type: QRCodeType.MODERATION,
       url: `https://eventos.gr/el/org/${orgSlug}/events/${eventId}/mod`,
     },
+    {
+      type: QRCodeType.DJ,
+      url: `https://eventos.gr/el/mod/${eventId}/dj`,
+    },
   ];
 
   for (const { type, url } of types) {

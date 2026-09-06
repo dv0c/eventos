@@ -35,6 +35,7 @@ const ALL_QR_TYPES: QRCodeType[] = [
   QRCodeType.UPLOAD,
   QRCodeType.WALL,
   QRCodeType.MODERATION,
+  QRCodeType.DJ,
 ];
 
 function buildImageUrl(eventId: string, type: QRCodeType): string {
@@ -88,6 +89,8 @@ async function resolveQrUrl(
       return `${publicBase}/wall`;
     case QRCodeType.MODERATION:
       return `${baseUrl}/el/mod/${eventId}`;
+    case QRCodeType.DJ:
+      return `${baseUrl}/el/mod/${eventId}/dj`;
     default:
       return publicBase;
   }

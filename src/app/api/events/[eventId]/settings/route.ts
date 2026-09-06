@@ -54,6 +54,7 @@ const updateEventSettingsSchema = z
     enableGallery: z.boolean().optional(),
     enableWall: z.boolean().optional(),
     enableVoiceWishes: z.boolean().optional(),
+    enableSongRequests: z.boolean().optional(),
     indexable: z.boolean().optional(),
     requireManualApproval: z.boolean().optional(),
     appearance: appearanceSchema,

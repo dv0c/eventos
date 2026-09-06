@@ -24,6 +24,9 @@ export function ModerationTab({ event }: { event: EventWithRelations }) {
   const [enableVoiceWishes, setEnableVoiceWishes] = useState(
     event.settings?.enableVoiceWishes ?? true,
   );
+  const [enableSongRequests, setEnableSongRequests] = useState(
+    event.settings?.enableSongRequests ?? true,
+  );
   const [isPublic, setIsPublic] = useState(event.settings?.isPublic ?? true);
   const [enableWall, setEnableWall] = useState(event.settings?.enableWall ?? true);
   const [moderation, setModeration] = useState<ModerationSettings>(() => {
@@ -62,6 +65,13 @@ export function ModerationTab({ event }: { event: EventWithRelations }) {
     setEnableVoiceWishes(checked);
     const ok = await patchColumns({ enableVoiceWishes: checked });
     if (!ok) setEnableVoiceWishes(previous);
+  }
+
+  async function patchSongRequests(checked: boolean) {
+    const previous = enableSongRequests;
+    setEnableSongRequests(checked);
+    const ok = await patchColumns({ enableSongRequests: checked });
+    if (!ok) setEnableSongRequests(previous);
   }
 
   async function patchIsPublic(checked: boolean) {
@@ -291,6 +301,14 @@ export function ModerationTab({ event }: { event: EventWithRelations }) {
           checked={enableVoiceWishes}
           disabled={isSaving}
           onCheckedChange={(checked) => void patchVoiceWishes(checked)}
+        />
+      </SettingsRow>
+
+      <SettingsRow title={t("enableSongRequests")} description={t("enableSongRequestsDesc")}>
+        <Switch
+          checked={enableSongRequests}
+          disabled={isSaving}
+          onCheckedChange={(checked) => void patchSongRequests(checked)}
         />
       </SettingsRow>
 

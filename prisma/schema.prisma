@@ -115,6 +115,7 @@ enum QRCodeType {
   UPLOAD
   WALL
   MODERATION
+  DJ
 }
 
 enum MediaStatus {
@@ -122,6 +123,15 @@ enum MediaStatus {
   APPROVED
   REJECTED
   FEATURED
+}
+
+enum SongRequestStatus {
+  PENDING
+  APPROVED
+  PLAYING
+  PLAYED
+  REJECTED
+  SKIPPED
 }
 
 enum SubscriptionStatus {
@@ -484,6 +494,7 @@ model Event {
   media          Media[]
   mediaReactions MediaReaction[]
   voiceWishes    VoiceWish[]
+  songRequests   SongRequest[]
   qrCodes        QRCode[]
   auditLogs      AuditLog[]
 
@@ -508,6 +519,7 @@ model EventSettings {
   enableGallery   Boolean @default(false)
   enableWall      Boolean @default(false)
   enableVoiceWishes Boolean @default(true)
+  enableSongRequests Boolean @default(true)
   indexable       Boolean @default(false)
   requireManualApproval Boolean @default(false)
   sections        Json    @default("{}") // hero, schedule, rsvp, gallery, map, contact, appearance, moderation, wall
@@ -978,6 +990,28 @@ model VoiceWish {
   @@index([eventId])
   @@index([createdAt])
   @@map("voice_wishes")
+}
+
+model SongRequest {
+  id             String            @id @default(cuid())
+  eventId        String
+  title          String
+  artist         String
+  albumArtUrl    String?
+  previewUrl     String?
+  itunesTrackId  String?
+  requestedBy    String?
+  note           String?
+  status         SongRequestStatus @default(PENDING)
+  sortOrder      Int               @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, status])
+  @@index([eventId, createdAt])
+  @@map("song_requests")
 }
 
 model MediaReaction {

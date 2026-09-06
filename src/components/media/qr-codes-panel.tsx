@@ -28,6 +28,7 @@ const QR_TYPE_KEYS: Record<QRCodeType, string> = {
   UPLOAD: "upload",
   WALL: "wall",
   MODERATION: "moderation",
+  DJ: "dj",
 };
 
 export function QrCodesPanel({ eventId }: QrCodesPanelProps) {
