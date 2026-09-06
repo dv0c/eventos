@@ -100,20 +100,31 @@ export const getOrganizationBySlug = cache(
 export async function resolveActiveOrganization(
   userId: string,
 ): Promise<ResolvedOrganization | null> {
-  const organizations = await getUserOrganizationsSummary(userId);
+  const memberships = await organizationRepository.getUserOrganizations(userId);
 
-  if (organizations.length === 0) {
+  if (memberships.length === 0) {
     return null;
   }
+
+  const owned = memberships.filter((m) => m.role === "OWNER");
+  const preferredMemberships = owned.length > 0 ? owned : memberships;
+
+  const organizations = preferredMemberships.map((m) => ({
+    id: m.organization.id,
+    name: m.organization.brandName || m.organization.name,
+    slug: m.organization.slug,
+    logoUrl: m.organization.logoUrl,
+  }));
 
   const activeOrganizationId = await getActiveOrganizationId();
   const activeFromCookie = organizations.find((org) => org.id === activeOrganizationId);
 
+  // Prefer an owned workspace over a stale cookie pointing at a shared/editor org.
   if (activeFromCookie) {
     try {
       return await resolveOrganizationBySlug(userId, activeFromCookie.slug);
     } catch {
-      // fall through to preferred org
+      // fall through
     }
   }
 
