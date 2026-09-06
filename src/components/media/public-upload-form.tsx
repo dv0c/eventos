@@ -69,7 +69,7 @@ async function buildCollageFile(files: File[]): Promise<File> {
       (file) =>
         new Promise<HTMLImageElement>((resolve, reject) => {
           const url = URL.createObjectURL(file);
-          const img = new Image();
+          const img = document.createElement("img");
           img.onload = () => {
             URL.revokeObjectURL(url);
             resolve(img);

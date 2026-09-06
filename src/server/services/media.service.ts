@@ -748,7 +748,7 @@ export const mediaService = {
 
     await prisma.eventSettings.update({
       where: { eventId },
-      data: { sections: sections as Prisma.InputJsonValue },
+      data: { sections: sections as unknown as Prisma.InputJsonValue },
     });
 
     await auditService.logAudit({
