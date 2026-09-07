@@ -1,6 +1,8 @@
 import { SongRequestStatus } from "@prisma/client";
 
 import { prisma } from "@/server/db";
+import { isEventEnded } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 
 const MAX_REQUESTS_PER_NAME_PER_DAY = 5;
@@ -148,6 +150,10 @@ export const songRequestService = {
     const event = await getEventByAlbumToken(albumToken);
     if (!event?.settings) {
       throw new SongRequestServiceError("Album not found", 404, "NOT_FOUND");
+    }
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
+      throw new SongRequestServiceError("Event has ended", 403, "EVENT_ENDED");
     }
     if (!(event.settings.enableSongRequests ?? true)) {
       throw new SongRequestServiceError(

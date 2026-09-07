@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 
 import { prisma } from "@/server/db";
 import { isEventEnded } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
 import { auditService } from "@/server/services/audit.service";
@@ -145,6 +146,11 @@ export const voiceWishService = {
 
     if (!event?.settings) {
       throw new VoiceWishServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
+    }
+
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
+      throw new VoiceWishServiceError("Event has ended", 403, "EVENT_ENDED");
     }
 
     if (!event.settings.enableGallery) {

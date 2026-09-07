@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 
 import { EventOverview } from "@/components/events/event-overview";
-import { getEventAdminContext } from "@/server/events/event-admin";
 import { requireAuth } from "@/server/auth/session";
+import { getEventAdminContext } from "@/server/events/event-admin";
+import { getEventLifecycle } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventService } from "@/server/services/event.service";
 import { mediaService } from "@/server/services/media.service";
 
@@ -19,9 +21,14 @@ export default async function EventOverviewPage({ params }: OverviewPageProps) {
       session.user.id,
       eventId,
     );
+    await revokeGuestConnectIfEnded(eventId);
+    const lifecycle = getEventLifecycle(event);
+    const ended = lifecycle === "ended";
     const { canEdit } = await getEventAdminContext(eventId);
-    const albumToken = await mediaService.getUploadTokenForEvent(eventId);
-    const albumHref = `/${locale}/a/${albumToken}`;
+    const albumToken = ended
+      ? null
+      : await mediaService.getUploadTokenForEvent(eventId);
+    const albumHref = albumToken ? `/${locale}/a/${albumToken}` : null;
 
     return (
       <EventOverview
@@ -33,6 +40,7 @@ export default async function EventOverviewPage({ params }: OverviewPageProps) {
         enableGallery={event.settings?.enableGallery ?? false}
         enableWall={event.settings?.enableWall ?? false}
         canEdit={canEdit}
+        lifecycle={lifecycle}
         stats={{
           totalMedia: stats.totalMedia,
           pendingMedia: stats.pendingMedia,

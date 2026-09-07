@@ -4,7 +4,7 @@ import type { EventType } from "@prisma/client";
 import type { ReactNode, RefObject } from "react";
 
 import type { WizardStepId } from "@/components/events/wizard/event-type-config";
-import { WizardIllustrationScene } from "@/components/events/wizard/illustrations/wizard-illustration-scene";
+import { WizardSideSteps } from "@/components/events/wizard/wizard-side-steps";
 import {
   WizardStepTransition,
   type WizardTransitionDirection,
@@ -13,6 +13,9 @@ import { Logo } from "@/components/shared/logo";
 
 interface WizardShellProps {
   step: WizardStepId;
+  steps: WizardStepId[];
+  currentStep: number;
+  stepLabels: Record<WizardStepId, string>;
   eventType?: EventType;
   headline: string;
   subheadline?: string;
@@ -26,6 +29,9 @@ interface WizardShellProps {
 
 export function WizardShell({
   step,
+  steps,
+  currentStep,
+  stepLabels,
   headline,
   subheadline,
   direction,
@@ -37,14 +43,22 @@ export function WizardShell({
 }: WizardShellProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden lg:flex-row">
-      <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/10 px-12 py-10 lg:flex lg:h-full lg:w-[42%]">
+      <div className="relative hidden shrink-0 flex-col justify-between overflow-hidden border-r border-border/30 px-12 py-10 lg:flex lg:h-full lg:w-[42%]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_20%_85%,oklch(0.32_0.05_55/0.14),transparent_65%)]"
+        />
         <Logo variant="full" size="sm" theme="light" />
 
-        <div className="flex flex-1 flex-col items-center justify-center py-12">
-          <WizardIllustrationScene step={step} />
+        <div className="relative flex flex-1 flex-col items-center justify-center py-12">
+          <WizardSideSteps
+            steps={steps}
+            currentStep={currentStep}
+            stepLabels={stepLabels}
+          />
         </div>
 
-        <div className="text-sm text-muted-foreground">
+        <div className="relative text-sm text-muted-foreground">
           © {new Date().getFullYear()} Eventos
         </div>
       </div>

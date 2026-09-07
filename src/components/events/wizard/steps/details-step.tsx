@@ -1,13 +1,15 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import type { UseFormReturn } from "react-hook-form";
+import { Controller, type UseFormReturn } from "react-hook-form";
 
 import { getEventTypeConfig } from "@/components/events/wizard/event-type-config";
 import type { WizardFormData } from "@/components/events/wizard/wizard-schema";
 import { WizardFormSection } from "@/components/events/wizard/wizard-form-section";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TimePicker } from "@/components/ui/time-picker";
 
 interface DetailsStepProps {
   form: UseFormReturn<WizardFormData>;
@@ -16,9 +18,11 @@ interface DetailsStepProps {
 export function DetailsStep({ form }: DetailsStepProps) {
   const t = useTranslations("wizard");
   const tEvents = useTranslations("events");
+  const tCommon = useTranslations("common");
   const eventType = form.watch("type");
   const config = getEventTypeConfig(eventType);
   const errors = form.formState.errors;
+  const clearLabel = tCommon("clear");
 
   return (
     <div className="space-y-5">
@@ -55,11 +59,18 @@ export function DetailsStep({ form }: DetailsStepProps) {
           <Label htmlFor="date" className="text-base">
             {tEvents("date")}
           </Label>
-          <Input
-            id="date"
-            type="date"
-            {...form.register("date")}
-            className="h-12 text-base"
+          <Controller
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <DatePicker
+                id="date"
+                value={field.value}
+                onChange={field.onChange}
+                placeholder={t("pickDate")}
+                clearLabel={clearLabel}
+              />
+            )}
           />
           {errors.date ? (
             <p className="text-sm text-destructive">{t("validation.dateRequired")}</p>
@@ -69,11 +80,18 @@ export function DetailsStep({ form }: DetailsStepProps) {
           <Label htmlFor="startTime" className="text-base">
             {tEvents("time")}
           </Label>
-          <Input
-            id="startTime"
-            type="time"
-            {...form.register("startTime")}
-            className="h-12 text-base"
+          <Controller
+            control={form.control}
+            name="startTime"
+            render={({ field }) => (
+              <TimePicker
+                id="startTime"
+                value={field.value}
+                onChange={field.onChange}
+                placeholder={t("pickTime")}
+                clearLabel={clearLabel}
+              />
+            )}
           />
         </div>
       </div>
@@ -82,11 +100,18 @@ export function DetailsStep({ form }: DetailsStepProps) {
         <Label htmlFor="endTime" className="text-base">
           {t("endTime")}
         </Label>
-        <Input
-          id="endTime"
-          type="time"
-          {...form.register("endTime")}
-          className="h-12 text-base"
+        <Controller
+          control={form.control}
+          name="endTime"
+          render={({ field }) => (
+            <TimePicker
+              id="endTime"
+              value={field.value}
+              onChange={field.onChange}
+              placeholder={t("pickTime")}
+              clearLabel={clearLabel}
+            />
+          )}
         />
       </div>
     </div>

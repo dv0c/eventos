@@ -3,6 +3,8 @@ import QRCode from "qrcode";
 
 import { apiError, handleServiceError } from "@/lib/api-response";
 import { prisma } from "@/server/db";
+import { isEventEnded } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventRepository } from "@/server/repositories/event.repository";
 
 interface RouteContext {
@@ -17,6 +19,11 @@ export async function GET(_request: Request, context: RouteContext) {
 
     if (!event) {
       return apiError("Event not found", "EVENT_NOT_FOUND", 404);
+    }
+
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
+      return apiError("Event has ended", "EVENT_ENDED", 403);
     }
 
     if (!event.settings?.enableWall) {

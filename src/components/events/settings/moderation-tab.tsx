@@ -18,7 +18,13 @@ import {
 } from "@/server/events/wall-settings";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
 
-export function ModerationTab({ event }: { event: EventWithRelations }) {
+export function ModerationTab({
+  event,
+  onManageCollaborators,
+}: {
+  event: EventWithRelations;
+  onManageCollaborators: () => void;
+}) {
   const t = useTranslations("eventWorkspace.settings");
   const [isSaving, setIsSaving] = useState(false);
   const [enableVoiceWishes, setEnableVoiceWishes] = useState(
@@ -312,7 +318,10 @@ export function ModerationTab({ event }: { event: EventWithRelations }) {
         />
       </SettingsRow>
 
-      <ModeratorInviteSection eventId={event.id} />
+      <ModeratorInviteSection
+        eventId={event.id}
+        onManageCollaborators={onManageCollaborators}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ export const DEFAULT_PLANS = [
     sortOrder: 0,
     limits: {
       maxEvents: 1,
+      maxOrgs: 1,
       maxGuests: 50,
       maxStorage: 500,
       maxCollaborators: 1,
@@ -25,6 +26,7 @@ export const DEFAULT_PLANS = [
     sortOrder: 1,
     limits: {
       maxEvents: 5,
+      maxOrgs: 1,
       maxGuests: 200,
       maxStorage: 5000,
       maxCollaborators: 3,
@@ -41,6 +43,7 @@ export const DEFAULT_PLANS = [
     sortOrder: 2,
     limits: {
       maxEvents: 25,
+      maxOrgs: 3,
       maxGuests: 1000,
       maxStorage: 25000,
       maxCollaborators: 10,
@@ -57,6 +60,7 @@ export const DEFAULT_PLANS = [
     sortOrder: 3,
     limits: {
       maxEvents: 100,
+      maxOrgs: 10,
       maxGuests: 5000,
       maxStorage: 100000,
       maxCollaborators: 25,
@@ -73,6 +77,7 @@ export const DEFAULT_PLANS = [
     sortOrder: 4,
     limits: {
       maxEvents: -1,
+      maxOrgs: -1,
       maxGuests: -1,
       maxStorage: -1,
       maxCollaborators: -1,

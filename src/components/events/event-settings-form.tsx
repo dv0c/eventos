@@ -119,7 +119,12 @@ export function EventSettingsForm({
         {tab === "general" ? <GeneralTab event={event} /> : null}
         {tab === "appearance" ? <AppearanceTab event={event} /> : null}
         {tab === "photoWall" ? <PhotoWallTab event={event} /> : null}
-        {tab === "moderation" ? <ModerationTab event={event} /> : null}
+        {tab === "moderation" ? (
+          <ModerationTab
+            event={event}
+            onManageCollaborators={() => selectTab("collaborators")}
+          />
+        ) : null}
         {tab === "collaborators" ? <CollaboratorsTab event={event} /> : null}
       </div>
     </div>

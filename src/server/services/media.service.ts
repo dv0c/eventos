@@ -1,10 +1,12 @@
-import { AuditAction, MediaStatus, type Prisma } from "@prisma/client";
+import { AuditAction, EventStatus, MediaStatus, type Prisma } from "@prisma/client";
 import { nanoid } from "nanoid";
 import sharp from "sharp";
 
 import { WALL_REACTION_EMOJIS } from "@/lib/wall-reactions";
 import { isAlbumChallengeId } from "@/lib/album-challenges";
 import { prisma } from "@/server/db";
+import { isEventEnded } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import {
   getAppearanceFromSections,
   getModerationFromSections,
@@ -102,16 +104,37 @@ async function getEventByUploadToken(uploadToken: string) {
   });
 }
 
+async function assertGuestConnectAllowed(event: {
+  id: string;
+  status: EventStatus;
+  date: Date;
+  endTime?: string | null;
+}) {
+  if (!isEventEnded(event)) {
+    return;
+  }
+  await revokeGuestConnectIfEnded(event.id);
+  throw new MediaServiceError("Event has ended", 403, "EVENT_ENDED");
+}
+
 async function ensureUploadToken(eventId: string): Promise<string> {
-  const settings = await prisma.eventSettings.findUnique({
-    where: { eventId },
+  const event = await prisma.event.findFirst({
+    where: { id: eventId, deletedAt: null },
+    select: {
+      status: true,
+      date: true,
+      endTime: true,
+      settings: true,
+    },
   });
 
-  if (!settings) {
+  if (!event?.settings) {
     throw new MediaServiceError("Event settings not found", 404, "SETTINGS_NOT_FOUND");
   }
 
-  const sections = (settings.sections ?? {}) as EventSections;
+  await assertGuestConnectAllowed({ id: eventId, ...event });
+
+  const sections = (event.settings.sections ?? {}) as EventSections;
 
   if (sections.mediaUploadToken) {
     return sections.mediaUploadToken;
@@ -147,6 +170,11 @@ export const mediaService = {
       return null;
     }
 
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
+      return null;
+    }
+
     const uploadToken = await ensureUploadToken(event.id);
 
     return {
@@ -169,6 +197,8 @@ export const mediaService = {
     if (!event) {
       throw new MediaServiceError("Invalid upload token", 404, "INVALID_TOKEN");
     }
+
+    await assertGuestConnectAllowed(event);
 
     if (!event.settings?.enableGallery) {
       throw new MediaServiceError("Gallery uploads are disabled", 403, "GALLERY_DISABLED");
@@ -448,6 +478,11 @@ export const mediaService = {
       return [];
     }
 
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
+      return [];
+    }
+
     const storage = getStorageProvider();
 
     const items = await prisma.media.findMany({
@@ -548,6 +583,8 @@ export const mediaService = {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
+    await assertGuestConnectAllowed(event);
+
     const moderation = getModerationFromSections(event.settings.sections);
     const wall = getWallSettingsFromSections(event.settings.sections);
 
@@ -605,6 +642,8 @@ export const mediaService = {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
+    await assertGuestConnectAllowed(event);
+
     const moderation = getModerationFromSections(event.settings.sections);
 
     if (moderation.albumPermission === "upload_only") {
@@ -630,6 +669,8 @@ export const mediaService = {
     if (!event?.settings || event.settings.isPublic !== true) {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
+
+    await assertGuestConnectAllowed(event);
 
     const moderation = getModerationFromSections(event.settings.sections);
     const wall = getWallSettingsFromSections(event.settings.sections);

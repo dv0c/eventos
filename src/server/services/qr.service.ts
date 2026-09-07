@@ -2,6 +2,11 @@ import { AuditAction, QRCodeType } from "@prisma/client";
 import QRCode from "qrcode";
 
 import { prisma } from "@/server/db";
+import { isEventEnded } from "@/server/events/event-ended";
+import {
+  GUEST_QR_TYPES,
+  revokeGuestConnectIfEnded,
+} from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
 import { mediaService } from "@/server/services/media.service";
@@ -108,12 +113,20 @@ export const qrService = {
       where: { id: eventId, deletedAt: null },
       select: {
         slug: true,
+        status: true,
+        date: true,
+        endTime: true,
         organization: { select: { slug: true } },
       },
     });
 
     if (!event) {
       throw new QrServiceError("Event not found", 404, "EVENT_NOT_FOUND");
+    }
+
+    if (isEventEnded(event) && GUEST_QR_TYPES.includes(type)) {
+      await revokeGuestConnectIfEnded(eventId);
+      throw new QrServiceError("Event has ended", 410, "EVENT_ENDED");
     }
 
     const code = await prisma.qRCode.findFirst({
@@ -154,6 +167,9 @@ export const qrService = {
       where: { id: eventId, deletedAt: null },
       select: {
         slug: true,
+        status: true,
+        date: true,
+        endTime: true,
         organization: { select: { slug: true } },
       },
     });
@@ -162,8 +178,16 @@ export const qrService = {
       throw new QrServiceError("Event not found", 404, "EVENT_NOT_FOUND");
     }
 
+    const ended = isEventEnded(event);
+    if (ended) {
+      await revokeGuestConnectIfEnded(eventId);
+    }
+
     const codes = await prisma.qRCode.findMany({
-      where: { eventId },
+      where: {
+        eventId,
+        ...(ended ? { type: { notIn: GUEST_QR_TYPES } } : {}),
+      },
       orderBy: { type: "asc" },
     });
 
@@ -196,6 +220,9 @@ export const qrService = {
       where: { id: eventId, deletedAt: null },
       select: {
         slug: true,
+        status: true,
+        date: true,
+        endTime: true,
         organization: { select: { slug: true } },
       },
     });
@@ -204,8 +231,22 @@ export const qrService = {
       throw new QrServiceError("Event not found", 404, "EVENT_NOT_FOUND");
     }
 
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(eventId);
+      if (type && GUEST_QR_TYPES.includes(type)) {
+        throw new QrServiceError(
+          "Guest QR codes cannot be created after the event ends",
+          403,
+          "EVENT_ENDED",
+        );
+      }
+    }
+
+    const ended = isEventEnded(event);
     const orgSlug = event.organization.slug;
-    const types = type ? [type] : ALL_QR_TYPES;
+    const types = type
+      ? [type]
+      : ALL_QR_TYPES.filter((t) => !ended || !GUEST_QR_TYPES.includes(t));
     const storage = getStorageProvider();
     const results: QrCodeWithUrl[] = [];
 

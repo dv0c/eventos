@@ -41,9 +41,11 @@ export function VoiceWishesPanel({ eventId, className }: VoiceWishesPanelProps) 
         return;
       }
       const json = await response.json();
+      const isUnlocked = Boolean(json.data.unlocked);
       setCount(json.data.count ?? 0);
-      setUnlocked(Boolean(json.data.unlocked));
-      setItems(json.data.items ?? []);
+      setUnlocked(isUnlocked);
+      // Never keep playable items while sealed — counter only until event ends.
+      setItems(isUnlocked ? (json.data.items ?? []) : []);
     } catch {
       toast.error(t("loadError"));
     }
@@ -73,6 +75,8 @@ export function VoiceWishesPanel({ eventId, className }: VoiceWishesPanelProps) 
     setDeletingId(null);
   }
 
+  const showPlayers = !loading && unlocked;
+
   return (
     <section
       className={cn(
@@ -101,11 +105,15 @@ export function VoiceWishesPanel({ eventId, className }: VoiceWishesPanelProps) 
         </div>
       </div>
 
-      {!loading && unlocked && items.length === 0 ? (
+      {!loading && !unlocked ? (
+        <p className="mt-4 text-sm text-muted-foreground">{t("sealedHint")}</p>
+      ) : null}
+
+      {showPlayers && items.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">{t("empty")}</p>
       ) : null}
 
-      {!loading && unlocked && items.length > 0 ? (
+      {showPlayers && items.length > 0 ? (
         <ul className="mt-4 space-y-3">
           {items.map((item) => (
             <li

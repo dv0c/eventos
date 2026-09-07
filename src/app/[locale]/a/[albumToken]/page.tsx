@@ -1,9 +1,10 @@
+import { getTranslations } from "next-intl/server";
 import { notFound, redirect } from "next/navigation";
 
 import { PublicAlbumShell } from "@/components/media/album/public-album-feed";
+import { prisma } from "@/server/db";
 import { getAppearanceFromSections } from "@/server/events/wall-settings";
 import { mediaService, MediaServiceError } from "@/server/services/media.service";
-import { prisma } from "@/server/db";
 
 interface AlbumTokenPageProps {
   params: Promise<{ locale: string; albumToken: string }>;
@@ -16,6 +17,7 @@ export default async function AlbumTokenPage({
 }: AlbumTokenPageProps) {
   const { locale, albumToken } = await params;
   const { tab } = await searchParams;
+  const t = await getTranslations("events");
 
   try {
     const access = await mediaService.getAlbumAccessByToken(albumToken);
@@ -44,6 +46,20 @@ export default async function AlbumTokenPage({
     );
   } catch (error) {
     if (error instanceof MediaServiceError) {
+      if (error.code === "EVENT_ENDED") {
+        return (
+          <div className="flex min-h-screen items-center justify-center bg-background px-4">
+            <div className="max-w-md text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {t("lifecycle.ended")}
+              </h1>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {t("lifecycle.endedGuestMessage")}
+              </p>
+            </div>
+          </div>
+        );
+      }
       notFound();
     }
     throw error;

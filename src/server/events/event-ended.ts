@@ -1,14 +1,16 @@
 import { EventStatus } from "@prisma/client";
 
+export type EventLifecycle = "waiting" | "active" | "ended";
+
 /**
  * Parse "HH:mm" or "HH:mm:ss" into hours/minutes. Returns null if invalid.
  */
-function parseEndTime(endTime: string | null | undefined): {
+function parseClockTime(value: string | null | undefined): {
   hours: number;
   minutes: number;
 } | null {
-  if (!endTime?.trim()) return null;
-  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(endTime.trim());
+  if (!value?.trim()) return null;
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(value.trim());
   if (!match) return null;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
@@ -23,6 +25,34 @@ function parseEndTime(endTime: string | null | undefined): {
     return null;
   }
   return { hours, minutes };
+}
+
+export function getEventStartAt(event: {
+  date: Date;
+  startTime?: string | null;
+}): Date {
+  const start = new Date(event.date);
+  const parsed = parseClockTime(event.startTime);
+  if (parsed) {
+    start.setHours(parsed.hours, parsed.minutes, 0, 0);
+  } else {
+    start.setHours(0, 0, 0, 0);
+  }
+  return start;
+}
+
+export function getEventEndAt(event: {
+  date: Date;
+  endTime?: string | null;
+}): Date {
+  const end = new Date(event.date);
+  const parsed = parseClockTime(event.endTime);
+  if (parsed) {
+    end.setHours(parsed.hours, parsed.minutes, 0, 0);
+  } else {
+    end.setHours(23, 59, 59, 999);
+  }
+  return end;
 }
 
 /**
@@ -41,13 +71,23 @@ export function isEventEnded(event: {
     return true;
   }
 
-  const end = new Date(event.date);
-  const parsed = parseEndTime(event.endTime);
-  if (parsed) {
-    end.setHours(parsed.hours, parsed.minutes, 0, 0);
-  } else {
-    end.setHours(23, 59, 59, 999);
-  }
+  return Date.now() > getEventEndAt(event).getTime();
+}
 
-  return Date.now() > end.getTime();
+/**
+ * Product-facing lifecycle: Waiting / Active / Ended (not Draft/Planning/etc.).
+ */
+export function getEventLifecycle(event: {
+  status: EventStatus;
+  date: Date;
+  startTime?: string | null;
+  endTime?: string | null;
+}): EventLifecycle {
+  if (isEventEnded(event)) {
+    return "ended";
+  }
+  if (Date.now() < getEventStartAt(event).getTime()) {
+    return "waiting";
+  }
+  return "active";
 }

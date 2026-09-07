@@ -21,6 +21,7 @@
     "continue": "Continue",
     "confirm": "Confirm",
     "close": "Close",
+    "clear": "Clear",
     "error": "Something went wrong",
     "saved": "Saved successfully",
     "yes": "Yes",
@@ -431,6 +432,12 @@
       "completed": "Completed",
       "archived": "Archived"
     },
+    "lifecycle": {
+      "waiting": "Waiting",
+      "active": "Active",
+      "ended": "Ended",
+      "endedGuestMessage": "This event has ended. Guest links and QR codes are no longer available."
+    },
     "details": "Event details",
     "overview": "Overview",
     "guests": "Guests",
@@ -659,6 +666,10 @@
       "statusReady": "Your event is ready to receive memories.",
       "statusPending": "{count, plural, one {# upload waiting for approval.} other {# uploads waiting for approval.}}",
       "statusInactive": "Album and photo wall are currently disabled.",
+      "statusEnded": "This event has ended. Guest QR codes and album links are closed.",
+      "lifecycleEnded": "Ended",
+      "shareClosedTitle": "Guest linking closed",
+      "shareClosedSubtitle": "This event has ended. QR codes and share links have been removed so guests can no longer connect.",
       "shareEvent": "Share Event",
       "openAlbum": "Open Album",
       "openWall": "Open Photo Wall",
@@ -725,6 +736,7 @@
       "title": "Voice wishes",
       "loading": "Loading wishes…",
       "sealedCount": "{count, plural, one {# sealed wish waiting until the event ends} other {# sealed wishes waiting until the event ends}}",
+      "sealedHint": "Wishes stay sealed until the event ends. You can listen then.",
       "unlockedDesc": "{count, plural, one {# voice wish from your guests} other {# voice wishes from your guests}}",
       "empty": "No voice wishes yet.",
       "anonymous": "Guest",
@@ -876,15 +888,13 @@
       "removeFailed": "Could not remove collaborator",
       "removed": "Collaborator removed",
       "saveFailed": "Could not save changes",
-      "modInvitesTitle": "Moderator invitations",
-      "modInvitesDesc": "Invite people to approve and manage guest uploads. They must sign in with an Eventos account using the invited email.",
+      "modInvitesTitle": "Moderator access",
+      "modInvitesDesc": "Editors invited under Collaborators can approve and manage guest uploads in the Moderator app.",
       "modAppLink": "Moderator app link",
-      "modAccountRequired": "Recipients need an Eventos account. Share this link after inviting them.",
+      "modAccountRequired": "Share this link after inviting someone as an Editor in Collaborators. They need an Eventos account with that email.",
       "copyModLink": "Copy link",
       "modLinkCopied": "Moderator link copied",
-      "modLinkCopyFailed": "Could not copy link",
-      "inviteModerator": "Invite moderator",
-      "noModerators": "No moderators invited yet."
+      "modLinkCopyFailed": "Could not copy link"
     }
   },
   "errors": {
@@ -1009,6 +1019,14 @@
       "guests": "Guest expectations",
       "finish": "Review & create"
     },
+    "sideTips": {
+      "type": "Pick the celebration type first — everything else adapts to it.",
+      "details": "A clear name and date help guests recognize your event instantly.",
+      "location": "Add a venue or address so invitations point people the right way.",
+      "people": "Hosts and guest counts keep planning and seating realistic.",
+      "theme": "Colors set the mood for your invite and album pages.",
+      "review": "Double-check the essentials — you can refine details anytime."
+    },
     "stepQuestions": {
       "type": {
         "title": "What are you planning?",
@@ -1096,6 +1114,8 @@
     "locationSearching": "Searching...",
     "descriptionPlaceholder": "A few words about your event (optional)",
     "endTime": "End time",
+    "pickDate": "Pick a date",
+    "pickTime": "Pick a time",
     "address": "Address",
     "hostName": "Host name",
     "hostPhone": "Host phone",
@@ -1127,7 +1147,7 @@
     "coverUploadSuccess": "Cover uploaded successfully",
     "coverUploadError": "Failed to upload cover",
     "preview": "Preview",
-    "reviewNote": "Your event will be created as a draft. You can invite collaborators and refine details anytime.",
+    "reviewNote": "Your event will be ready right away. Guests can connect once you share the link, and you can refine details anytime.",
     "createEvent": "Create event",
     "creating": "Creating...",
     "submitSuccess": "Event created successfully",

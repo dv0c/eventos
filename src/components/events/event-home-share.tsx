@@ -21,16 +21,27 @@ interface EventHomeShareProps {
   eventId: string;
   eventSlug: string;
   enableGallery: boolean;
+  ended?: boolean;
 }
 
-export function EventHomeShare({ eventId, eventSlug, enableGallery }: EventHomeShareProps) {
+export function EventHomeShare({
+  eventId,
+  eventSlug,
+  enableGallery,
+  ended = false,
+}: EventHomeShareProps) {
   const t = useTranslations("eventWorkspace.home");
   const tHub = useTranslations("events.mediaHub");
   const sectionId = useId();
   const [uploadCode, setUploadCode] = useState<QrCodeItem | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!ended);
 
   const loadQrCodes = useCallback(async () => {
+    if (ended) {
+      setUploadCode(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch(`/api/events/${eventId}/qr`);
@@ -43,7 +54,7 @@ export function EventHomeShare({ eventId, eventSlug, enableGallery }: EventHomeS
       toast.error(tHub("loadError"));
     }
     setIsLoading(false);
-  }, [eventId, tHub]);
+  }, [ended, eventId, tHub]);
 
   useEffect(() => {
     void loadQrCodes();
@@ -68,6 +79,24 @@ export function EventHomeShare({ eventId, eventSlug, enableGallery }: EventHomeS
     } catch {
       // user cancelled share or clipboard failed
     }
+  }
+
+  if (ended) {
+    return (
+      <section id="share-with-guests" aria-labelledby={sectionId} className="dashboard-section">
+        <div className="dashboard-surface p-5 sm:p-6">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("lifecycleEnded")}
+            </p>
+            <h2 id={sectionId} className="text-lg font-semibold tracking-tight text-foreground">
+              {t("shareClosedTitle")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("shareClosedSubtitle")}</p>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (

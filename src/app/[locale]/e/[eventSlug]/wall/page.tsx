@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { LiveWall } from "@/components/media/live-wall";
 import { prisma } from "@/server/db";
 import { getEventAdminContext } from "@/server/events/event-admin";
+import { isEventEnded } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventRepository } from "@/server/repositories/event.repository";
 
 interface PublicEventWallPageProps {
@@ -15,6 +17,11 @@ export default async function PublicEventWallPage({ params }: PublicEventWallPag
   const event = await eventRepository.findBySlugPublic(eventSlug);
 
   if (!event) {
+    notFound();
+  }
+
+  if (isEventEnded(event)) {
+    await revokeGuestConnectIfEnded(event.id);
     notFound();
   }
 

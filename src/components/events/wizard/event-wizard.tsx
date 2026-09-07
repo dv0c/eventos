@@ -46,6 +46,7 @@ export function EventWizard() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const formScrollRef = useRef<HTMLDivElement>(null);
+  const submittingRef = useRef(false);
 
   const form = useForm<WizardFormData>({
     resolver: zodResolver(wizardSchema),
@@ -82,6 +83,8 @@ export function EventWizard() {
   }, [step]);
 
   async function onSubmit(data: WizardFormData) {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -118,6 +121,7 @@ export function EventWizard() {
 
       if (!response.ok) {
         toast.error(result.error?.message ?? t("submitError"));
+        submittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
@@ -131,6 +135,7 @@ export function EventWizard() {
       }
     } catch {
       toast.error(t("submitError"));
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -244,6 +249,9 @@ export function EventWizard() {
   return (
     <WizardShell
       step={currentStepId}
+      steps={steps}
+      currentStep={step}
+      stepLabels={stepLabels}
       eventType={eventType}
       headline={headline}
       subheadline={resolvedSubheadline}
@@ -275,11 +283,22 @@ export function EventWizard() {
             {tCommon("previous")}
           </Button>
           {step < steps.length - 1 ? (
-            <Button type="button" variant="gold" onClick={() => void nextStep()}>
+            <Button
+              key="wizard-next"
+              type="button"
+              variant="gold"
+              onClick={() => void nextStep()}
+            >
               {tCommon("next")}
             </Button>
           ) : (
-            <Button type="submit" variant="gold" disabled={isSubmitting}>
+            <Button
+              key="wizard-create"
+              type="button"
+              variant="gold"
+              disabled={isSubmitting}
+              onClick={() => void form.handleSubmit(onSubmit)()}
+            >
               {isSubmitting ? t("creating") : t("createEvent")}
             </Button>
           )}

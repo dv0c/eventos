@@ -251,8 +251,10 @@ html.org-app [role="option"]:focus {
     animation: wizard-form-in 0.28s ease-out forwards;
   }
 
-  .wizard-worm-progress {
-    transition: stroke-dashoffset 300ms ease-out;
+  .wizard-track-progress {
+    transition:
+      width 300ms ease-out,
+      left 300ms ease-out;
   }
 
   .dashboard-stat-enter {
@@ -562,7 +564,7 @@ html.org-app [role="option"]:focus {
     transform: none;
   }
 
-  .wizard-worm-progress {
+  .wizard-track-progress {
     transition: none;
   }
 

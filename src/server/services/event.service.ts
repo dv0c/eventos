@@ -82,7 +82,7 @@ export const eventService = {
     ipAddress?: string,
   ): Promise<EventWithRelations> {
     await enforceOrganizationAccess(userId, input.organizationId, "event:create");
-    await planLimitsService.assertWithinLimit(input.organizationId, "events");
+    await planLimitsService.assertEventCreateAllowed(userId, input.organizationId);
 
     const slug = await generateUniqueEventSlug(input.name, (candidate) =>
       eventRepository.slugExists(candidate),

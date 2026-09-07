@@ -6,6 +6,8 @@ import { EventMediaHubCards } from "@/components/events/event-media-hub-cards";
 import { EventCountdown } from "@/components/events/event-countdown";
 import { formatDate } from "@/lib/format";
 import { getEventAdminContext } from "@/server/events/event-admin";
+import { getEventLifecycle, isEventEnded } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventRepository } from "@/server/repositories/event.repository";
 
 interface PublicEventPageProps {
@@ -15,6 +17,7 @@ interface PublicEventPageProps {
 export default async function PublicEventPage({ params }: PublicEventPageProps) {
   const { locale, eventSlug } = await params;
   const t = await getTranslations("publicEvent");
+  const tEvents = await getTranslations("events");
 
   const event = await eventRepository.findBySlugPublic(eventSlug);
 
@@ -22,6 +25,12 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
     notFound();
   }
 
+  if (isEventEnded(event)) {
+    await revokeGuestConnectIfEnded(event.id);
+  }
+
+  const lifecycle = getEventLifecycle(event);
+  const ended = lifecycle === "ended";
   const { canEdit } = await getEventAdminContext(event.id);
   const callbackUrl = `/${locale}/e/${eventSlug}`;
 
@@ -38,6 +47,11 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
       >
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{event.name}</h1>
+          {ended ? (
+            <p className="mt-3 text-sm font-medium uppercase tracking-wide text-white/85">
+              {tEvents("lifecycle.ended")}
+            </p>
+          ) : null}
           {event.description ? (
             <p className="mt-4 text-base text-white/90">{event.description}</p>
           ) : null}
@@ -55,23 +69,31 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
             ) : null}
           </div>
 
-          <div className="mt-8">
-            <EventCountdown targetDate={event.date.toISOString()} />
-          </div>
+          {!ended ? (
+            <div className="mt-8">
+              <EventCountdown targetDate={event.date.toISOString()} />
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-4 py-10">
-        <EventMediaHubCards
-          eventId={canEdit ? event.id : undefined}
-          eventSlug={eventSlug}
-          enableGallery={event.settings?.enableGallery ?? false}
-          enableWall={event.settings?.enableWall ?? false}
-          canEdit={canEdit}
-          callbackUrl={callbackUrl}
-          variant="public"
-        />
-      </section>
+      {!ended ? (
+        <section className="mx-auto max-w-5xl px-4 py-10">
+          <EventMediaHubCards
+            eventId={canEdit ? event.id : undefined}
+            eventSlug={eventSlug}
+            enableGallery={event.settings?.enableGallery ?? false}
+            enableWall={event.settings?.enableWall ?? false}
+            canEdit={canEdit}
+            callbackUrl={callbackUrl}
+            variant="public"
+          />
+        </section>
+      ) : (
+        <section className="mx-auto max-w-3xl px-4 py-10 text-center">
+          <p className="text-muted-foreground">{tEvents("lifecycle.ended")}</p>
+        </section>
+      )}
 
       {event.address ? (
         <section className="mx-auto max-w-3xl px-4 pb-16 text-center">

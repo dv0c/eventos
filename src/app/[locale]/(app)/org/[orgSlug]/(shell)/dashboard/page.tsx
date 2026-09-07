@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import type { EventTimeframe } from "@/server/repositories/event.repository";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
+import { getEventLifecycle } from "@/server/events/event-ended";
 import { clientService } from "@/server/services/client.service";
 import { eventService } from "@/server/services/event.service";
 
@@ -179,7 +180,7 @@ export default async function DashboardPage({
                       variant="secondary"
                       className="bg-primary/10 text-primary hover:bg-primary/10"
                     >
-                      {tEvents(`statuses.${event.status.toLowerCase()}` as "statuses.draft")}
+                      {tEvents(`lifecycle.${getEventLifecycle(event)}`)}
                     </Badge>
                   </div>
                   {event.client ? (

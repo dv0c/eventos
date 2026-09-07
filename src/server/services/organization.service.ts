@@ -17,6 +17,7 @@ import { enforceOrganizationAccess } from "@/server/permissions/enforce";
 import { organizationRepository } from "@/server/repositories/organization.repository";
 
 import { auditService } from "./audit.service";
+import { PlanLimitError, planLimitsService } from "./plan-limits.service";
 
 const DEFAULT_PLAN_SLUG = "free";
 const INVITE_EXPIRY_DAYS = 7;
@@ -55,6 +56,19 @@ export const organizationService = {
     input: CreateOrganizationInput,
     ipAddress?: string,
   ): Promise<Organization> {
+    try {
+      await planLimitsService.assertCanCreateOrganization(userId);
+    } catch (error) {
+      if (error instanceof PlanLimitError) {
+        throw new OrganizationServiceError(
+          error.message,
+          error.statusCode,
+          error.code,
+        );
+      }
+      throw error;
+    }
+
     const plan = await prisma.plan.findFirst({
       where: {
         slug: input.planSlug ?? DEFAULT_PLAN_SLUG,
