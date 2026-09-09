@@ -63,7 +63,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const t = useTranslations("auth");
   const tNav = useTranslations("nav");
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
 
   return (
     <header

@@ -471,6 +471,7 @@ model Event {
   status         EventStatus @default(DRAFT)
   description    String?     @db.Text
   date           DateTime
+  endDate        DateTime?
   startTime      String?
   endTime        String?
   location       String?
@@ -505,6 +506,7 @@ model Event {
   songRequests   SongRequest[]
   qrCodes        QRCode[]
   auditLogs      AuditLog[]
+  games          EventGame[]
 
   @@index([organizationId])
   @@index([slug])
@@ -512,6 +514,26 @@ model Event {
   @@index([date])
   @@index([createdAt])
   @@map("events")
+}
+
+model EventGame {
+  id          String   @id @default(cuid())
+  eventId     String
+  title       String
+  description String?  @db.Text
+  presetKey   String?
+  sortOrder   Int      @default(0)
+  enabled     Boolean  @default(true)
+  fields      Json     @default("[]")
+  coverImage  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([eventId, sortOrder])
+  @@map("event_games")
 }
 
 model EventSettings {
@@ -1023,15 +1045,17 @@ model SongRequest {
 }
 
 model MediaReaction {
-  id        String   @id @default(cuid())
-  mediaId   String
-  eventId   String
-  emoji     String
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  mediaId    String
+  eventId    String
+  emoji      String
+  reactorKey String
+  createdAt  DateTime @default(now())
 
   media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
+  @@unique([mediaId, reactorKey])
   @@index([mediaId])
   @@index([eventId])
   @@index([createdAt])

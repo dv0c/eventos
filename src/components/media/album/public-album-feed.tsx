@@ -28,8 +28,8 @@ import { Label } from "@/components/ui/label";
 import {
   ALBUM_CHALLENGES,
   isAlbumChallengeId,
-  type AlbumChallengeId,
 } from "@/lib/album-challenges";
+import { getOrCreateAlbumReactorKey } from "@/lib/album-reactor";
 import { WALL_REACTION_EMOJIS } from "@/lib/wall-reactions";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +42,14 @@ export interface AlbumFeedItem {
   challengeId: string | null;
   createdAt: string;
   reactionCounts: Record<string, number>;
+}
+
+interface AlbumFeedGame {
+  id: string;
+  title: string;
+  description: string | null;
+  presetKey: string | null;
+  coverImage: string | null;
 }
 
 interface AlbumFeedData {
@@ -70,6 +78,7 @@ interface AlbumFeedData {
   branding?: {
     watermarkUrl: string | null;
   };
+  games?: AlbumFeedGame[];
   items: AlbumFeedItem[];
 }
 
@@ -79,6 +88,8 @@ interface PublicAlbumShellProps {
   albumToken: string;
   uploadToken: string | null;
   initialTab?: AlbumTab;
+  /** Hide feed/games (and other browse tabs); upload-only permission mode */
+  uploadOnly?: boolean;
 }
 
 const GUEST_NAME_KEY = (token: string) => `eventos-guest-name:${token}`;
@@ -91,16 +102,19 @@ export function PublicAlbumShell({
   albumToken,
   uploadToken,
   initialTab = "feed",
+  uploadOnly = false,
 }: PublicAlbumShellProps) {
   const t = useTranslations("publicEvent");
   const [tab, setTab] = useState<AlbumTab>(
-    initialTab === "upload"
+    uploadOnly
       ? "upload"
-      : initialTab === "games"
-        ? "games"
-        : initialTab === "music"
-          ? "music"
-          : "feed",
+      : initialTab === "upload"
+        ? "upload"
+        : initialTab === "games"
+          ? "games"
+          : initialTab === "music"
+            ? "music"
+            : "feed",
   );
   const [feed, setFeed] = useState<AlbumFeedData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -111,9 +125,7 @@ export function PublicAlbumShell({
   const [nameError, setNameError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
-  const [activeChallenge, setActiveChallenge] = useState<AlbumChallengeId | null>(
-    null,
-  );
+  const [activeChallenge, setActiveChallenge] = useState<string | null>(null);
 
   useEffect(() => {
     if (!nameReady) return;
@@ -232,36 +244,23 @@ export function PublicAlbumShell({
   async function handleReact(mediaId: string, emoji: string) {
     if (!feed?.reactionsEnabled) return;
 
-    setFeed((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        items: prev.items.map((item) => {
-          if (item.id !== mediaId) return item;
-          return {
-            ...item,
-            reactionCounts: {
-              ...item.reactionCounts,
-              [emoji]: (item.reactionCounts[emoji] ?? 0) + 1,
-            },
-          };
-        }),
-      };
-    });
+    const reactorKey = getOrCreateAlbumReactorKey();
+    if (!reactorKey) return;
 
     try {
       const response = await fetch(`/api/public/album/${albumToken}/react`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaId, emoji }),
+        body: JSON.stringify({ mediaId, emoji, reactorKey }),
       });
-      if (!response.ok) void loadFeed();
+      void loadFeed();
+      if (!response.ok) return;
     } catch {
       void loadFeed();
     }
   }
 
-  function startChallenge(id: AlbumChallengeId) {
+  function startChallenge(id: string) {
     setActiveChallenge(id);
     setTab("upload");
   }
@@ -384,8 +383,8 @@ export function PublicAlbumShell({
   }
 
   const showUpload = Boolean(feed.canUpload && uploadToken);
-  const showWishes = feed.enableVoiceWishes !== false;
-  const showMusic = feed.enableSongRequests !== false;
+  const showWishes = !uploadOnly && feed.enableVoiceWishes !== false;
+  const showMusic = !uploadOnly && feed.enableSongRequests !== false;
   const primaryColor = feed.theme?.primaryColor;
   const logoUrl = feed.theme?.logoUrl;
   const watermarkUrl = feed.branding?.watermarkUrl ?? null;
@@ -452,14 +451,38 @@ export function PublicAlbumShell({
           data-app-scroll
           className={cn(
             "flex min-h-0 flex-1 flex-col overscroll-none outline-none",
-            tab === "upload" ? "overflow-hidden" : "overflow-y-auto",
+            uploadOnly || tab === "upload" ? "overflow-hidden" : "overflow-y-auto",
           )}
           style={{
             paddingTop: "calc(3.5rem + env(safe-area-inset-top))",
             paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom))",
           }}
         >
-          {tab === "feed" ? (
+          {uploadOnly || tab === "upload" ? (
+            showUpload && uploadToken ? (
+              <PublicUploadForm
+                uploadToken={uploadToken}
+                eventName={feed.eventName}
+                defaultUploadedBy={guestName ?? undefined}
+                hideNameField
+                challengeId={activeChallenge}
+                onClearChallenge={() => setActiveChallenge(null)}
+                native
+                allowPhotos={feed.allowPhotos !== false}
+                allowVideos={feed.allowVideos !== false}
+                primaryColor={primaryColor}
+                onUploaded={() => {
+                  void loadFeed();
+                  setActiveChallenge(null);
+                  if (!uploadOnly) setTab("feed");
+                }}
+              />
+            ) : (
+              <div className="px-6 py-24 text-center text-sm text-white/70">
+                {t("albumUploadDisabled")}
+              </div>
+            )
+          ) : tab === "feed" ? (
             feed.items.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center text-white">
                 <p className="text-lg font-medium">{t("albumEmpty")}</p>
@@ -496,13 +519,36 @@ export function PublicAlbumShell({
                 <p className="mt-1 text-sm text-white/60">{t("albumGamesDesc")}</p>
               </div>
               <ul className="divide-y divide-white/10">
-                {ALBUM_CHALLENGES.map((challenge) => (
+                {(feed.games && feed.games.length > 0
+                  ? feed.games.map((game) => ({
+                      id: game.presetKey || game.id,
+                      title: game.title,
+                      desc: game.description ?? "",
+                      image:
+                        game.coverImage ||
+                        (game.presetKey &&
+                          ALBUM_CHALLENGES.find((c) => c.id === game.presetKey)
+                            ?.image) ||
+                        "/album/challenges/group-selfie.png",
+                    }))
+                  : ALBUM_CHALLENGES.map((challenge) => ({
+                      id: challenge.id,
+                      title: t(`albumChallenge.${challenge.id}.title`),
+                      desc: t(`albumChallenge.${challenge.id}.desc`),
+                      image: challenge.image,
+                    }))
+                ).map((challenge) => (
                   <li key={challenge.id}>
                     <button
                       type="button"
                       onClick={() => {
                         if (!showUpload) return;
-                        startChallenge(challenge.id);
+                        if (isAlbumChallengeId(challenge.id)) {
+                          startChallenge(challenge.id);
+                        } else {
+                          setActiveChallenge(null);
+                          setTab("upload");
+                        }
                       }}
                       disabled={!showUpload}
                       className="tap-press flex w-full items-center gap-3 px-4 py-4 text-left active:bg-white/5 disabled:opacity-50"
@@ -520,12 +566,8 @@ export function PublicAlbumShell({
                         />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white">
-                          {t(`albumChallenge.${challenge.id}.title`)}
-                        </p>
-                        <p className="mt-0.5 text-sm text-white/55">
-                          {t(`albumChallenge.${challenge.id}.desc`)}
-                        </p>
+                        <p className="font-semibold text-white">{challenge.title}</p>
+                        <p className="mt-0.5 text-sm text-white/55">{challenge.desc}</p>
                       </div>
                       <span className="text-sm font-medium text-amber-300">
                         {showUpload ? t("albumPlayChallenge") : t("albumUploadDisabled")}
@@ -539,24 +581,6 @@ export function PublicAlbumShell({
             <VoiceWishRecorder albumToken={albumToken} guestName={guestName} />
           ) : tab === "music" && guestName ? (
             <AlbumSongRequestPanel albumToken={albumToken} guestName={guestName} />
-          ) : showUpload && uploadToken ? (
-            <PublicUploadForm
-              uploadToken={uploadToken}
-              eventName={feed.eventName}
-              defaultUploadedBy={guestName ?? undefined}
-              hideNameField
-              challengeId={activeChallenge}
-              onClearChallenge={() => setActiveChallenge(null)}
-              native
-              allowPhotos={feed.allowPhotos !== false}
-              allowVideos={feed.allowVideos !== false}
-              primaryColor={primaryColor}
-              onUploaded={() => {
-                void loadFeed();
-                setActiveChallenge(null);
-                setTab("feed");
-              }}
-            />
           ) : (
             <div className="px-6 py-24 text-center text-sm text-white/70">
               {t("albumUploadDisabled")}
@@ -575,67 +599,80 @@ export function PublicAlbumShell({
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="mx-auto flex h-16 max-w-lg items-stretch">
-            <button
-              type="button"
-              onClick={() => setTab("feed")}
-              className={cn(
-                "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
-                tab === "feed" ? "text-white" : "text-white/45 active:text-white/75",
-              )}
-            >
-              <Images className="size-5" />
-              {t("albumNavFeed")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("games")}
-              className={cn(
-                "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
-                tab === "games" ? "text-white" : "text-white/45 active:text-white/75",
-              )}
-            >
-              <Gamepad2 className="size-5" />
-              {t("albumNavGames")}
-            </button>
-            {showWishes ? (
-              <button
-                type="button"
-                onClick={() => setTab("wishes")}
-                className={cn(
-                  "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
-                  tab === "wishes" ? "text-white" : "text-white/45 active:text-white/75",
-                )}
-              >
-                <Mic className="size-5" />
-                {t("albumNavWishes")}
-              </button>
-            ) : null}
-            {showMusic ? (
-              <button
-                type="button"
-                onClick={() => setTab("music")}
-                className={cn(
-                  "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
-                  tab === "music" ? "text-white" : "text-white/45 active:text-white/75",
-                )}
-              >
-                <Music2 className="size-5" />
-                {t("albumNavMusic")}
-              </button>
-            ) : null}
-            {showUpload ? (
+            {uploadOnly ? (
               <button
                 type="button"
                 onClick={() => setTab("upload")}
-                className={cn(
-                  "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
-                  tab === "upload" ? "text-white" : "text-white/45 active:text-white/75",
-                )}
+                className="tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium text-white transition"
               >
                 <Camera className="size-5" />
                 {t("albumNavUpload")}
               </button>
-            ) : null}
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTab("feed")}
+                  className={cn(
+                    "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
+                    tab === "feed" ? "text-white" : "text-white/45 active:text-white/75",
+                  )}
+                >
+                  <Images className="size-5" />
+                  {t("albumNavFeed")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("games")}
+                  className={cn(
+                    "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
+                    tab === "games" ? "text-white" : "text-white/45 active:text-white/75",
+                  )}
+                >
+                  <Gamepad2 className="size-5" />
+                  {t("albumNavGames")}
+                </button>
+                {showWishes ? (
+                  <button
+                    type="button"
+                    onClick={() => setTab("wishes")}
+                    className={cn(
+                      "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
+                      tab === "wishes" ? "text-white" : "text-white/45 active:text-white/75",
+                    )}
+                  >
+                    <Mic className="size-5" />
+                    {t("albumNavWishes")}
+                  </button>
+                ) : null}
+                {showMusic ? (
+                  <button
+                    type="button"
+                    onClick={() => setTab("music")}
+                    className={cn(
+                      "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
+                      tab === "music" ? "text-white" : "text-white/45 active:text-white/75",
+                    )}
+                  >
+                    <Music2 className="size-5" />
+                    {t("albumNavMusic")}
+                  </button>
+                ) : null}
+                {showUpload ? (
+                  <button
+                    type="button"
+                    onClick={() => setTab("upload")}
+                    className={cn(
+                      "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
+                      tab === "upload" ? "text-white" : "text-white/45 active:text-white/75",
+                    )}
+                  >
+                    <Camera className="size-5" />
+                    {t("albumNavUpload")}
+                  </button>
+                ) : null}
+              </>
+            )}
           </div>
         </nav>
       </div>

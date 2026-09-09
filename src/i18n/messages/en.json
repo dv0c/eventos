@@ -730,6 +730,8 @@
       "uploadPhotos": "Upload Photos",
       "uploading": "Uploading…",
       "downloadAll": "Download All",
+      "downloadZip": "Download zip",
+      "downloadZipReady": "Your download is ready",
       "upgrade": "Upgrade",
       "uploadLimit": "Upload Limit ({plan})",
       "uploadsUsed": "{used} of {limit} uploads used",
@@ -804,11 +806,14 @@
       "tabAppearance": "Appearance",
       "tabPhotoWall": "Photo Wall",
       "tabModeration": "Moderation",
+      "tabGames": "Games",
       "tabCollaborators": "Collaborators",
       "eventName": "Event Name",
       "eventNameDesc": "It'll be used through the app and will be shown to your guests.",
       "eventDate": "Event Date",
       "eventDateDesc": "Set when your event is scheduled to start.",
+      "eventSchedule": "Event schedule",
+      "eventScheduleDesc": "Set when the event starts and ends. Guest QR codes unlock at the start.",
       "eventType": "Event Type",
       "eventTypeDesc": "We'll adjust the experience according to your event type.",
       "typeWedding": "Wedding",
@@ -920,13 +925,18 @@
       "modAccountRequired": "Share this link after inviting someone as an Editor in Collaborators. They need an Eventos account with that email.",
       "copyModLink": "Copy link",
       "modLinkCopied": "Moderator link copied",
-      "modLinkCopyFailed": "Could not copy link"
+      "modLinkCopyFailed": "Could not copy link",
+      "dangerZone": "Danger zone",
+      "deleteSuccess": "Event deleted",
+      "deleteFailed": "Could not delete event",
+      "deleting": "Deleting…"
     }
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "notFound": "Page not found",
     "notFoundDesc": "The page you're looking for doesn't exist or has been moved.",
+    "backToDashboard": "Go to dashboard",
     "unauthorized": "Sign in required",
     "unauthorizedDesc": "Please sign in to continue.",
     "forbidden": "Access denied",
@@ -1036,10 +1046,11 @@
     "steps": {
       "type": "Event type",
       "details": "Event details",
+      "theme": "Set the mood",
+      "games": "Games",
+      "review": "Review & create",
       "location": "Location",
       "people": "People",
-      "theme": "Look & feel",
-      "review": "Review & create",
       "info": "Event details",
       "host": "Host information",
       "guests": "Guest expectations",
@@ -1051,6 +1062,7 @@
       "location": "Add a venue or address so invitations point people the right way.",
       "people": "Hosts and guest counts keep planning and seating realistic.",
       "theme": "Colors set the mood for your invite and album pages.",
+      "games": "Photo challenges keep guests engaged and fill your album with moments.",
       "review": "Double-check the essentials — you can refine details anytime."
     },
     "stepQuestions": {
@@ -1080,6 +1092,10 @@
       "theme": {
         "title": "Set the mood",
         "subtitle": "Pick colors that reflect the feeling of your event."
+      },
+      "games": {
+        "title": "Pick your games",
+        "subtitle": "Choose challenges guests can play in the album — or add your own."
       },
       "review": {
         "title": "Ready to create?",
@@ -1139,9 +1155,27 @@
     "locationNoResults": "No places found. You can enter the address manually.",
     "locationSearching": "Searching...",
     "descriptionPlaceholder": "A few words about your event (optional)",
+    "startDate": "Start date",
+    "startTime": "Start time",
+    "endDate": "End date",
     "endTime": "End time",
     "pickDate": "Pick a date",
     "pickTime": "Pick a time",
+    "gamesTitle": "Album games",
+    "gamesDesc": "Guests play these challenges when uploading to the album.",
+    "gamesResetPresets": "Use presets",
+    "gamesAddCustom": "Add custom",
+    "gameTitleLabel": "Game title",
+    "gameDescriptionLabel": "Description",
+    "gameEnabled": "Enabled",
+    "gameRemove": "Remove game",
+    "gamesEmpty": "No games yet. Add a custom game or load presets.",
+    "customGameDefaultTitle": "Custom game",
+    "customGamePhotoLabel": "Upload a photo",
+    "gamesSelected": "{count} games selected",
+    "gamesNone": "No games",
+    "gamesLoadFailed": "Could not load games",
+    "gamesSaveFailed": "Could not save games",
     "address": "Address",
     "hostName": "Host name",
     "hostPhone": "Host phone",
@@ -1181,6 +1215,8 @@
     "validation": {
       "nameRequired": "Please enter an event name",
       "dateRequired": "Please select a date",
+      "timeRequired": "Please select a time",
+      "endAfterStart": "End must be after the start",
       "stepIncomplete": "Please complete the required fields before continuing"
     }
   },
@@ -1682,6 +1718,7 @@
     "saveBranding": "Save branding",
     "brandingSaved": "Branding updated",
     "brandingReadOnly": "Only owners and admins can edit branding.",
+    "brandingManagedByEventos": "Whitelabel branding is managed by Eventos and unavailable in this workspace. You can still set an album watermark below.",
     "account": "Account",
     "accountDesc": "Your profile information",
     "email": "Email",

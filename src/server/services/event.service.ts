@@ -8,6 +8,7 @@ import {
 
 import { generateUniqueEventSlug } from "@/lib/slug";
 import { DEFAULT_EVENT_SETTINGS } from "@/server/events/default-settings";
+import { getEventEndAt, getEventStartAt } from "@/server/events/event-ended";
 import { prisma } from "@/server/db";
 import { enforceEventAccess, enforceOrganizationAccess } from "@/server/permissions/enforce";
 import {
@@ -18,6 +19,9 @@ import {
 
 import { auditService } from "./audit.service";
 import { mediaService } from "./media.service";
+import type { EventTimeframe } from "@/server/repositories/event.repository";
+import { planLimitsService } from "./plan-limits.service";
+import { seedDefaultGamesForEvent } from "@/server/events/event-games";
 
 export interface CreateEventWizardInput {
   organizationId: string;
@@ -25,13 +29,9 @@ export interface CreateEventWizardInput {
   type?: EventType;
   description?: string;
   date: Date;
-  startTime?: string;
-  endTime?: string;
-  location?: string;
-  address?: string;
-  hostName?: string;
-  hostPhone?: string;
-  hostEmail?: string;
+  endDate: Date;
+  startTime: string;
+  endTime: string;
   clientId?: string;
   expectedGuests?: number;
   expectedCouples?: number;
@@ -39,10 +39,16 @@ export interface CreateEventWizardInput {
   expectedVip?: number;
   settings?: Prisma.EventSettingsCreateWithoutEventInput;
   theme?: Prisma.EventThemeCreateWithoutEventInput;
+  games?: Array<{
+    title: string;
+    description?: string | null;
+    presetKey?: string | null;
+    sortOrder?: number;
+    enabled?: boolean;
+    fields?: unknown;
+    coverImage?: string | null;
+  }>;
 }
-
-import type { EventTimeframe } from "@/server/repositories/event.repository";
-import { planLimitsService } from "./plan-limits.service";
 
 export interface ListEventsInput {
   organizationId: string;
@@ -75,6 +81,27 @@ export class EventServiceError extends Error {
   }
 }
 
+function assertValidSchedule(input: {
+  date: Date;
+  endDate: Date;
+  startTime: string;
+  endTime: string;
+}) {
+  const startAt = getEventStartAt({ date: input.date, startTime: input.startTime });
+  const endAt = getEventEndAt({
+    date: input.date,
+    endDate: input.endDate,
+    endTime: input.endTime,
+  });
+  if (endAt.getTime() <= startAt.getTime()) {
+    throw new EventServiceError(
+      "Event end must be after start",
+      400,
+      "INVALID_SCHEDULE",
+    );
+  }
+}
+
 export const eventService = {
   async createEvent(
     userId: string,
@@ -83,68 +110,98 @@ export const eventService = {
   ): Promise<EventWithRelations> {
     await enforceOrganizationAccess(userId, input.organizationId, "event:create");
     await planLimitsService.assertEventCreateAllowed(userId, input.organizationId);
+    assertValidSchedule(input);
 
     const slug = await generateUniqueEventSlug(input.name, (candidate) =>
       eventRepository.slugExists(candidate),
     );
 
-    const event = await eventRepository.create({
-      organizationId: input.organizationId,
-      name: input.name.trim(),
-      slug,
-      type: input.type ?? EventType.OTHER,
-      status: EventStatus.DRAFT,
-      description: input.description ?? null,
-      date: input.date,
-      startTime: input.startTime ?? null,
-      endTime: input.endTime ?? null,
-      location: input.location ?? null,
-      address: input.address ?? null,
-      hostName: input.hostName ?? null,
-      hostPhone: input.hostPhone ?? null,
-      hostEmail: input.hostEmail ?? null,
-      clientId: input.clientId ?? null,
-      expectedGuests: input.expectedGuests ?? 0,
-      expectedCouples: input.expectedCouples ?? 0,
-      expectedChildren: input.expectedChildren ?? 0,
-      expectedVip: input.expectedVip ?? 0,
-      settings: { ...DEFAULT_EVENT_SETTINGS, ...input.settings },
-      theme: input.theme,
-    });
+    let eventId: string | null = null;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const publicBase = `${baseUrl}/el/e/${event.slug}`;
-    const albumToken = await mediaService.getUploadTokenForEvent(event.id);
+    try {
+      const event = await eventRepository.create({
+        organizationId: input.organizationId,
+        name: input.name.trim(),
+        slug,
+        type: input.type ?? EventType.OTHER,
+        status: EventStatus.DRAFT,
+        description: input.description ?? null,
+        date: input.date,
+        endDate: input.endDate,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        clientId: input.clientId ?? null,
+        expectedGuests: input.expectedGuests ?? 0,
+        expectedCouples: input.expectedCouples ?? 0,
+        expectedChildren: input.expectedChildren ?? 0,
+        expectedVip: input.expectedVip ?? 0,
+        settings: { ...DEFAULT_EVENT_SETTINGS, ...input.settings },
+        theme: input.theme,
+      });
+      eventId = event.id;
 
-    const moderationUrl = `${baseUrl}/el/mod/${event.id}`;
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const publicBase = `${baseUrl}/el/e/${event.slug}`;
+      // Token must be creatable before the event starts (QR codes for sharing).
+      const albumToken = await mediaService.getUploadTokenForEvent(event.id);
 
-    await prisma.qRCode.createMany({
-      data: [
-        { eventId: event.id, type: QRCodeType.EVENT, url: publicBase },
-        { eventId: event.id, type: QRCodeType.RSVP, url: `${publicBase}?rsvp=1` },
-        { eventId: event.id, type: QRCodeType.UPLOAD, url: `${baseUrl}/el/a/${albumToken}` },
-        { eventId: event.id, type: QRCodeType.WALL, url: `${publicBase}/wall` },
-        { eventId: event.id, type: QRCodeType.MODERATION, url: moderationUrl },
-        { eventId: event.id, type: QRCodeType.DJ, url: `${baseUrl}/el/mod/${event.id}/dj` },
-      ],
-    });
+      const moderationUrl = `${baseUrl}/el/mod/${event.id}`;
 
-    await auditService.logAudit({
-      userId,
-      organizationId: input.organizationId,
-      eventId: event.id,
-      action: AuditAction.EVENT_CREATED,
-      entity: "Event",
-      entityId: event.id,
-      metadata: {
-        name: event.name,
-        slug: event.slug,
-        type: event.type,
-      },
-      ipAddress,
-    });
+      await prisma.qRCode.createMany({
+        data: [
+          { eventId: event.id, type: QRCodeType.EVENT, url: publicBase },
+          { eventId: event.id, type: QRCodeType.RSVP, url: `${publicBase}?rsvp=1` },
+          { eventId: event.id, type: QRCodeType.UPLOAD, url: `${baseUrl}/el/a/${albumToken}` },
+          { eventId: event.id, type: QRCodeType.WALL, url: `${publicBase}/wall` },
+          { eventId: event.id, type: QRCodeType.MODERATION, url: moderationUrl },
+          { eventId: event.id, type: QRCodeType.DJ, url: `${baseUrl}/el/mod/${event.id}/dj` },
+        ],
+      });
 
-    return event;
+      if (input.games && input.games.length > 0) {
+        await prisma.eventGame.createMany({
+          data: input.games.map((game, index) => ({
+            eventId: event.id,
+            title: game.title,
+            description: game.description ?? null,
+            presetKey: game.presetKey ?? null,
+            sortOrder: game.sortOrder ?? index,
+            enabled: game.enabled ?? true,
+            fields: (game.fields ?? []) as Prisma.InputJsonValue,
+            coverImage: game.coverImage ?? null,
+          })),
+        });
+      } else {
+        await seedDefaultGamesForEvent(event.id, event.type);
+      }
+
+      await auditService.logAudit({
+        userId,
+        organizationId: input.organizationId,
+        eventId: event.id,
+        action: AuditAction.EVENT_CREATED,
+        entity: "Event",
+        entityId: event.id,
+        metadata: {
+          name: event.name,
+          slug: event.slug,
+          type: event.type,
+        },
+        ipAddress,
+      });
+
+      return event;
+    } catch (error) {
+      if (eventId) {
+        await prisma.event
+          .update({
+            where: { id: eventId },
+            data: { deletedAt: new Date() },
+          })
+          .catch(() => undefined);
+      }
+      throw error;
+    }
   },
 
   async getEventOverview(
@@ -194,5 +251,31 @@ export const eventService = {
       pageSize,
       totalPages: Math.ceil(total / pageSize),
     };
+  },
+
+  async deleteEvent(
+    userId: string,
+    eventId: string,
+    ipAddress?: string,
+  ): Promise<void> {
+    const access = await enforceEventAccess(userId, eventId, "event:delete");
+
+    const existing = await eventRepository.findById(access.organizationId, eventId);
+    if (!existing) {
+      throw new EventServiceError("Event not found", 404, "EVENT_NOT_FOUND");
+    }
+
+    await eventRepository.softDelete(access.organizationId, eventId);
+
+    await auditService.logAudit({
+      userId,
+      organizationId: access.organizationId,
+      eventId,
+      action: AuditAction.EVENT_DELETED,
+      entity: "Event",
+      entityId: eventId,
+      metadata: { deleted: true, name: existing.name },
+      ipAddress,
+    });
   },
 };

@@ -12,6 +12,7 @@ interface RouteContext {
 const reactSchema = z.object({
   mediaId: z.string().min(1),
   emoji: z.enum(WALL_REACTION_EMOJIS),
+  reactorKey: z.string().min(8).max(128),
 });
 
 export async function POST(request: Request, context: RouteContext) {
@@ -44,9 +45,10 @@ export async function POST(request: Request, context: RouteContext) {
       albumToken,
       parsed.data.mediaId,
       parsed.data.emoji,
+      parsed.data.reactorKey,
     );
 
-    return apiSuccess(reaction, 201);
+    return apiSuccess(reaction, reaction && "removed" in reaction && reaction.removed ? 200 : 201);
   } catch (error) {
     if (error instanceof MediaServiceError) {
       return apiError(error.message, error.code, error.statusCode);

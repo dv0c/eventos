@@ -104,7 +104,7 @@ export function useOptionalOrg(): OrgContextValue | null {
   return useContext(OrgContext);
 }
 
-export function useOrgPath(path: string): string {
+export function useOrgPath(): (path: string) => string {
   const { orgSlug } = useOrg();
-  return orgPath(orgSlug, path);
+  return (path: string) => orgPath(orgSlug, path);
 }

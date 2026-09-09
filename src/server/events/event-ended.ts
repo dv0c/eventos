@@ -2,6 +2,14 @@ import { EventStatus } from "@prisma/client";
 
 export type EventLifecycle = "waiting" | "active" | "ended";
 
+export type EventScheduleFields = {
+  status: EventStatus;
+  date: Date;
+  endDate?: Date | null;
+  startTime?: string | null;
+  endTime?: string | null;
+};
+
 /**
  * Parse "HH:mm" or "HH:mm:ss" into hours/minutes. Returns null if invalid.
  */
@@ -43,9 +51,10 @@ export function getEventStartAt(event: {
 
 export function getEventEndAt(event: {
   date: Date;
+  endDate?: Date | null;
   endTime?: string | null;
 }): Date {
-  const end = new Date(event.date);
+  const end = new Date(event.endDate ?? event.date);
   const parsed = parseClockTime(event.endTime);
   if (parsed) {
     end.setHours(parsed.hours, parsed.minutes, 0, 0);
@@ -57,13 +66,9 @@ export function getEventEndAt(event: {
 
 /**
  * Event is considered ended when status is COMPLETED/ARCHIVED,
- * or when the event date (plus endTime if set, else end of that day) has passed.
+ * or when the end datetime has passed.
  */
-export function isEventEnded(event: {
-  status: EventStatus;
-  date: Date;
-  endTime?: string | null;
-}): boolean {
+export function isEventEnded(event: EventScheduleFields): boolean {
   if (
     event.status === EventStatus.COMPLETED ||
     event.status === EventStatus.ARCHIVED
@@ -77,12 +82,7 @@ export function isEventEnded(event: {
 /**
  * Product-facing lifecycle: Waiting / Active / Ended (not Draft/Planning/etc.).
  */
-export function getEventLifecycle(event: {
-  status: EventStatus;
-  date: Date;
-  startTime?: string | null;
-  endTime?: string | null;
-}): EventLifecycle {
+export function getEventLifecycle(event: EventScheduleFields): EventLifecycle {
   if (isEventEnded(event)) {
     return "ended";
   }
@@ -92,12 +92,7 @@ export function getEventLifecycle(event: {
   return "active";
 }
 
-export function isEventWaiting(event: {
-  status: EventStatus;
-  date: Date;
-  startTime?: string | null;
-  endTime?: string | null;
-}): boolean {
+export function isEventWaiting(event: EventScheduleFields): boolean {
   return getEventLifecycle(event) === "waiting";
 }
 
@@ -105,11 +100,6 @@ export function isEventWaiting(event: {
  * Guest photo album upload is allowed once the event has started,
  * including after it has ended (same QR/token stays valid).
  */
-export function isGuestPhotoUploadAllowed(event: {
-  status: EventStatus;
-  date: Date;
-  startTime?: string | null;
-  endTime?: string | null;
-}): boolean {
+export function isGuestPhotoUploadAllowed(event: EventScheduleFields): boolean {
   return getEventLifecycle(event) !== "waiting";
 }

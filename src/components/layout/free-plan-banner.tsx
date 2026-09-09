@@ -12,7 +12,7 @@ import { can } from "@/server/permissions/matrix";
 export function FreePlanBanner() {
   const t = useTranslations("eventWorkspace");
   const { planSlug, orgId, orgRole } = useOrg();
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
   const storageKey = `eventos-free-banner-dismissed:${orgId}`;
   const [dismissed, setDismissed] = useState(true);
   const canManageBilling = can(orgRole, "org:manage_billing");

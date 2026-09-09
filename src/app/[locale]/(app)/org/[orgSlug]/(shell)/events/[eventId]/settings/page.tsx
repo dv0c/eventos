@@ -35,7 +35,7 @@ export default async function EventSettingsPage({ params, searchParams }: Settin
 
   return (
     <Suspense fallback={<SettingsFormSkeleton />}>
-      <EventSettingsForm event={event} initialTab={initialTab} />
+      <EventSettingsForm event={event} orgSlug={orgSlug} initialTab={initialTab} />
     </Suspense>
   );
 }

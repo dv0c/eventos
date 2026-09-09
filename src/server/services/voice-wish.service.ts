@@ -2,7 +2,7 @@ import { AuditAction, MediaStatus } from "@prisma/client";
 import { nanoid } from "nanoid";
 
 import { prisma } from "@/server/db";
-import { isEventEnded } from "@/server/events/event-ended";
+import { isEventEnded, isEventWaiting } from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
@@ -113,26 +113,25 @@ function extForMime(mimeType: string, fileName?: string): string {
   return "m4a";
 }
 
-interface EventSections {
-  mediaUploadToken?: string;
-  [key: string]: unknown;
-}
-
 async function getEventByAlbumToken(albumToken: string) {
-  const events = await prisma.event.findMany({
-    where: { deletedAt: null },
-    include: { settings: true },
+  const settings = await prisma.eventSettings.findFirst({
+    where: {
+      isPublic: true,
+      sections: {
+        path: ["mediaUploadToken"],
+        equals: albumToken,
+      },
+    },
+    include: {
+      event: true,
+    },
   });
 
-  return (
-    events.find((event) => {
-      const sections = (event.settings?.sections ?? {}) as EventSections;
-      return (
-        sections.mediaUploadToken === albumToken &&
-        event.settings?.isPublic === true
-      );
-    }) ?? null
-  );
+  if (!settings?.event || settings.event.deletedAt) {
+    return null;
+  }
+
+  return { ...settings.event, settings };
 }
 
 export const voiceWishService = {
@@ -146,6 +145,14 @@ export const voiceWishService = {
 
     if (!event?.settings) {
       throw new VoiceWishServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
+    }
+
+    if (isEventWaiting(event)) {
+      throw new VoiceWishServiceError(
+        "Event has not started yet",
+        403,
+        "EVENT_NOT_STARTED",
+      );
     }
 
     if (isEventEnded(event)) {

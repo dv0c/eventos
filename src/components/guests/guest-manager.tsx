@@ -87,7 +87,7 @@ export function GuestManager({
   const t = useTranslations("guests");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
 
   const [guests, setGuests] = useState(initialGuests);
   const [selected, setSelected] = useState<Set<string>>(new Set());

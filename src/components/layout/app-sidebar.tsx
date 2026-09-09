@@ -64,7 +64,7 @@ export function AppSidebar({
   const t = useTranslations("nav");
   const tWorkspace = useTranslations("eventWorkspace");
   const pathname = usePathname();
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
   const { orgRole, mode, logoUrl, displayName: brandDisplayName } = useOrg();
   const canManageBilling = can(orgRole, "org:manage_billing");
 

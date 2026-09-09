@@ -54,7 +54,7 @@ export function EventMediaManager({
 }: EventMediaManagerProps) {
   const t = useTranslations("eventWorkspace.media");
   const tMod = useTranslations("moderatorAlbum");
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
   const { planName, planSlug } = useOrg();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -309,8 +309,12 @@ export function EventMediaManager({
           </Button>
           <Button
             variant="outline"
-            size="icon"
-            className="size-9 bg-background"
+            size={lifecycle === "ended" ? "default" : "icon"}
+            className={
+              lifecycle === "ended"
+                ? "h-9 gap-2 bg-background px-3"
+                : "size-9 bg-background"
+            }
             onClick={() => {
               window.location.href = `/api/events/${eventId}/media/download`;
             }}
@@ -318,6 +322,9 @@ export function EventMediaManager({
             title={t("downloadAll")}
           >
             <Download className="size-4" />
+            {lifecycle === "ended" ? (
+              <span className="text-sm font-medium">{t("downloadZip")}</span>
+            ) : null}
           </Button>
         </div>
         <input

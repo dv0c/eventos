@@ -3,17 +3,15 @@ import { EventType } from "@prisma/client";
 export type WizardStepId =
   | "type"
   | "details"
-  | "location"
-  | "people"
   | "theme"
+  | "games"
   | "review";
 
 export const WIZARD_STEPS: WizardStepId[] = [
   "type",
   "details",
-  "location",
-  "people",
   "theme",
+  "games",
   "review",
 ];
 

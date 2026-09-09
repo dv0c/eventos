@@ -30,7 +30,7 @@ export function GuidancePanel({
   className,
 }: GuidancePanelProps) {
   const t = useTranslations("guidance");
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
   const basePath = orgPath(`/events/${eventId}`);
 
   const checklist = [

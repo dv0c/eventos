@@ -54,7 +54,7 @@ export function EventSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
   const settingsTab = searchParams.get("tab");
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [activeEvent, setActiveEvent] = useState<EventSummary | null>(null);

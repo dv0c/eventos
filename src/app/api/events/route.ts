@@ -11,13 +11,9 @@ const createEventSchema = z.object({
   type: z.nativeEnum(EventType).optional(),
   description: z.string().optional(),
   date: z.coerce.date(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  location: z.string().optional(),
-  address: z.string().optional(),
-  hostName: z.string().optional(),
-  hostPhone: z.string().optional(),
-  hostEmail: z.email().optional(),
+  endDate: z.coerce.date(),
+  startTime: z.string().trim().min(1),
+  endTime: z.string().trim().min(1),
   clientId: z.string().optional(),
   expectedGuests: z.number().int().min(0).optional(),
   expectedCouples: z.number().int().min(0).optional(),
@@ -31,6 +27,19 @@ const createEventSchema = z.object({
       style: z.string().optional(),
       coverImageKey: z.string().optional(),
     })
+    .optional(),
+  games: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1),
+        description: z.string().nullable().optional(),
+        presetKey: z.string().nullable().optional(),
+        sortOrder: z.number().int().optional(),
+        enabled: z.boolean().optional(),
+        fields: z.unknown().optional(),
+        coverImage: z.string().nullable().optional(),
+      }),
+    )
     .optional(),
 });
 
@@ -114,13 +123,14 @@ export async function POST(request: Request) {
       return apiError("No active organization selected", "NO_ACTIVE_ORG", 400);
     }
 
-    const { organizationId: _ignored, theme, ...eventInput } = parsed.data;
+    const { organizationId: _ignored, theme, games, ...eventInput } = parsed.data;
     const event = await eventService.createEvent(
       session.user.id,
       {
         ...eventInput,
         organizationId,
         theme,
+        games,
       },
       getClientIp(request),
     );

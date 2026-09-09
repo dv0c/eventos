@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Gamepad2,
   MonitorPlay,
   Palette,
   Settings2,
@@ -13,6 +14,7 @@ import { useSearchParams } from "next/navigation";
 
 import { AppearanceTab } from "@/components/events/settings/appearance-tab";
 import { CollaboratorsTab } from "@/components/events/settings/collaborators-tab";
+import { GamesTab } from "@/components/events/settings/games-tab";
 import { GeneralTab } from "@/components/events/settings/general-tab";
 import { ModerationTab } from "@/components/events/settings/moderation-tab";
 import { PhotoWallTab } from "@/components/events/settings/photo-wall-tab";
@@ -24,6 +26,7 @@ type SettingsTab =
   | "appearance"
   | "photoWall"
   | "moderation"
+  | "games"
   | "collaborators";
 
 const VALID_TABS: SettingsTab[] = [
@@ -31,11 +34,13 @@ const VALID_TABS: SettingsTab[] = [
   "appearance",
   "photoWall",
   "moderation",
+  "games",
   "collaborators",
 ];
 
 interface EventSettingsFormProps {
   event: EventWithRelations;
+  orgSlug: string;
   initialTab?: SettingsTab;
 }
 
@@ -48,6 +53,7 @@ function resolveTab(value: string | null | undefined, fallback: SettingsTab): Se
 
 export function EventSettingsForm({
   event,
+  orgSlug,
   initialTab = "general",
 }: EventSettingsFormProps) {
   const t = useTranslations("eventWorkspace.settings");
@@ -67,6 +73,7 @@ export function EventSettingsForm({
         { id: "appearance" as const, label: t("tabAppearance"), icon: Palette },
         { id: "photoWall" as const, label: t("tabPhotoWall"), icon: MonitorPlay },
         { id: "moderation" as const, label: t("tabModeration"), icon: Shield },
+        { id: "games" as const, label: t("tabGames"), icon: Gamepad2 },
         { id: "collaborators" as const, label: t("tabCollaborators"), icon: UsersRound },
       ] as const,
     [t],
@@ -116,7 +123,7 @@ export function EventSettingsForm({
       </div>
 
       <div className={tab === "photoWall" ? undefined : "max-w-2xl"}>
-        {tab === "general" ? <GeneralTab event={event} /> : null}
+        {tab === "general" ? <GeneralTab event={event} orgSlug={orgSlug} /> : null}
         {tab === "appearance" ? <AppearanceTab event={event} /> : null}
         {tab === "photoWall" ? <PhotoWallTab event={event} /> : null}
         {tab === "moderation" ? (
@@ -125,6 +132,7 @@ export function EventSettingsForm({
             onManageCollaborators={() => selectTab("collaborators")}
           />
         ) : null}
+        {tab === "games" ? <GamesTab event={event} /> : null}
         {tab === "collaborators" ? <CollaboratorsTab event={event} /> : null}
       </div>
     </div>

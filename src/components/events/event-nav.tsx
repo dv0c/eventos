@@ -25,7 +25,7 @@ const PRIMARY_ITEMS: NavItem[] = [
 export function EventNav({ eventId, className }: EventNavProps) {
   const t = useTranslations("eventNav");
   const pathname = usePathname();
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
 
   const basePath = `/events/${eventId}`;
 

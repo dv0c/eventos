@@ -23,7 +23,7 @@ export default async function EventCollaboratorsPage({
 
   return (
     <Suspense fallback={<SettingsFormSkeleton />}>
-      <EventSettingsForm event={event} initialTab="collaborators" />
+      <EventSettingsForm event={event} orgSlug={orgSlug} initialTab="collaborators" />
     </Suspense>
   );
 }

@@ -32,7 +32,7 @@ interface PublicUploadFormProps {
   hideNameField?: boolean;
   onUploaded?: () => void;
   glass?: boolean;
-  challengeId?: AlbumChallengeId | null;
+  challengeId?: string | null;
   onClearChallenge?: () => void;
   /** Mobile-native layout used inside the album shell */
   native?: boolean;
@@ -256,7 +256,7 @@ export function PublicUploadForm({
     formData.append("file", file);
     if (caption) formData.append("caption", caption);
     if (uploadedBy) formData.append("uploadedBy", uploadedBy);
-    if (challengeId && isAlbumChallengeId(challengeId)) {
+    if (challengeId) {
       formData.append("challengeId", challengeId);
     }
     if (file.type.startsWith("video/") && durationMs != null) {
@@ -330,26 +330,30 @@ export function PublicUploadForm({
         />
 
         <div className="flex-1 overflow-y-auto overscroll-none" data-app-scroll>
-          {challengeId && challengeMeta ? (
+          {challengeId ? (
             <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-              <span
-                className="relative size-9 shrink-0 overflow-hidden rounded-xl bg-black"
-                aria-hidden
-              >
-                <Image
-                  src={challengeMeta.image}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="36px"
-                />
-              </span>
+              {challengeMeta ? (
+                <span
+                  className="relative size-9 shrink-0 overflow-hidden rounded-xl bg-black"
+                  aria-hidden
+                >
+                  <Image
+                    src={challengeMeta.image}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="36px"
+                  />
+                </span>
+              ) : null}
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium uppercase tracking-wide text-white/50">
                   {tAlbum("albumChallengeChip")}
                 </p>
                 <p className="truncate text-sm font-semibold text-white">
-                  {tAlbum(`albumChallenge.${challengeId}.title`)}
+                  {challengeMeta
+                    ? tAlbum(`albumChallenge.${challengeId}.title`)
+                    : challengeId}
                 </p>
               </div>
               {onClearChallenge ? (
