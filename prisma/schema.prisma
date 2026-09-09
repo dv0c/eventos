@@ -193,18 +193,19 @@ enum Locale {
 // ─── Auth.js Models ──────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  passwordHash  String?
-  image         String?
-  locale        Locale    @default(el)
-  platformRole  PlatformRole @default(USER)
-  phone         String?
-  deletedAt     DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  meindeskUserId String?   @unique
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  passwordHash   String?
+  image          String?
+  locale         Locale    @default(el)
+  platformRole   PlatformRole @default(USER)
+  phone          String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   accounts              Account[]
   sessions              Session[]

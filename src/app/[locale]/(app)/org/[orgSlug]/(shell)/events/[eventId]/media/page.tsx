@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { EventMediaManager } from "@/components/media/event-media-manager";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
+import { getEventLifecycle } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventRepository } from "@/server/repositories/event.repository";
 import { mediaService } from "@/server/services/media.service";
 
@@ -20,8 +22,12 @@ export default async function EventMediaPage({ params }: MediaPageProps) {
     notFound();
   }
 
-  const albumToken = await mediaService.getUploadTokenForEvent(event.id);
-  const albumHref = `/${locale}/a/${albumToken}`;
+  await revokeGuestConnectIfEnded(event.id);
+  const ended = getEventLifecycle(event) === "ended";
+  const albumToken = ended
+    ? null
+    : await mediaService.getUploadTokenForEvent(event.id);
+  const albumHref = albumToken ? `/${locale}/a/${albumToken}` : null;
 
   return (
     <EventMediaManager

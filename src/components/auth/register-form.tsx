@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MeindeskApiError, useAuth } from "@meindesk/nextjs";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -11,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link, useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
+import { hardNavigate } from "@/lib/auth-redirect";
 
 const fieldClassName =
   "h-11 rounded-xl border-white/15 bg-black/35 text-base shadow-none backdrop-blur-sm placeholder:text-white/35";
@@ -22,12 +24,22 @@ interface RegisterFormProps {
   callbackUrl?: string;
 }
 
+function splitName(fullName: string): { firstName?: string; lastName?: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return { firstName: parts[0] };
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 export function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const t = useTranslations("auth");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
   const locale = useLocale();
-  const router = useRouter();
+  const { signUp } = useAuth();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState("");
@@ -39,6 +51,7 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
   const loginHref = callbackUrl
     ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/login";
+  const afterAuthHref = callbackUrl ?? "/dashboard";
 
   function handleContinue(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,29 +73,20 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
     }
 
     try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-          locale,
-        }),
+      const { firstName, lastName } = splitName(name);
+      await signUp({
+        email: email.trim(),
+        password,
+        firstName,
+        lastName,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.error?.message ?? tErrors("generic"));
-        setIsLoading(false);
-        return;
-      }
-
       toast.success(t("accountCreated"));
-      router.push(loginHref);
-    } catch {
-      toast.error(tErrors("networkError"));
+      hardNavigate(locale, afterAuthHref);
+    } catch (error) {
+      const message =
+        error instanceof MeindeskApiError ? error.message : tErrors("generic");
+      toast.error(message);
       setIsLoading(false);
     }
   }

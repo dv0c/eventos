@@ -12,12 +12,12 @@ import {
   SubscriptionStatus,
   TableShape,
 } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 
 const prisma = new PrismaClient();
 
-const DEMO_PASSWORD = "demo123456";
+// Auth credentials live in Meindesk Auth. Seed users are local app records;
+// link them by signing in with the same email (or set meindeskUserId).
 const ORG_SLUG = "perfect-weddings-greece";
 const EVENT_SLUG = "gamos-giorgos-maria";
 
@@ -190,19 +190,17 @@ async function seedPlans() {
   return plans;
 }
 
-async function seedUsers(passwordHash: string) {
+async function seedUsers() {
   const planner = await prisma.user.upsert({
     where: { email: "planner@eventos.gr" },
     update: {
       name: "Μαρία Παπαδοπούλου",
-      passwordHash,
       locale: Locale.el,
       platformRole: PlatformRole.USER,
     },
     create: {
       email: "planner@eventos.gr",
       name: "Μαρία Παπαδοπούλου",
-      passwordHash,
       locale: Locale.el,
       platformRole: PlatformRole.USER,
     },
@@ -212,14 +210,12 @@ async function seedUsers(passwordHash: string) {
     where: { email: "manager@eventos.gr" },
     update: {
       name: "Νίκος Αντωνίου",
-      passwordHash,
       locale: Locale.el,
       platformRole: PlatformRole.USER,
     },
     create: {
       email: "manager@eventos.gr",
       name: "Νίκος Αντωνίου",
-      passwordHash,
       locale: Locale.el,
       platformRole: PlatformRole.USER,
     },
@@ -229,14 +225,12 @@ async function seedUsers(passwordHash: string) {
     where: { email: "admin@eventos.gr" },
     update: {
       name: "Eventos Admin",
-      passwordHash,
       locale: Locale.el,
       platformRole: PlatformRole.ADMIN,
     },
     create: {
       email: "admin@eventos.gr",
       name: "Eventos Admin",
-      passwordHash,
       locale: Locale.el,
       platformRole: PlatformRole.ADMIN,
     },
@@ -638,13 +632,14 @@ async function seedQRCodes(eventId: string, albumToken: string, orgSlug: string)
 
 async function main() {
   console.log("🌱 Seeding Eventos database...\n");
-
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
+  console.log(
+    "Note: End-user login is via Meindesk Auth. Seed users match by email when they sign in.\n",
+  );
 
   const plans = await seedPlans();
   console.log(`✓ ${PLANS.length} plans (FREE → ENTERPRISE)`);
 
-  const { planner, manager, admin } = await seedUsers(passwordHash);
+  const { planner, manager, admin } = await seedUsers();
   console.log("✓ 3 users (planner, manager, admin)");
 
   const org = await seedOrganization(plans.pro.id);
@@ -718,9 +713,10 @@ async function main() {
   console.log(`Invitations:    ${guests.length}`);
   console.log(`QR Codes:       4`);
   console.log("=".repeat(60));
-  console.log("\n🔐 DEMO CREDENTIALS");
+  console.log("\n🔐 AUTH (Meindesk)");
   console.log("=".repeat(60));
-  console.log(`Password (all demo users): ${DEMO_PASSWORD}`);
+  console.log("Credentials are managed by Meindesk Auth.");
+  console.log("Create matching users there (same emails) to link seed data:");
   console.log("");
   console.log("Planner (OWNER):  planner@eventos.gr  — Μαρία Παπαδοπούλου");
   console.log("Manager:          manager@eventos.gr  — Νίκος Αντωνίου");

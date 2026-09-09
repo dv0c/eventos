@@ -1,7 +1,7 @@
 "use client";
 
 import { PlatformRole } from "@prisma/client";
-import { signOut } from "next-auth/react";
+import { useAuth } from "@meindesk/nextjs";
 import { Suspense, useEffect, useLayoutEffect, useState } from "react";
 
 import type { OrganizationSummary } from "@/components/layout/org-switcher";
@@ -63,6 +63,7 @@ export function AppShell({
   useOrgDarkTheme(mode === "B2B" ? primaryColor : null);
   const router = useRouter();
   const pathname = usePathname();
+  const { signOut } = useAuth();
   const isAdmin = user.platformRole === PlatformRole.ADMIN;
   const eventId = getEventIdFromPath(pathname);
   const isEventWorkspace = Boolean(eventId);
@@ -91,7 +92,9 @@ export function AppShell({
   }
 
   async function handleSignOut() {
-    await signOut({ callbackUrl: "/" });
+    await signOut();
+    router.push("/");
+    router.refresh();
   }
 
   function handleCreateOrganization() {

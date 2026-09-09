@@ -1,9 +1,11 @@
 import createIntlMiddleware from "next-intl/middleware";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_COOKIE_NAME } from "@meindesk/sdk";
 
 import { getRateLimitKey, rateLimit } from "@/lib/rate-limit-edge";
 import { routing } from "@/i18n/routing";
-import { auth } from "@/server/auth";
+import { resolveMeindeskOrigin } from "@/server/auth/meindesk-origin";
+import { decodeSessionCookieValue } from "@/server/auth/session-cookie";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -25,7 +27,22 @@ const PROTECTED_PREFIXES = [
   "/analytics",
 ] as const;
 
-const AUTH_RATE_LIMIT_PATHS = ["/login", "/register", "/api/auth"] as const;
+const PUBLIC_AUTH_PATHS = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  "/sso-callback",
+] as const;
+
+const AUTH_RATE_LIMIT_PATHS = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/api/auth",
+] as const;
 
 const PUBLIC_RATE_LIMIT_PATHS = ["/api/public/rsvp", "/api/upload"] as const;
 
@@ -64,10 +81,18 @@ function isProtectedPath(pathname: string): boolean {
   );
 }
 
+function isPublicAuthPath(pathname: string): boolean {
+  const path = stripLocale(pathname);
+  return PUBLIC_AUTH_PATHS.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+}
+
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
   const path = stripLocale(pathname);
   return prefixes.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`) || pathname.startsWith(prefix),
+    (prefix) =>
+      path === prefix || path.startsWith(`${prefix}/`) || pathname.startsWith(prefix),
   );
 }
 
@@ -102,9 +127,67 @@ async function applyRateLimit(
   return null;
 }
 
-export default auth(async (req) => {
-  const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
+async function validateSessionToken(
+  token: string,
+  requestOrigin: string,
+): Promise<"valid" | "invalid" | "unavailable"> {
+  const secretKey = process.env.MEINDESK_SECRET_KEY;
+  if (!secretKey) {
+    return "valid";
+  }
+
+  const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000").replace(
+    /\/$/,
+    "",
+  );
+  const publishableKey = process.env.NEXT_PUBLIC_MEINDESK_PUBLISHABLE_KEY;
+
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      Origin: requestOrigin,
+      "x-meindesk-secret-key": secretKey,
+    };
+    if (publishableKey) {
+      headers["x-meindesk-publishable-key"] = publishableKey;
+    }
+
+    const response = await fetch(`${apiUrl}/v1/sdk/session`, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+
+    // Origin / network / API misconfig — do not wipe the cookie.
+    if (!response.ok) {
+      return "unavailable";
+    }
+
+    const body = (await response.json()) as {
+      success?: boolean;
+      data?: { session?: unknown | null };
+    };
+
+    if (!body.success) {
+      return "unavailable";
+    }
+
+    return body.data?.session ? "valid" : "invalid";
+  } catch {
+    return "unavailable";
+  }
+}
+
+export default async function proxy(req: NextRequest) {
+  const { pathname, searchParams } = req.nextUrl;
+
+  // OAuth return: one-time code must reach the client before a session cookie exists.
+  const oauthCode = searchParams.get("code");
+  const oauthProvider = searchParams.get("provider");
+  if (oauthCode && oauthProvider) {
+    return intlMiddleware(req);
+  }
 
   if (matchesPrefix(pathname, AUTH_RATE_LIMIT_PATHS)) {
     const limited = await applyRateLimit(req, "auth", 20, 60_000);
@@ -116,15 +199,42 @@ export default auth(async (req) => {
     if (limited) return limited;
   }
 
-  if (isProtectedPath(pathname) && !isLoggedIn) {
-    const locale = getLocaleFromPath(pathname);
-    const loginUrl = new URL(`/${locale}/login`, req.nextUrl.origin);
-    loginUrl.searchParams.set("callbackUrl", stripLocale(pathname));
-    return NextResponse.redirect(loginUrl);
+  if (isPublicAuthPath(pathname)) {
+    return intlMiddleware(req);
+  }
+
+  if (isProtectedPath(pathname)) {
+    const rawToken = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const token = rawToken ? decodeSessionCookieValue(rawToken) : undefined;
+
+    if (!token) {
+      const locale = getLocaleFromPath(pathname);
+      const loginUrl = new URL(`/${locale}/login`, req.nextUrl.origin);
+      loginUrl.searchParams.set("callbackUrl", stripLocale(pathname));
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const requestOrigin = resolveMeindeskOrigin({
+      originHeader: req.headers.get("origin"),
+      host: req.headers.get("x-forwarded-host") ?? req.headers.get("host"),
+      proto: req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", ""),
+      fallbackOrigin: req.nextUrl.origin,
+    });
+
+    const validity = await validateSessionToken(token, requestOrigin);
+    if (validity === "invalid") {
+      const locale = getLocaleFromPath(pathname);
+      const loginUrl = new URL(`/${locale}/login`, req.nextUrl.origin);
+      loginUrl.searchParams.set("callbackUrl", stripLocale(pathname));
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete(SESSION_COOKIE_NAME);
+      return response;
+    }
+    // "unavailable" (origin/network/API errors): keep cookie and continue
   }
 
   return intlMiddleware(req);
-});
+}
 
 export const config = {
   matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],

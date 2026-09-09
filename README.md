@@ -82,7 +82,9 @@ tests/                # Vitest tests
 Copy `.env.example` to `.env`. Key variables:
 
 - `DATABASE_URL` — PostgreSQL connection
-- `AUTH_SECRET` — Auth.js secret
+- `NEXT_PUBLIC_API_URL` — Meindesk Auth API base (e.g. `http://localhost:4000`)
+- `NEXT_PUBLIC_MEINDESK_PUBLISHABLE_KEY` — Meindesk publishable key from the portal
+- `MEINDESK_SECRET_KEY` — Meindesk secret key from the portal
 - `REDIS_URL` — Redis for jobs/rate limiting
 - `OPENINARY_API_URL` — Openinary API base (e.g. `https://evento-cdn.efindly.gr/api`)
 - `OPENINARY_PUBLIC_URL` — CDN delivery base (e.g. `https://evento-cdn.efindly.gr`)
@@ -97,7 +99,7 @@ Create an API key at your Openinary instance before uploading media. When `OPENI
 
 - **Next.js 16** App Router with Server Components
 - **Prisma + PostgreSQL** with UUID IDs and soft deletes
-- **Auth.js v5** with database sessions
+- **Meindesk Auth** for identity/sessions (local User synced for orgs/RBAC)
 - **next-intl** for Greek/English i18n
 - **BullMQ + Redis** for background jobs
 - **Openinary CDN** for media storage and delivery

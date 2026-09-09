@@ -39,7 +39,7 @@ interface MediaItem {
 interface EventMediaManagerProps {
   eventId: string;
   eventSlug: string;
-  albumHref: string;
+  albumHref: string | null;
 }
 
 const FREE_UPLOAD_CAP = 100;
@@ -241,17 +241,23 @@ export function EventMediaManager({ eventId, eventSlug, albumHref }: EventMediaM
                   {chunks}
                 </Link>
               ),
-              album: (chunks) => (
-                <Link
-                  href={albumHref}
-                  target="_blank"
-                  className="font-medium text-primary hover:underline"
-                >
-                  {chunks}
-                </Link>
-              ),
+              album: (chunks) =>
+                albumHref ? (
+                  <Link
+                    href={albumHref}
+                    target="_blank"
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {chunks}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-foreground">{chunks}</span>
+                ),
             })}
           </p>
+          {!albumHref ? (
+            <p className="text-sm text-muted-foreground">{t("albumClosed")}</p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button

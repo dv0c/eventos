@@ -61,6 +61,7 @@ export const privacyService = {
         deletedAt: new Date(),
         name: "[deleted]",
         email: `deleted-${userId}@deleted.local`,
+        meindeskUserId: null,
         passwordHash: null,
         image: null,
         phone: null,

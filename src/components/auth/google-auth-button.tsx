@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useAuthContext } from "@meindesk/nextjs";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
 interface GoogleAuthButtonProps {
+  /** Post-auth destination only. SDK bounces via `/sso-callback`. */
   callbackUrl?: string;
 }
 
@@ -37,12 +38,14 @@ function GoogleGlyph({ className }: { className?: string }) {
 export function GoogleAuthButton({ callbackUrl = "/dashboard" }: GoogleAuthButtonProps) {
   const t = useTranslations("auth");
   const tErrors = useTranslations("errors");
+  const { startOAuth, isLoaded } = useAuthContext();
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleClick() {
+  function handleClick() {
     setIsLoading(true);
     try {
-      await signIn("google", { callbackUrl });
+      // SDK owns bounce: /sso-callback?redirect_url=<post-auth dest>
+      startOAuth("google", { redirectUrl: callbackUrl });
     } catch {
       toast.error(tErrors("generic"));
       setIsLoading(false);
@@ -54,7 +57,7 @@ export function GoogleAuthButton({ callbackUrl = "/dashboard" }: GoogleAuthButto
       type="button"
       variant="outline"
       className="h-11 w-full rounded-xl border border-white/20 !bg-white text-base font-medium !text-neutral-900 hover:!bg-white/90 dark:!bg-white dark:hover:!bg-white/90"
-      disabled={isLoading}
+      disabled={isLoading || !isLoaded}
       onClick={handleClick}
     >
       <GoogleGlyph className="mr-2 size-5 shrink-0" />

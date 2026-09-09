@@ -2,10 +2,13 @@
  * Lean seed for production: plans + shared platform organization only.
  * Does not create demo wedding data.
  *
+ * Auth credentials are owned by Meindesk Auth. This seed creates the local
+ * admin User row so org membership/RBAC works once the same email signs in
+ * via Meindesk (or after meindeskUserId is set).
+ *
  * Usage: npm run db:seed:platform
  */
 import { PrismaClient, OrgRole, PlatformRole, SubscriptionStatus } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 import {
   DEFAULT_PLANS,
@@ -16,7 +19,6 @@ import {
 } from "../src/server/plans/default-plans";
 
 const prisma = new PrismaClient();
-const ADMIN_PASSWORD = process.env.PLATFORM_ADMIN_PASSWORD ?? "demo123456";
 
 async function seedPlans() {
   const plans: Record<string, { id: string }> = {};
@@ -59,22 +61,19 @@ async function main() {
     throw new Error(`Missing ${PLATFORM_PLAN_SLUG} plan`);
   }
 
-  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
   const admin = await prisma.user.upsert({
     where: { email: PLATFORM_ADMIN_EMAIL },
     update: {
       name: "Eventos Admin",
       platformRole: PlatformRole.ADMIN,
-      passwordHash,
     },
     create: {
       email: PLATFORM_ADMIN_EMAIL,
       name: "Eventos Admin",
       platformRole: PlatformRole.ADMIN,
-      passwordHash,
     },
   });
-  console.log(`✓ Platform admin: ${PLATFORM_ADMIN_EMAIL}`);
+  console.log(`✓ Platform admin: ${PLATFORM_ADMIN_EMAIL} (sign in via Meindesk Auth)`);
 
   const org = await prisma.organization.upsert({
     where: { slug },

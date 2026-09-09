@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useTranslations } from "next-intl";
+import { MeindeskApiError, useAuth } from "@meindesk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import {
@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link, useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
+import { hardNavigate } from "@/lib/auth-redirect";
 
 const fieldClassName =
   "h-11 rounded-xl border-white/15 bg-black/35 text-base shadow-none backdrop-blur-sm placeholder:text-white/35";
@@ -23,7 +24,9 @@ interface LoginFormProps {
 
 export function LoginForm({ callbackUrl = "/dashboard" }: LoginFormProps) {
   const t = useTranslations("auth");
-  const router = useRouter();
+  const tErrors = useTranslations("errors");
+  const locale = useLocale();
+  const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -34,21 +37,24 @@ export function LoginForm({ callbackUrl = "/dashboard" }: LoginFormProps) {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn({ email, password });
 
-    setIsLoading(false);
+      if ("status" in result && result.status === "mfa_required") {
+        toast.error(t("mfaRequired"));
+        setIsLoading(false);
+        return;
+      }
 
-    if (result?.error) {
-      toast.error(t("invalidCredentials"));
-      return;
+      hardNavigate(locale, callbackUrl);
+    } catch (error) {
+      const message =
+        error instanceof MeindeskApiError
+          ? error.message
+          : t("invalidCredentials");
+      toast.error(message || tErrors("generic"));
+      setIsLoading(false);
     }
-
-    router.push(callbackUrl);
-    router.refresh();
   }
 
   return (
