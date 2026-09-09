@@ -1,8 +1,7 @@
-import { EventStatus, QRCodeType, type Prisma } from "@prisma/client";
+import { EventStatus, QRCodeType } from "@prisma/client";
 
 import { prisma } from "@/server/db";
 import { isEventEnded } from "@/server/events/event-ended";
-import type { EventSections } from "@/server/events/wall-settings";
 
 export const GUEST_QR_TYPES: QRCodeType[] = [
   QRCodeType.EVENT,
@@ -11,9 +10,17 @@ export const GUEST_QR_TYPES: QRCodeType[] = [
   QRCodeType.WALL,
 ];
 
+/** Live/share QR types that are revoked after the event ends (UPLOAD stays). */
+export const REVOKED_GUEST_QR_TYPES: QRCodeType[] = [
+  QRCodeType.EVENT,
+  QRCodeType.RSVP,
+  QRCodeType.WALL,
+];
+
 /**
- * When an event has ended: clear the album token, delete guest QR rows,
- * and mark status COMPLETED if it was still DRAFT/PLANNING/ACTIVE.
+ * When an event has ended: delete non-upload guest QR rows and mark status
+ * COMPLETED if it was still DRAFT/PLANNING/ACTIVE.
+ * Keeps mediaUploadToken and UPLOAD QR so guests can still add photos.
  * Returns true if revoke ran (event is ended).
  */
 export async function revokeGuestConnectIfEnded(
@@ -26,7 +33,6 @@ export async function revokeGuestConnectIfEnded(
       status: true,
       date: true,
       endTime: true,
-      settings: { select: { sections: true } },
     },
   });
 
@@ -34,22 +40,11 @@ export async function revokeGuestConnectIfEnded(
     return false;
   }
 
-  const sections = (event.settings?.sections ?? {}) as EventSections;
-  const nextSections = { ...sections };
-  delete nextSections.mediaUploadToken;
-
   await prisma.$transaction(async (tx) => {
-    if (event.settings) {
-      await tx.eventSettings.update({
-        where: { eventId },
-        data: { sections: nextSections as Prisma.InputJsonValue },
-      });
-    }
-
     await tx.qRCode.deleteMany({
       where: {
         eventId,
-        type: { in: GUEST_QR_TYPES },
+        type: { in: REVOKED_GUEST_QR_TYPES },
       },
     });
 

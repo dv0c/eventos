@@ -46,15 +46,19 @@ export function EventOverview({
   const t = useTranslations("eventWorkspace");
   const tHome = useTranslations("eventWorkspace.home");
   const { planName } = useOrg();
+  const waiting = lifecycle === "waiting";
   const ended = lifecycle === "ended";
+  const shareAvailable = !waiting;
 
   const statusText = ended
     ? tHome("statusEnded")
-    : stats.pendingMedia > 0
-      ? tHome("statusPending", { count: stats.pendingMedia })
-      : !enableGallery && !enableWall
-        ? tHome("statusInactive")
-        : tHome("statusReady");
+    : waiting
+      ? tHome("statusWaiting")
+      : stats.pendingMedia > 0
+        ? tHome("statusPending", { count: stats.pendingMedia })
+        : !enableGallery && !enableWall
+          ? tHome("statusInactive")
+          : tHome("statusReady");
 
   function scrollToShare() {
     document.getElementById("share-with-guests")?.scrollIntoView({
@@ -77,6 +81,14 @@ export function EventOverview({
             >
               {t("planBadge", { plan: planName })}
             </Badge>
+            {waiting ? (
+              <Badge
+                variant="outline"
+                className="rounded-md border-border/70 px-2 py-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                {tHome("lifecycleWaiting")}
+              </Badge>
+            ) : null}
             {ended ? (
               <Badge
                 variant="outline"
@@ -90,7 +102,7 @@ export function EventOverview({
         </div>
 
         <div className="hidden flex-wrap gap-2 sm:flex">
-          {!ended ? (
+          {shareAvailable ? (
             <Button type="button" size="sm" className="h-9" onClick={scrollToShare}>
               <Share2 className="mr-1.5 h-3.5 w-3.5" />
               {tHome("shareEvent")}
@@ -101,7 +113,7 @@ export function EventOverview({
             size="sm"
             className="h-9 bg-background"
             asChild
-            disabled={!albumHref || ended}
+            disabled={!albumHref}
           >
             <a href={albumHref ?? "#"} target="_blank" rel="noopener noreferrer">
               {tHome("openAlbum")}
@@ -112,7 +124,7 @@ export function EventOverview({
             size="sm"
             className="h-9 bg-background"
             asChild
-            disabled={!enableWall || ended}
+            disabled={!enableWall || ended || waiting}
           >
             <a href={`/e/${eventSlug}/wall`} target="_blank" rel="noopener noreferrer">
               {tHome("openWall")}
@@ -121,7 +133,7 @@ export function EventOverview({
         </div>
       </header>
 
-      {!ended ? (
+      {shareAvailable ? (
         <div className="space-y-3 sm:hidden">
           <Button type="button" className="h-10 w-full" onClick={scrollToShare}>
             <Share2 className="mr-1.5 h-4 w-4" />
@@ -137,7 +149,7 @@ export function EventOverview({
               variant="outline"
               className="h-10 bg-background"
               asChild
-              disabled={!enableWall}
+              disabled={!enableWall || ended || waiting}
             >
               <a href={`/e/${eventSlug}/wall`} target="_blank" rel="noopener noreferrer">
                 {tHome("openWall")}
@@ -145,13 +157,31 @@ export function EventOverview({
             </Button>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:hidden">
+          <Button variant="outline" className="h-10 bg-background" asChild disabled={!albumHref}>
+            <a href={albumHref ?? "#"} target="_blank" rel="noopener noreferrer">
+              {tHome("openAlbum")}
+            </a>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-10 bg-background"
+            asChild
+            disabled={!enableWall || ended || waiting}
+          >
+            <a href={`/e/${eventSlug}/wall`} target="_blank" rel="noopener noreferrer">
+              {tHome("openWall")}
+            </a>
+          </Button>
+        </div>
+      )}
 
       <EventHomeShare
         eventId={eventId}
         eventSlug={eventSlug}
         enableGallery={enableGallery}
-        ended={ended}
+        lifecycle={lifecycle}
       />
 
       <EventHomeActivity
@@ -165,9 +195,9 @@ export function EventOverview({
         eventId={eventId}
         eventSlug={eventSlug}
         orgSlug={orgSlug}
-        albumHref={ended ? null : albumHref}
-        enableGallery={enableGallery && !ended}
-        enableWall={enableWall && !ended}
+        albumHref={albumHref}
+        enableGallery={enableGallery && !waiting}
+        enableWall={enableWall && !ended && !waiting}
         canEdit={canEdit}
       />
     </div>

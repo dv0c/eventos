@@ -91,3 +91,25 @@ export function getEventLifecycle(event: {
   }
   return "active";
 }
+
+export function isEventWaiting(event: {
+  status: EventStatus;
+  date: Date;
+  startTime?: string | null;
+  endTime?: string | null;
+}): boolean {
+  return getEventLifecycle(event) === "waiting";
+}
+
+/**
+ * Guest photo album upload is allowed once the event has started,
+ * including after it has ended (same QR/token stays valid).
+ */
+export function isGuestPhotoUploadAllowed(event: {
+  status: EventStatus;
+  date: Date;
+  startTime?: string | null;
+  endTime?: string | null;
+}): boolean {
+  return getEventLifecycle(event) !== "waiting";
+}

@@ -1,7 +1,7 @@
 import { EventStatus } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getEventLifecycle, isEventEnded } from "@/server/events/event-ended";
+import { getEventLifecycle, isEventEnded, isEventWaiting, isGuestPhotoUploadAllowed } from "@/server/events/event-ended";
 
 describe("isEventEnded", () => {
   beforeEach(() => {
@@ -194,5 +194,54 @@ describe("getEventLifecycle", () => {
         endTime: "18:00",
       }),
     ).toBe("ended");
+  });
+});
+
+describe("isEventWaiting / isGuestPhotoUploadAllowed", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("blocks guest photo upload while waiting", () => {
+    const date = new Date(2026, 8, 7);
+    vi.setSystemTime(new Date(2026, 8, 7, 9, 0, 0, 0));
+    const event = {
+      status: EventStatus.DRAFT,
+      date,
+      startTime: "18:00",
+      endTime: "23:00",
+    };
+    expect(isEventWaiting(event)).toBe(true);
+    expect(isGuestPhotoUploadAllowed(event)).toBe(false);
+  });
+
+  it("allows guest photo upload while active", () => {
+    const date = new Date(2026, 8, 7);
+    vi.setSystemTime(new Date(2026, 8, 7, 19, 0, 0, 0));
+    const event = {
+      status: EventStatus.DRAFT,
+      date,
+      startTime: "18:00",
+      endTime: "23:00",
+    };
+    expect(isEventWaiting(event)).toBe(false);
+    expect(isGuestPhotoUploadAllowed(event)).toBe(true);
+  });
+
+  it("allows guest photo upload after the event has ended", () => {
+    const date = new Date(2026, 8, 7);
+    vi.setSystemTime(new Date(2026, 8, 7, 23, 30, 0, 0));
+    const event = {
+      status: EventStatus.DRAFT,
+      date,
+      startTime: "18:00",
+      endTime: "23:00",
+    };
+    expect(isEventWaiting(event)).toBe(false);
+    expect(isGuestPhotoUploadAllowed(event)).toBe(true);
   });
 });

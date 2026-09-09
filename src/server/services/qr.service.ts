@@ -2,9 +2,13 @@ import { AuditAction, QRCodeType } from "@prisma/client";
 import QRCode from "qrcode";
 
 import { prisma } from "@/server/db";
-import { isEventEnded } from "@/server/events/event-ended";
+import {
+  getEventLifecycle,
+  type EventLifecycle,
+} from "@/server/events/event-ended";
 import {
   GUEST_QR_TYPES,
+  REVOKED_GUEST_QR_TYPES,
   revokeGuestConnectIfEnded,
 } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
@@ -72,6 +76,69 @@ function mapQrCode(
   };
 }
 
+function isGuestQrType(type: QRCodeType): boolean {
+  return GUEST_QR_TYPES.includes(type);
+}
+
+function isPostEndGuestQrAllowed(type: QRCodeType): boolean {
+  return type === QRCodeType.UPLOAD;
+}
+
+function assertGuestQrAllowedForLifecycle(
+  lifecycle: EventLifecycle,
+  type: QRCodeType,
+): void {
+  if (!isGuestQrType(type)) {
+    return;
+  }
+
+  if (lifecycle === "waiting") {
+    throw new QrServiceError(
+      "Guest QR codes are not available before the event starts",
+      403,
+      "EVENT_NOT_STARTED",
+    );
+  }
+
+  if (lifecycle === "ended" && !isPostEndGuestQrAllowed(type)) {
+    throw new QrServiceError("Event has ended", 410, "EVENT_ENDED");
+  }
+}
+
+function qrTypesForLifecycle(
+  lifecycle: EventLifecycle,
+  type?: QRCodeType,
+): QRCodeType[] {
+  if (type) {
+    assertGuestQrAllowedForLifecycle(lifecycle, type);
+    return [type];
+  }
+
+  if (lifecycle === "waiting") {
+    return ALL_QR_TYPES.filter((t) => !isGuestQrType(t));
+  }
+
+  if (lifecycle === "ended") {
+    return ALL_QR_TYPES.filter(
+      (t) => !isGuestQrType(t) || isPostEndGuestQrAllowed(t),
+    );
+  }
+
+  return ALL_QR_TYPES;
+}
+
+function listFilterForLifecycle(lifecycle: EventLifecycle): {
+  type?: { notIn: QRCodeType[] } | { in: QRCodeType[] };
+} {
+  if (lifecycle === "waiting") {
+    return { type: { notIn: GUEST_QR_TYPES } };
+  }
+  if (lifecycle === "ended") {
+    return { type: { notIn: REVOKED_GUEST_QR_TYPES } };
+  }
+  return {};
+}
+
 async function resolveQrUrl(
   eventId: string,
   eventSlug: string,
@@ -115,6 +182,7 @@ export const qrService = {
         slug: true,
         status: true,
         date: true,
+        startTime: true,
         endTime: true,
         organization: { select: { slug: true } },
       },
@@ -124,10 +192,11 @@ export const qrService = {
       throw new QrServiceError("Event not found", 404, "EVENT_NOT_FOUND");
     }
 
-    if (isEventEnded(event) && GUEST_QR_TYPES.includes(type)) {
+    const lifecycle = getEventLifecycle(event);
+    if (lifecycle === "ended") {
       await revokeGuestConnectIfEnded(eventId);
-      throw new QrServiceError("Event has ended", 410, "EVENT_ENDED");
     }
+    assertGuestQrAllowedForLifecycle(lifecycle, type);
 
     const code = await prisma.qRCode.findFirst({
       where: { eventId, type },
@@ -169,6 +238,7 @@ export const qrService = {
         slug: true,
         status: true,
         date: true,
+        startTime: true,
         endTime: true,
         organization: { select: { slug: true } },
       },
@@ -178,15 +248,15 @@ export const qrService = {
       throw new QrServiceError("Event not found", 404, "EVENT_NOT_FOUND");
     }
 
-    const ended = isEventEnded(event);
-    if (ended) {
+    const lifecycle = getEventLifecycle(event);
+    if (lifecycle === "ended") {
       await revokeGuestConnectIfEnded(eventId);
     }
 
     const codes = await prisma.qRCode.findMany({
       where: {
         eventId,
-        ...(ended ? { type: { notIn: GUEST_QR_TYPES } } : {}),
+        ...listFilterForLifecycle(lifecycle),
       },
       orderBy: { type: "asc" },
     });
@@ -222,6 +292,7 @@ export const qrService = {
         slug: true,
         status: true,
         date: true,
+        startTime: true,
         endTime: true,
         organization: { select: { slug: true } },
       },
@@ -231,22 +302,13 @@ export const qrService = {
       throw new QrServiceError("Event not found", 404, "EVENT_NOT_FOUND");
     }
 
-    if (isEventEnded(event)) {
+    const lifecycle = getEventLifecycle(event);
+    if (lifecycle === "ended") {
       await revokeGuestConnectIfEnded(eventId);
-      if (type && GUEST_QR_TYPES.includes(type)) {
-        throw new QrServiceError(
-          "Guest QR codes cannot be created after the event ends",
-          403,
-          "EVENT_ENDED",
-        );
-      }
     }
 
-    const ended = isEventEnded(event);
     const orgSlug = event.organization.slug;
-    const types = type
-      ? [type]
-      : ALL_QR_TYPES.filter((t) => !ended || !GUEST_QR_TYPES.includes(t));
+    const types = qrTypesForLifecycle(lifecycle, type);
     const storage = getStorageProvider();
     const results: QrCodeWithUrl[] = [];
 

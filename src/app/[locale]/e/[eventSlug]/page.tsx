@@ -30,6 +30,7 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
   }
 
   const lifecycle = getEventLifecycle(event);
+  const waiting = lifecycle === "waiting";
   const ended = lifecycle === "ended";
   const { canEdit } = await getEventAdminContext(event.id);
   const callbackUrl = `/${locale}/e/${eventSlug}`;
@@ -47,6 +48,11 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
       >
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{event.name}</h1>
+          {waiting ? (
+            <p className="mt-3 text-sm font-medium uppercase tracking-wide text-white/85">
+              {tEvents("lifecycle.waiting")}
+            </p>
+          ) : null}
           {ended ? (
             <p className="mt-3 text-sm font-medium uppercase tracking-wide text-white/85">
               {tEvents("lifecycle.ended")}
@@ -77,21 +83,21 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
         </div>
       </section>
 
-      {!ended ? (
+      {waiting ? (
+        <section className="mx-auto max-w-3xl px-4 py-10 text-center">
+          <p className="text-muted-foreground">{tEvents("lifecycle.notStartedGuestMessage")}</p>
+        </section>
+      ) : (
         <section className="mx-auto max-w-5xl px-4 py-10">
           <EventMediaHubCards
             eventId={canEdit ? event.id : undefined}
             eventSlug={eventSlug}
             enableGallery={event.settings?.enableGallery ?? false}
-            enableWall={event.settings?.enableWall ?? false}
+            enableWall={!ended && (event.settings?.enableWall ?? false)}
             canEdit={canEdit}
             callbackUrl={callbackUrl}
             variant="public"
           />
-        </section>
-      ) : (
-        <section className="mx-auto max-w-3xl px-4 py-10 text-center">
-          <p className="text-muted-foreground">{tEvents("lifecycle.ended")}</p>
         </section>
       )}
 

@@ -22,6 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "@/i18n/navigation";
 import { uploadWithProgress } from "@/lib/upload-with-progress";
 import { cn } from "@/lib/utils";
+import type { EventLifecycle } from "@/server/events/event-ended";
 
 type MediaFilter = "published" | "pending" | "hidden";
 
@@ -40,11 +41,17 @@ interface EventMediaManagerProps {
   eventId: string;
   eventSlug: string;
   albumHref: string | null;
+  lifecycle?: EventLifecycle;
 }
 
 const FREE_UPLOAD_CAP = 100;
 
-export function EventMediaManager({ eventId, eventSlug, albumHref }: EventMediaManagerProps) {
+export function EventMediaManager({
+  eventId,
+  eventSlug,
+  albumHref,
+  lifecycle = "active",
+}: EventMediaManagerProps) {
   const t = useTranslations("eventWorkspace.media");
   const tMod = useTranslations("moderatorAlbum");
   const orgPath = useOrgPath;
@@ -256,7 +263,9 @@ export function EventMediaManager({ eventId, eventSlug, albumHref }: EventMediaM
             })}
           </p>
           {!albumHref ? (
-            <p className="text-sm text-muted-foreground">{t("albumClosed")}</p>
+            <p className="text-sm text-muted-foreground">
+              {lifecycle === "waiting" ? t("albumWaiting") : t("albumClosed")}
+            </p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">

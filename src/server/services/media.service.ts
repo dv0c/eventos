@@ -5,7 +5,11 @@ import sharp from "sharp";
 import { WALL_REACTION_EMOJIS } from "@/lib/wall-reactions";
 import { isAlbumChallengeId } from "@/lib/album-challenges";
 import { prisma } from "@/server/db";
-import { isEventEnded } from "@/server/events/event-ended";
+import {
+  isEventEnded,
+  isEventWaiting,
+  isGuestPhotoUploadAllowed,
+} from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import {
   getAppearanceFromSections,
@@ -104,17 +108,24 @@ async function getEventByUploadToken(uploadToken: string) {
   });
 }
 
-async function assertGuestConnectAllowed(event: {
+async function assertGuestPhotoUploadAllowed(event: {
   id: string;
   status: EventStatus;
   date: Date;
+  startTime?: string | null;
   endTime?: string | null;
 }) {
-  if (!isEventEnded(event)) {
-    return;
+  if (!isGuestPhotoUploadAllowed(event)) {
+    throw new MediaServiceError(
+      "Event has not started yet",
+      403,
+      "EVENT_NOT_STARTED",
+    );
   }
-  await revokeGuestConnectIfEnded(event.id);
-  throw new MediaServiceError("Event has ended", 403, "EVENT_ENDED");
+
+  if (isEventEnded(event)) {
+    await revokeGuestConnectIfEnded(event.id);
+  }
 }
 
 async function ensureUploadToken(eventId: string): Promise<string> {
@@ -123,6 +134,7 @@ async function ensureUploadToken(eventId: string): Promise<string> {
     select: {
       status: true,
       date: true,
+      startTime: true,
       endTime: true,
       settings: true,
     },
@@ -132,7 +144,7 @@ async function ensureUploadToken(eventId: string): Promise<string> {
     throw new MediaServiceError("Event settings not found", 404, "SETTINGS_NOT_FOUND");
   }
 
-  await assertGuestConnectAllowed({ id: eventId, ...event });
+  await assertGuestPhotoUploadAllowed({ id: eventId, ...event });
 
   const sections = (event.settings.sections ?? {}) as EventSections;
 
@@ -170,9 +182,12 @@ export const mediaService = {
       return null;
     }
 
+    if (isEventWaiting(event)) {
+      return null;
+    }
+
     if (isEventEnded(event)) {
       await revokeGuestConnectIfEnded(event.id);
-      return null;
     }
 
     const uploadToken = await ensureUploadToken(event.id);
@@ -198,7 +213,7 @@ export const mediaService = {
       throw new MediaServiceError("Invalid upload token", 404, "INVALID_TOKEN");
     }
 
-    await assertGuestConnectAllowed(event);
+    await assertGuestPhotoUploadAllowed(event);
 
     if (!event.settings?.enableGallery) {
       throw new MediaServiceError("Gallery uploads are disabled", 403, "GALLERY_DISABLED");
@@ -583,7 +598,7 @@ export const mediaService = {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
-    await assertGuestConnectAllowed(event);
+    await assertGuestPhotoUploadAllowed(event);
 
     const moderation = getModerationFromSections(event.settings.sections);
     const wall = getWallSettingsFromSections(event.settings.sections);
@@ -642,7 +657,7 @@ export const mediaService = {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
-    await assertGuestConnectAllowed(event);
+    await assertGuestPhotoUploadAllowed(event);
 
     const moderation = getModerationFromSections(event.settings.sections);
 
@@ -670,7 +685,7 @@ export const mediaService = {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
-    await assertGuestConnectAllowed(event);
+    await assertGuestPhotoUploadAllowed(event);
 
     const moderation = getModerationFromSections(event.settings.sections);
     const wall = getWallSettingsFromSections(event.settings.sections);

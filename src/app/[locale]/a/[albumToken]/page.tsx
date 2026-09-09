@@ -46,15 +46,15 @@ export default async function AlbumTokenPage({
     );
   } catch (error) {
     if (error instanceof MediaServiceError) {
-      if (error.code === "EVENT_ENDED") {
+      if (error.code === "EVENT_NOT_STARTED") {
         return (
           <div className="flex min-h-screen items-center justify-center bg-background px-4">
             <div className="max-w-md text-center">
               <h1 className="text-2xl font-semibold tracking-tight">
-                {t("lifecycle.ended")}
+                {t("lifecycle.waiting")}
               </h1>
               <p className="mt-3 text-sm text-muted-foreground">
-                {t("lifecycle.endedGuestMessage")}
+                {t("lifecycle.notStartedGuestMessage")}
               </p>
             </div>
           </div>

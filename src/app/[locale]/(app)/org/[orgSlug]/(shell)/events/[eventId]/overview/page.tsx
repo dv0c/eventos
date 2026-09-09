@@ -23,9 +23,9 @@ export default async function EventOverviewPage({ params }: OverviewPageProps) {
     );
     await revokeGuestConnectIfEnded(eventId);
     const lifecycle = getEventLifecycle(event);
-    const ended = lifecycle === "ended";
+    const waiting = lifecycle === "waiting";
     const { canEdit } = await getEventAdminContext(eventId);
-    const albumToken = ended
+    const albumToken = waiting
       ? null
       : await mediaService.getUploadTokenForEvent(eventId);
     const albumHref = albumToken ? `/${locale}/a/${albumToken}` : null;

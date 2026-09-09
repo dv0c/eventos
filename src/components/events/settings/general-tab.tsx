@@ -1,6 +1,7 @@
 "use client";
 
 import { EventType } from "@prisma/client";
+import { format } from "date-fns";
 import {
   Cake,
   CircleHelp,
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 
 import { PlusUpgradeBadge } from "@/components/events/settings/settings-ui";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
@@ -40,10 +42,11 @@ function suggestSlug(name: string) {
 export function GeneralTab({ event }: { event: EventWithRelations }) {
   const t = useTranslations("eventWorkspace.settings");
   const tCommon = useTranslations("common");
+  const tWizard = useTranslations("wizard");
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState(event.name);
   const [slug, setSlug] = useState(event.slug);
-  const [date, setDate] = useState(event.date.toISOString().split("T")[0]);
+  const [date, setDate] = useState(format(event.date, "yyyy-MM-dd"));
   const [type, setType] = useState<EventType>(event.type);
 
   async function patchEvent(body: Record<string, unknown>, successToast = true) {
@@ -95,14 +98,15 @@ export function GeneralTab({ event }: { event: EventWithRelations }) {
       <div className="border-b border-border/50 py-5">
         <h3 className="text-sm font-semibold">{t("eventDate")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{t("eventDateDesc")}</p>
-        <Input
+        <DatePicker
           className="mt-3 max-w-xs"
-          type="date"
           value={date}
-          onChange={(e) => {
-            setDate(e.target.value);
-            void patchEvent({ date: e.target.value }, false);
+          onChange={(value) => {
+            setDate(value);
+            if (value) void patchEvent({ date: value }, false);
           }}
+          placeholder={tWizard("pickDate")}
+          clearLabel={tCommon("clear")}
         />
       </div>
 

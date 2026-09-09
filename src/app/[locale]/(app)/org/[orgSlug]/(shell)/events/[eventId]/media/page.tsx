@@ -23,8 +23,9 @@ export default async function EventMediaPage({ params }: MediaPageProps) {
   }
 
   await revokeGuestConnectIfEnded(event.id);
-  const ended = getEventLifecycle(event) === "ended";
-  const albumToken = ended
+  const lifecycle = getEventLifecycle(event);
+  const waiting = lifecycle === "waiting";
+  const albumToken = waiting
     ? null
     : await mediaService.getUploadTokenForEvent(event.id);
   const albumHref = albumToken ? `/${locale}/a/${albumToken}` : null;
@@ -34,6 +35,7 @@ export default async function EventMediaPage({ params }: MediaPageProps) {
       eventId={event.id}
       eventSlug={event.slug}
       albumHref={albumHref}
+      lifecycle={lifecycle}
     />
   );
 }

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { QrPreview, QrUrlField } from "@/components/media/qr-link-row";
 import { Button } from "@/components/ui/button";
+import type { EventLifecycle } from "@/server/events/event-ended";
 
 interface QrCodeItem {
   id: string;
@@ -21,23 +22,23 @@ interface EventHomeShareProps {
   eventId: string;
   eventSlug: string;
   enableGallery: boolean;
-  ended?: boolean;
+  lifecycle: EventLifecycle;
 }
 
 export function EventHomeShare({
   eventId,
-  eventSlug,
   enableGallery,
-  ended = false,
+  lifecycle,
 }: EventHomeShareProps) {
   const t = useTranslations("eventWorkspace.home");
   const tHub = useTranslations("events.mediaHub");
   const sectionId = useId();
   const [uploadCode, setUploadCode] = useState<QrCodeItem | null>(null);
-  const [isLoading, setIsLoading] = useState(!ended);
+  const waiting = lifecycle === "waiting";
+  const [isLoading, setIsLoading] = useState(!waiting);
 
   const loadQrCodes = useCallback(async () => {
-    if (ended) {
+    if (waiting) {
       setUploadCode(null);
       setIsLoading(false);
       return;
@@ -54,7 +55,7 @@ export function EventHomeShare({
       toast.error(tHub("loadError"));
     }
     setIsLoading(false);
-  }, [ended, eventId, tHub]);
+  }, [waiting, eventId, tHub]);
 
   useEffect(() => {
     void loadQrCodes();
@@ -81,18 +82,18 @@ export function EventHomeShare({
     }
   }
 
-  if (ended) {
+  if (waiting) {
     return (
       <section id="share-with-guests" aria-labelledby={sectionId} className="dashboard-section">
         <div className="dashboard-surface p-5 sm:p-6">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {t("lifecycleEnded")}
+              {t("lifecycleWaiting")}
             </p>
             <h2 id={sectionId} className="text-lg font-semibold tracking-tight text-foreground">
-              {t("shareClosedTitle")}
+              {t("shareWaitingTitle")}
             </h2>
-            <p className="text-sm text-muted-foreground">{t("shareClosedSubtitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("shareWaitingSubtitle")}</p>
           </div>
         </div>
       </section>
@@ -109,7 +110,9 @@ export function EventHomeShare({
           <h2 id={sectionId} className="text-lg font-semibold tracking-tight text-foreground">
             {t("shareTitle")}
           </h2>
-          <p className="text-sm text-muted-foreground">{t("shareSubtitle")}</p>
+          <p className="text-sm text-muted-foreground">
+            {lifecycle === "ended" ? t("shareEndedSubtitle") : t("shareSubtitle")}
+          </p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
