@@ -1,73 +1,45 @@
 "use client";
 
-import { Images, MousePointerClick, QrCode } from "lucide-react";
-import { Fragment } from "react";
 import { useTranslations } from "next-intl";
 
-import { Reveal, SectionShell } from "./reveal";
+import { cn } from "@/lib/utils";
 
-const STEPS = [
-  { key: "step1" as const, icon: MousePointerClick },
-  { key: "step2" as const, icon: QrCode },
-  { key: "step3" as const, icon: Images },
-];
+import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
 
-function StepConnector() {
-  return (
-    <svg
-      className="mx-1 hidden h-7 w-12 shrink-0 text-white/35 lg:mx-2 lg:w-14 md:block"
-      viewBox="0 0 56 28"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M2 14 C16 14 16 6 28 6 C40 6 40 22 54 22"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M48 17 L54 22 L48 24"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+const STEPS = ["step1", "step2", "step3"] as const;
 
-export function HomeMiniSteps() {
+export function HomeStatement() {
   const t = useTranslations("marketing.home.miniSteps");
 
   return (
-    <SectionShell className="max-w-7xl pb-16 pt-2 sm:pb-20 sm:pt-4">
+    <SectionShell className="py-20 sm:py-28">
       <Reveal>
-        <div className="glass-panel border-white/15 bg-black/45 px-5 py-5 backdrop-blur-xl sm:px-7 sm:py-6">
-          <ul className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            {STEPS.map(({ key, icon: Icon }, i) => (
-              <Fragment key={key}>
-                {i > 0 ? (
-                  <li className="hidden list-none md:block" aria-hidden>
-                    <StepConnector />
-                  </li>
-                ) : null}
-                <li className="flex min-w-0 items-center gap-3 md:flex-1">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10">
-                    <Icon className="h-4 w-4 text-accent" />
-                  </div>
-                  <p className="text-sm font-semibold leading-snug sm:text-[15px]">
-                    <span className="text-muted-foreground">
-                      {t(`labels.${key}`)}
-                    </span>{" "}
-                    {t(key)}
-                  </p>
-                </li>
-              </Fragment>
-            ))}
-          </ul>
-        </div>
+        <p className="mb-10 max-w-xl text-sm font-medium tracking-[0.06em] text-white/45">
+          {t("eyebrow")}
+        </p>
+        <ol className="grid gap-10 border-t border-white/10 pt-10 md:grid-cols-3 md:gap-0 md:divide-x md:divide-white/10">
+          {STEPS.map((key) => (
+            <li key={key} className="md:px-8 first:md:pl-0 last:md:pr-0">
+              <p
+                className={cn(
+                  marketingDisplayClass,
+                  "text-3xl text-white/90 sm:text-4xl",
+                )}
+              >
+                {t(`phase.${key}`)}
+              </p>
+              <p className="mt-4 max-w-[22ch] text-base leading-snug text-foreground sm:text-lg">
+                {t(key)}
+              </p>
+            </li>
+          ))}
+        </ol>
       </Reveal>
     </SectionShell>
   );
+}
+
+/** @deprecated Use HomeStatement */
+export function HomeMiniSteps() {
+  return <HomeStatement />;
 }

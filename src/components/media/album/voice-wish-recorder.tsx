@@ -396,7 +396,7 @@ export function VoiceWishRecorder({
                 className={cn(
                   "rounded-xl border px-3 py-3.5 text-sm font-semibold transition",
                   mode === "audio"
-                    ? "border-amber-300/50 bg-amber-400/15 text-white"
+                    ? "border-primary bg-primary/15 text-white"
                     : "border-white/15 bg-white/5 text-white/70",
                 )}
               >
@@ -408,7 +408,7 @@ export function VoiceWishRecorder({
                 className={cn(
                   "rounded-xl border px-3 py-3.5 text-sm font-semibold transition",
                   mode === "video"
-                    ? "border-amber-300/50 bg-amber-400/15 text-white"
+                    ? "border-primary bg-primary/15 text-white"
                     : "border-white/15 bg-white/5 text-white/70",
                 )}
               >
@@ -454,7 +454,7 @@ export function VoiceWishRecorder({
                   <>
                     <Button
                       type="button"
-                      variant="gold"
+                      variant="default"
                       className="h-14 w-full gap-2 rounded-full text-base"
                       onClick={() => void startRecording()}
                     >
@@ -474,7 +474,7 @@ export function VoiceWishRecorder({
                 ) : (
                   <Button
                     type="button"
-                    variant="gold"
+                    variant="default"
                     className="h-14 w-full gap-2 rounded-full text-base"
                     onClick={() => audioInputRef.current?.click()}
                   >
@@ -487,7 +487,7 @@ export function VoiceWishRecorder({
               {phase === "idle" && mode === "video" ? (
                 <Button
                   type="button"
-                  variant="gold"
+                  variant="default"
                   className="h-14 w-full gap-2 rounded-full text-base"
                   onClick={() => videoInputRef.current?.click()}
                 >
@@ -512,7 +512,7 @@ export function VoiceWishRecorder({
                 <>
                   <Button
                     type="button"
-                    variant="gold"
+                    variant="default"
                     className="h-14 w-full gap-2 rounded-full text-base"
                     onClick={() => void sendWish()}
                   >

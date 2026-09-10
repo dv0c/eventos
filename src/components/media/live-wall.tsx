@@ -17,6 +17,7 @@ import { WallQrPanel } from "@/components/media/wall/wall-qr-panel";
 import { WallSideStream } from "@/components/media/wall/wall-side-stream";
 import { WallStage } from "@/components/media/wall/wall-stage";
 import { useWallSound, WallToolbar } from "@/components/media/wall-toolbar";
+import { EventThemeScope } from "@/components/events/event-theme-scope";
 import { cn } from "@/lib/utils";
 import type { WallDisplaySettings } from "@/server/events/wall-settings";
 import { DEFAULT_WALL_DISPLAY_SETTINGS } from "@/server/events/wall-settings";
@@ -58,6 +59,7 @@ interface WallConfig {
   theme: {
     primaryColor: string;
     secondaryColor: string;
+    accentColor?: string;
     logoUrl?: string | null;
   };
   appearance?: {
@@ -84,7 +86,7 @@ export function LiveWall({
   eventId,
   canEdit = false,
   callbackUrl,
-  primaryColor: fallbackPrimary = "#8B5CF6",
+  primaryColor: fallbackPrimary = "#C4A574",
   secondaryColor: fallbackSecondary = "#F59E0B",
   settingsHref,
 }: LiveWallProps) {
@@ -339,7 +341,14 @@ export function LiveWall({
   const backgroundOpacity = (wallSettings.backgroundOpacity ?? 100) / 100;
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden text-white">
+    <EventThemeScope
+      className="relative flex h-dvh flex-col overflow-hidden text-white"
+      colors={{
+        primaryColor,
+        secondaryColor,
+        accentColor: config?.theme.accentColor ?? primaryColor,
+      }}
+    >
       {wallSettings.backgroundUrl ? (
         <>
           <div
@@ -484,6 +493,6 @@ export function LiveWall({
         onOpenChange={setLoginOpen}
         callbackUrl={callbackUrl ?? `/e/${eventSlug}/wall`}
       />
-    </div>
+    </EventThemeScope>
   );
 }

@@ -111,9 +111,9 @@ export async function PATCH(request: Request, context: RouteContext) {
         where: { eventId },
         create: {
           eventId,
-          primaryColor: theme.primaryColor ?? "#8B5CF6",
+          primaryColor: theme.primaryColor ?? "#C4A574",
           secondaryColor: theme.secondaryColor ?? "#F59E0B",
-          accentColor: theme.accentColor ?? "#10B981",
+          accentColor: theme.accentColor ?? "#E8C9A0",
           style: theme.style ?? "elegant",
           coverImageKey: theme.coverImageKey ?? null,
           logoUrl: theme.logoUrl ?? null,

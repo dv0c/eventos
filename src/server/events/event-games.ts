@@ -1,6 +1,6 @@
 import { EventType, type Prisma } from "@prisma/client";
 
-import { getGamePresetsForType } from "@/lib/event-game-presets";
+import { getGamePresetsForType, resolveGameMode } from "@/lib/event-game-presets";
 import { prisma } from "@/server/db";
 
 export async function seedDefaultGamesForEvent(
@@ -14,6 +14,7 @@ export async function seedDefaultGamesForEvent(
       title: preset.title,
       description: preset.description,
       presetKey: preset.presetKey,
+      mode: resolveGameMode(preset),
       sortOrder: index,
       enabled: true,
       fields: preset.fields as unknown as Prisma.InputJsonValue,
@@ -22,5 +23,5 @@ export async function seedDefaultGamesForEvent(
   });
 }
 
-export type { EventGameField, GamePreset } from "@/lib/event-game-presets";
-export { getGamePresetsForType } from "@/lib/event-game-presets";
+export type { EventGameField, EventGameMode, GamePreset } from "@/lib/event-game-presets";
+export { getGamePresetsForType, resolveGameMode } from "@/lib/event-game-presets";

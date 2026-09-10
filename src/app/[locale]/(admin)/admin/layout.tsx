@@ -20,12 +20,5 @@ export default async function AdminLayout({
     redirect({ href: "/dashboard", locale });
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2 text-sm text-destructive">
-        Admin area — platform management
-      </div>
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }

@@ -22,6 +22,7 @@ export async function GET(_request: Request, context: RouteContext) {
         title: game.title,
         description: game.description,
         presetKey: game.presetKey,
+        mode: game.mode === "collage" || game.presetKey === "collage" ? "collage" : "photo",
         coverImage: game.coverImage,
         fields: game.fields,
       })),

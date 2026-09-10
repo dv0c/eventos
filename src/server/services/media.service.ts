@@ -269,10 +269,24 @@ export const mediaService = {
     const storedKey = await storage.upload(storageKey, buffer, { contentType });
 
     const requireManualApproval = event.settings?.requireManualApproval ?? false;
-    const normalizedChallenge =
-      challengeId && isAlbumChallengeId(challengeId.trim())
-        ? challengeId.trim()
-        : null;
+    const rawChallenge = challengeId?.trim() || null;
+    let normalizedChallenge: string | null = null;
+    if (rawChallenge) {
+      const enabledGames = await prisma.eventGame.findMany({
+        where: { eventId: event.id, enabled: true },
+        select: { id: true, presetKey: true },
+      });
+      if (enabledGames.length > 0) {
+        const matched = enabledGames.find(
+          (game) => game.id === rawChallenge || game.presetKey === rawChallenge,
+        );
+        if (matched) {
+          normalizedChallenge = matched.presetKey ?? matched.id;
+        }
+      } else if (isAlbumChallengeId(rawChallenge)) {
+        normalizedChallenge = rawChallenge;
+      }
+    }
 
     const media = await prisma.media.create({
       data: {
@@ -637,34 +651,20 @@ export const mediaService = {
     }
 
     const existing = await prisma.mediaReaction.findUnique({
-      where: { mediaId_reactorKey: { mediaId, reactorKey: key } },
+      where: {
+        mediaId_reactorKey_emoji: { mediaId, reactorKey: key, emoji },
+      },
     });
 
     if (existing) {
-      if (existing.emoji === emoji) {
-        await prisma.mediaReaction.delete({ where: { id: existing.id } });
-        return {
-          type: "reaction" as const,
-          id: existing.id,
-          mediaId,
-          emoji,
-          createdAt: existing.createdAt.toISOString(),
-          removed: true as const,
-        };
-      }
-
-      const updated = await prisma.mediaReaction.update({
-        where: { id: existing.id },
-        data: { emoji },
-      });
-
+      await prisma.mediaReaction.delete({ where: { id: existing.id } });
       return {
         type: "reaction" as const,
-        id: updated.id,
-        mediaId: updated.mediaId,
-        emoji: updated.emoji,
-        createdAt: updated.createdAt.toISOString(),
-        previousEmoji: existing.emoji,
+        id: existing.id,
+        mediaId,
+        emoji,
+        createdAt: existing.createdAt.toISOString(),
+        removed: true as const,
       };
     }
 
@@ -766,9 +766,9 @@ export const mediaService = {
           captionTheme: appearance.captionTheme,
         },
         theme: {
-          primaryColor: event.theme?.primaryColor ?? "#8B5CF6",
+          primaryColor: event.theme?.primaryColor ?? "#C4A574",
           secondaryColor: event.theme?.secondaryColor ?? "#F59E0B",
-          accentColor: event.theme?.accentColor ?? "#10B981",
+          accentColor: event.theme?.accentColor ?? "#E8C9A0",
           logoUrl: event.theme?.logoUrl ?? null,
           albumBackgroundUrl: null as string | null,
           coverImageUrl: null as string | null,
@@ -781,6 +781,7 @@ export const mediaService = {
           title: string;
           description: string | null;
           presetKey: string | null;
+          mode: "photo" | "collage";
           coverImage: string | null;
           fields: unknown;
         }>,
@@ -859,9 +860,9 @@ export const mediaService = {
         captionTheme: appearance.captionTheme,
       },
       theme: {
-        primaryColor: event.theme?.primaryColor ?? "#8B5CF6",
+        primaryColor: event.theme?.primaryColor ?? "#C4A574",
         secondaryColor: event.theme?.secondaryColor ?? "#F59E0B",
-        accentColor: event.theme?.accentColor ?? "#10B981",
+        accentColor: event.theme?.accentColor ?? "#E8C9A0",
         logoUrl: event.theme?.logoUrl ?? null,
         albumBackgroundUrl: event.theme?.albumBackgroundUrl ?? coverImageUrl,
         coverImageUrl,
@@ -874,6 +875,8 @@ export const mediaService = {
         title: game.title,
         description: game.description,
         presetKey: game.presetKey,
+        mode:
+          game.mode === "collage" || game.presetKey === "collage" ? ("collage" as const) : ("photo" as const),
         coverImage: game.coverImage,
         fields: game.fields,
       })),

@@ -11,6 +11,7 @@ export const wizardGameSchema = z.object({
   title: z.string().trim().min(1),
   description: z.string().optional(),
   presetKey: z.string().nullable().optional(),
+  mode: z.enum(["photo", "collage"]),
   enabled: z.boolean(),
   sortOrder: z.number().int(),
   coverImage: z.string().nullable().optional(),

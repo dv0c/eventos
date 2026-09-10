@@ -15,6 +15,7 @@ const gameSchema = z.object({
   title: z.string().trim().min(1),
   description: z.string().nullable().optional(),
   presetKey: z.string().nullable().optional(),
+  mode: z.enum(["photo", "collage"]).optional(),
   sortOrder: z.number().int().optional(),
   enabled: z.boolean().optional(),
   fields: z.unknown().optional(),
@@ -77,6 +78,10 @@ export async function PUT(request: Request, context: RouteContext) {
           title: game.title,
           description: game.description ?? null,
           presetKey: game.presetKey ?? null,
+          mode:
+            game.mode === "collage" || game.presetKey === "collage"
+              ? "collage"
+              : "photo",
           sortOrder: game.sortOrder ?? index,
           enabled: game.enabled ?? true,
           fields: (game.fields ?? []) as Prisma.InputJsonValue,

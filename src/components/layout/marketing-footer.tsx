@@ -13,19 +13,14 @@ export function MarketingFooter({ className }: { className?: string }) {
   const year = new Date().getFullYear();
 
   return (
-    <footer
-      className={cn(
-        "border-t border-white/10 bg-black/30 backdrop-blur-md",
-        className,
-      )}
-    >
+    <footer className={cn("border-t border-white/10 bg-black/25", className)}>
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-12 md:grid-cols-4">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center">
               <Logo variant="full" theme="light" size="md" />
             </Link>
-            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-4 max-w-[28ch] text-sm leading-relaxed text-white/50">
               {t("heroSubtitle")}
             </p>
           </div>
@@ -47,6 +42,22 @@ export function MarketingFooter({ className }: { className?: string }) {
                   className="text-sm text-white/55 transition-colors hover:text-white"
                 >
                   {tNav("pricing")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/for-planners"
+                  className="text-sm text-white/55 transition-colors hover:text-white"
+                >
+                  {tNav("forPlanners")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/for-businesses"
+                  className="text-sm text-white/55 transition-colors hover:text-white"
+                >
+                  {tNav("forBusinesses")}
                 </Link>
               </li>
             </ul>
@@ -85,9 +96,7 @@ export function MarketingFooter({ className }: { className?: string }) {
 
         <Separator className="my-8 border-white/10 bg-white/10" />
 
-        <p className="text-center text-sm text-white/45">
-          {t("copyright", { year })}
-        </p>
+        <p className="text-center text-sm text-white/40">{t("copyright", { year })}</p>
       </div>
     </footer>
   );

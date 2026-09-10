@@ -1,6 +1,6 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { Star, Trash2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -78,41 +78,84 @@ export function DashedUploadBox({
   label,
   previewUrl,
   onFile,
+  onOpen,
+  onRemove,
+  removeLabel,
   disabled,
   className,
 }: {
   label: string;
   previewUrl?: string | null;
-  onFile: (file: File) => void;
+  onFile?: (file: File) => void;
+  /** When set, clicking opens a custom upload flow (e.g. MediaUploadModal) instead of a file input. */
+  onOpen?: () => void;
+  onRemove?: () => void;
+  removeLabel?: string;
   disabled?: boolean;
   className?: string;
 }) {
+  const boxClass = cn(
+    "flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-md border border-dashed border-border bg-muted/20 text-center text-xs text-muted-foreground transition-colors hover:bg-muted/40 dark:border-white/20 dark:bg-black/30 dark:hover:bg-black/45",
+    disabled && "pointer-events-none opacity-60",
+  );
+
   return (
-    <label
-      className={cn(
-        "flex h-20 w-20 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/20 text-center text-xs text-muted-foreground transition-colors hover:bg-muted/40 dark:border-white/20 dark:bg-black/30 dark:hover:bg-black/45",
-        disabled && "pointer-events-none opacity-60",
-        className,
-      )}
-    >
-      {previewUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+    <div className={cn("flex items-start gap-2", className)}>
+      {onOpen ? (
+        <button
+          type="button"
+          className={boxClass}
+          disabled={disabled}
+          onClick={onOpen}
+          aria-label={label}
+        >
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <>
+              <Upload className="size-5 opacity-70" aria-hidden />
+              <span>{label}</span>
+            </>
+          )}
+        </button>
       ) : (
-        <span>{label}</span>
+        <label className={boxClass}>
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <>
+              <Upload className="size-5 opacity-70" aria-hidden />
+              <span>{label}</span>
+            </>
+          )}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            disabled={disabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onFile?.(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
       )}
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        disabled={disabled}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFile(file);
-          e.target.value = "";
-        }}
-      />
-    </label>
+      {previewUrl && onRemove ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onRemove}
+          className="inline-flex size-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/10"
+          aria-label={removeLabel ?? "Remove"}
+          title={removeLabel ?? "Remove"}
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      ) : null}
+    </div>
   );
 }
 

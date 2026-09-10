@@ -1,15 +1,12 @@
 "use client";
 
 import {
-  BarChart3,
   CalendarDays,
   CreditCard,
-  FileStack,
   LayoutDashboard,
   Settings,
   Shield,
   Star,
-  Users,
   UsersRound,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -34,11 +31,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { path: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
   { path: "/events", labelKey: "events", icon: CalendarDays },
-  { path: "/clients", labelKey: "clients", icon: Users },
-  { path: "/templates", labelKey: "templates", icon: FileStack },
-  { path: "/analytics", labelKey: "analytics", icon: BarChart3 },
 ];
-
 const secondaryNavItems: NavItem[] = [
   { path: "/team", labelKey: "team", icon: UsersRound },
   { path: "/billing", labelKey: "billing", icon: CreditCard, billingOnly: true },

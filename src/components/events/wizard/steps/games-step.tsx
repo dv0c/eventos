@@ -10,8 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  getGamePresetsForType,
+  resolveGameMode,
+  type EventGameMode,
+  type GamePreset,
+} from "@/lib/event-game-presets";
 import { cn } from "@/lib/utils";
-import { getGamePresetsForType, type GamePreset } from "@/lib/event-game-presets";
 
 interface GamesStepProps {
   form: UseFormReturn<WizardFormData>;
@@ -22,11 +27,53 @@ function presetToForm(preset: GamePreset, index: number): WizardGameForm {
     title: preset.title,
     description: preset.description,
     presetKey: preset.presetKey,
+    mode: resolveGameMode(preset),
     enabled: true,
     sortOrder: index,
     coverImage: preset.coverImage ?? null,
     fields: preset.fields,
   };
+}
+
+function ModeToggle({
+  value,
+  onChange,
+  photoLabel,
+  collageLabel,
+}: {
+  value: EventGameMode;
+  onChange: (mode: EventGameMode) => void;
+  photoLabel: string;
+  collageLabel: string;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-border/60 p-0.5">
+      <button
+        type="button"
+        onClick={() => onChange("photo")}
+        className={cn(
+          "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+          value === "photo"
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        {photoLabel}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("collage")}
+        className={cn(
+          "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+          value === "collage"
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        {collageLabel}
+      </button>
+    </div>
+  );
 }
 
 export function GamesStep({ form }: GamesStepProps) {
@@ -76,6 +123,7 @@ export function GamesStep({ form }: GamesStepProps) {
           title: t("customGameDefaultTitle"),
           description: "",
           presetKey: null,
+          mode: "photo" as const,
           enabled: true,
           sortOrder: games.length,
           coverImage: null,
@@ -112,52 +160,67 @@ export function GamesStep({ form }: GamesStepProps) {
       </div>
 
       <div className="space-y-3">
-        {games.map((game, index) => (
-          <div
-            key={`${game.presetKey ?? "custom"}-${index}`}
-            className={cn(
-              "rounded-2xl border border-border/60 p-4",
-              !game.enabled && "opacity-60",
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1 space-y-3">
-                <div className="space-y-1.5">
-                  <Label>{t("gameTitleLabel")}</Label>
-                  <Input
-                    value={game.title}
-                    onChange={(e) => updateGame(index, { title: e.target.value })}
-                  />
+        {games.map((game, index) => {
+          const mode = resolveGameMode(game);
+          return (
+            <div
+              key={`${game.presetKey ?? "custom"}-${index}`}
+              className={cn(
+                "rounded-2xl border border-border/60 p-4",
+                !game.enabled && "opacity-60",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>{t("gameTitleLabel")}</Label>
+                    <Input
+                      value={game.title}
+                      onChange={(e) => updateGame(index, { title: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("gameDescriptionLabel")}</Label>
+                    <Input
+                      value={game.description ?? ""}
+                      onChange={(e) => updateGame(index, { description: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("gameModeLabel")}</Label>
+                    <ModeToggle
+                      value={mode}
+                      onChange={(next) => updateGame(index, { mode: next })}
+                      photoLabel={t("gameModePhoto")}
+                      collageLabel={t("gameModeCollage")}
+                    />
+                    {mode === "collage" ? (
+                      <p className="text-xs text-muted-foreground">{t("gameModeCollageHint")}</p>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>{t("gameDescriptionLabel")}</Label>
-                  <Input
-                    value={game.description ?? ""}
-                    onChange={(e) => updateGame(index, { description: e.target.value })}
-                  />
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">{t("gameEnabled")}</Label>
+                    <Switch
+                      checked={game.enabled}
+                      onCheckedChange={(checked) => updateGame(index, { enabled: checked })}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeGame(index)}
+                    aria-label={t("gameRemove")}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground">{t("gameEnabled")}</Label>
-                  <Switch
-                    checked={game.enabled}
-                    onCheckedChange={(checked) => updateGame(index, { enabled: checked })}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeGame(index)}
-                  aria-label={t("gameRemove")}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {games.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
             {t("gamesEmpty")}

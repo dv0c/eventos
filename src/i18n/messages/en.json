@@ -52,7 +52,22 @@
     "tomorrow": "Tomorrow",
     "noResults": "No results found",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "uploadModal": {
+      "chooseFiles": "Choose files",
+      "singleHint": "Select one image",
+      "multipleHint": "Select one or more files",
+      "maxSize": "Max {max}",
+      "tooLarge": "File is too large (max {max})",
+      "queued": "Queued",
+      "uploading": "Uploading…",
+      "done": "Done",
+      "failed": "Upload failed",
+      "doneOne": "Upload complete",
+      "doneMany": "{count} files uploaded",
+      "overall": "Overall progress",
+      "upload": "Upload"
+    }
   },
   "auth": {
     "login": "Log in",
@@ -145,200 +160,244 @@
     "footerCookies": "Cookies",
     "copyright": "© {year} Eventos. All rights reserved.",
     "home": {
-      "badge": "Top guest photo sharing",
-      "heroLead": "Easily collect photos from every guest at your",
+      "badge": "Guest photo sharing",
+      "heroLead": "Every moment of your",
       "occasions": {
-        "wedding": "Wedding",
-        "birthday": "Birthday",
-        "party": "Party",
-        "corporate": "Corporate event",
-        "conference": "Conference",
-        "baptism": "Baptism"
+        "wedding": "wedding",
+        "birthday": "birthday",
+        "party": "party",
+        "corporate": "corporate event",
+        "conference": "conference",
+        "baptism": "baptism"
       },
-      "heroSubtitle": "Gather every photo and video into a private digital album, then play them on a live wall — no apps for guests, setup in minutes.",
+      "heroSubtitle": "A private album and live wall — no app for guests.",
       "heroCta": "Create your event",
-      "heroSecondaryCta": "Watch how it works",
-      "heroMicro": "Start free. Ready in under two minutes.",
+      "heroSecondaryCta": "How it works",
+      "heroMicro": "Start free. Ready in minutes.",
       "miniSteps": {
-        "labels": {
-          "step1": "Step 1:",
-          "step2": "Step 2:",
-          "step3": "Step 3:"
+        "eyebrow": "The night, in three moments",
+        "phase": {
+          "step1": "Before",
+          "step2": "During",
+          "step3": "After"
         },
-        "step1": "Sign-up & create your event",
-        "step2": "Guests join with a link or QR scan",
-        "step3": "Enjoy all captured moments!"
-      },
-      "valueTitle": "Event photo sharing made easy",
-      "valueSubtitle": "Collect and share guest photos and videos in a polished digital album — simple for hosts, effortless for guests.",
-      "valueCta": "Get started",
-      "valueDemo": "Explore features",
-      "features": {
-        "media": {
-          "title": "Guest photos and videos",
-          "desc": "See your event through every guest’s lens — candid shots and videos in one place."
-        },
-        "captions": {
-          "title": "Messages and captions",
-          "desc": "Let guests add short notes alongside their uploads so the album feels personal."
-        },
-        "easy": {
-          "title": "Built for non-techies",
-          "desc": "Open a link or scan a QR code. No downloads, no accounts for guests."
-        },
-        "wall": {
-          "title": "Live photo wall",
-          "desc": "Stream new uploads in real time on TVs, projectors, and laptops."
+        "step1": "Create the space and your QR.",
+        "step2": "Guests share from their phones.",
+        "step3": "Everything lives in one album.",
+        "support": {
+          "step1": "Name the night, pick your look, and print a QR for the tables.",
+          "step2": "Phones stay in pockets until someone wants to share — then it takes seconds.",
+          "step3": "Download the set, open sealed wishes, and keep the wall playlist of memories."
         }
       },
-      "howTitle": "How does it work?",
-      "howSubtitle": "A smooth path for you and your guests.",
+      "valueTitle": "Memories become part of the night",
+      "valueSubtitle": "A live wall in the room. A private album after.",
+      "valueCta": "Create your event",
+      "valueDemo": "What’s included",
+      "features": {
+        "captions": {
+          "title": "Notes that travel with the photo",
+          "desc": "Short captions and dedications sit beside each upload so the story doesn’t get lost in a chat scroll."
+        },
+        "easy": {
+          "title": "No app store stop",
+          "desc": "A link or QR in the browser. No accounts, no downloads."
+        },
+        "host": {
+          "title": "You’re still in charge",
+          "desc": "Approve uploads when you want, hide what shouldn’t stay, and keep the album link private to your guests."
+        },
+        "wall": {
+          "eyebrow": "On the night",
+          "title": "Uploads land on the live wall while the dance floor is still warm",
+          "desc": "Cast the wall to a TV or projector. As guests share, new frames appear in the room — not buried in someone’s group chat.",
+          "chip1": "Real-time slideshow",
+          "chip2": "TV & projector ready",
+          "chip3": "Host approval optional"
+        }
+      },
+      "howTitle": "How the night comes together",
+      "howSubtitle": "Three steps. No tech briefing at the door.",
       "how": {
+        "guestsSee": "Guests see",
+        "hostsControl": "Hosts control",
         "step1": {
           "label": "Step 1",
           "title": "Create your event",
-          "desc": "Open a private album for photos, videos, and messages. Set the name, date, and look so it feels like yours.",
-          "cta": "Create your event"
+          "desc": "Name, date, look. A private album ready for photos.",
+          "cta": "Create your event",
+          "chips": {
+            "theme": "Colors & branding",
+            "date": "Event date",
+            "privacy": "Private link"
+          }
         },
         "step2": {
           "label": "Step 2",
           "title": "Share it with your guests",
-          "desc": "Guests view and contribute with a unique link or QR code — before, during, and after the celebration.",
+          "desc": "A link or QR on the tables. Guests upload from their phones — before, during, and after.",
           "bullets": {
             "link": "Share the link by email, SMS, or chat",
             "qr": "Print the QR on cards and entrance signs",
             "noApp": "No app downloads. No guest registration."
-          }
+          },
+          "guests": "A simple album they open in the browser",
+          "hosts": "Separate QRs for album, wall, and DJ booth"
         },
         "step3": {
           "label": "Step 3 (optional)",
           "title": "Display it on a live wall",
-          "desc": "Add a live slideshow that updates as guests upload. Cast it to a projector, smart TV, or tablet.",
-          "cta": "See how the wall works"
+          "desc": "A slideshow that updates live. On a TV, projector, or laptop by the dance floor.",
+          "cta": "See how the wall works",
+          "chips": {
+            "cast": "Any browser screen",
+            "live": "Updates as guests upload",
+            "approve": "Optional moderation"
+          },
+          "guests": "Their shot appearing on the big screen",
+          "hosts": "What goes live and how long it stays"
         },
         "step4": {
           "label": "Step 4",
           "title": "Revisit every moment",
-          "desc": "Open the album anytime to relive the day. Download everything when you’re ready.",
+          "desc": "Come back to the album anytime. Download the full set, listen to sealed voice wishes, and keep the night in one place.",
           "bullets": {
             "album": "Every upload lives in your digital album",
             "download": "Download the full set when you want a keepsafe"
           },
-          "cta": "Create your event"
+          "cta": "Create your event",
+          "chips": {
+            "zip": "Full download",
+            "wishes": "Voice wishes",
+            "music": "Song request history"
+          }
         }
       },
-      "capsTitle": "Everything you need for guest media",
-      "capsSubtitle": "From the album to printable QR codes — covered.",
+      "capsEyebrow": "Celebration toolkit",
+      "capsTitle": "More than a shared folder",
+      "capsSubtitle": "Album, live wall, music, and wishes — built for the night itself.",
       "caps": {
         "album": {
           "title": "Digital album",
-          "desc": "Photos and videos land in one album you can open anytime."
+          "desc": "Every guest photo and video in one place you can reopen years later."
         },
         "download": {
-          "title": "Easy download",
-          "desc": "Save individual files or pull the full set when the night is over."
-        },
-        "noApps": {
-          "title": "No apps required",
-          "desc": "Hosts and guests stay in the browser — no store visits."
+          "title": "Full download",
+          "desc": "Pull individual files or the whole set when you want everything offline."
         },
         "qr": {
-          "title": "QR codes",
-          "desc": "Print a unique code for tables and signs so guests join in seconds."
+          "title": "Printable QR codes",
+          "desc": "Table cards and entrance signs that open the album in a few seconds."
         },
         "wall": {
           "title": "Live photo wall",
-          "desc": "A real-time slideshow of approved uploads for screens and projectors."
+          "desc": "A room-scale slideshow of approved uploads — the dance floor’s second stage."
         },
-        "customize": {
-          "title": "Customization",
-          "desc": "Tune colors, wall timing, and what guests see on the display."
+        "music": {
+          "title": "Song requests for the DJ",
+          "desc": "Guests search tracks and send dedications. The DJ booth queue stays on the host phone — no copyrighted streaming in the app.",
+          "note": "Metadata + artwork for decks — not in-app playback"
         },
-        "captions": {
-          "title": "Captions",
-          "desc": "Short messages sit next to photos so stories stay with the moment."
+        "wishes": {
+          "title": "Sealed voice wishes",
+          "desc": "Guests record a short message during the event. Hosts unlock them after the night ends.",
+          "note": "Up to 30 seconds · sealed until the event ends"
+        },
+        "moderation": {
+          "title": "Moderation when you need it",
+          "desc": "Approve uploads before they hit the wall, or publish freely and tidy later."
         },
         "private": {
           "title": "Private by default",
-          "desc": "Only people with your link can see the album — your media stays yours."
+          "desc": "Only people with your link see the album. Your media stays yours."
         }
       },
-      "occasionsTitle": "Photo sharing for any occasion",
-      "occasionsSubtitle": "From intimate celebrations to large conferences.",
+      "occasionsTitle": "Different nights. Same warm center.",
+      "occasionsSubtitle": "Wedding, party, corporate — without turning guests into tech support.",
       "occasionCards": {
         "wedding": {
           "title": "Weddings",
-          "desc": "Collect every angle of the day"
+          "desc": "First dance on the wall, aunties’ candids in the album, and a QR on every table card."
         },
         "party": {
-          "title": "Parties and celebrations",
-          "desc": "Share photos and keep the energy going"
+          "title": "Parties",
+          "desc": "Keep the energy visible — uploads flash on screen while the playlist rolls."
         },
         "birthday": {
           "title": "Birthdays",
-          "desc": "Celebrate with the people who matter"
+          "desc": "Cake, toasts, and the silly shots friends actually take — gathered without chasing chats."
         },
         "conference": {
           "title": "Conferences",
-          "desc": "Engage attendees with a shared album"
+          "desc": "Sessions, hallway moments, and speaker snaps in one shared album for attendees."
         },
         "corporate": {
           "title": "Corporate events",
-          "desc": "Capture retreats, dinners, and team days"
+          "desc": "Retreats and dinners get a polished keepsafe your team will actually open again."
         },
         "other": {
-          "title": "Whatever the event",
-          "desc": "If guests have cameras, Eventos fits"
+          "title": "Your celebration",
+          "desc": "Baptisms, anniversaries, farewells — if guests have cameras, you have a home for them."
         }
       },
-      "occasionLearn": "Learn more",
-      "occasionStart": "Get started",
-      "midCtaTitle": "Ready to collect every guest photo?",
-      "midCtaSubtitle": "Create your event album and share a link or QR before the first toast.",
+      "occasionLearn": "Explore features",
+      "occasionStart": "Start your event",
+      "midCtaTitle": "Set the album before the first toast",
+      "midCtaSubtitle": "Create your event. Print a QR. Stay present.",
+      "midCtaTrust": "Start free · Ready in under two minutes · No app for guests",
       "midCtaPrimary": "Create your event",
       "midCtaSecondary": "View plans and pricing",
-      "testimonialsTitle": "Hosts who put guests behind the camera",
-      "testimonialsSubtitle": "Illustrative stories inspired by how hosts use Eventos albums and live walls.",
+      "testimonialsTitle": "Voices from real nights",
+      "testimonialsSubtitle": "Stories from hosts who used albums and live walls.",
       "testimonials": {
         "1": {
+          "tag": "Wedding",
           "quote": "Our photographer couldn’t be everywhere. The guest album filled in angles we never would have had — and the wall kept the dance floor buzzing.",
+          "outcome": "Wall running all evening · hundreds of guest frames",
           "name": "Elena K.",
           "meta": "Wedding host · Athens"
         },
         "2": {
+          "tag": "Company offsite",
           "quote": "We tried chat threads and a shared Drive. Guests actually used Eventos because scanning a QR was the whole setup.",
+          "outcome": "One QR on badge lanyards",
           "name": "Marcus T.",
           "meta": "Company offsite · Berlin"
         },
         "3": {
+          "tag": "Reception",
           "quote": "The live wall was the surprise of the night. People kept uploading just to see their shot appear on the screen.",
+          "outcome": "Projector beside the bar",
           "name": "Sofia and Nikos",
           "meta": "Reception · Thessaloniki"
         }
       },
-      "compareTitle": "We take guest photo sharing seriously",
-      "compareSubtitle": "Don’t settle for chat dumps and missing files — give guests a path they’ll actually use.",
+      "compareScene": "Group chat chaos vs one calm album",
+      "compareTitle": "Built for the celebration — not for file dumping",
+      "compareSubtitle": "Give guests a path they’ll finish in seconds, and give yourself a night that still looks like your event.",
       "compareUsTitle": "With Eventos",
+      "compareUsLead": "One space for the room, the album, and the morning after.",
       "compareThemTitle": "Chat apps and shared folders",
+      "compareThemLead": "Convenient until the night gets busy — then things vanish.",
       "compareUs": {
-        "1": "Clear upload flow guests finish in seconds",
-        "2": "A beautiful digital album, not a buried thread",
-        "3": "Live wall for screens and projectors",
+        "1": "Upload flow guests finish without asking for help",
+        "2": "A digital album with your event’s look — not a buried thread",
+        "3": "Live wall for TVs and projectors",
         "4": "QR and link access with no guest accounts",
-        "5": "Moderation when you need it",
-        "6": "Start free — expand when the event grows"
+        "5": "Song requests, sealed wishes, and moderation when you need them",
+        "6": "Full download when you want the keepsafe offline"
       },
       "compareThem": {
-        "1": "Clunky uploads and lost chat history",
-        "2": "Generic folders with no event feel",
+        "1": "Half the guests never find the right chat",
+        "2": "Folders with no atmosphere and no night-of display",
         "3": "No live slideshow for the room",
         "4": "Logins, apps, or invite friction",
-        "5": "Hard to moderate at scale",
-        "6": "Setup tax before anyone contributes"
+        "5": "Hard to moderate — easy to lose dedications",
+        "6": "Hunting for files weeks later"
       },
       "compareCta": "Collect your event photos",
-      "faqTitle": "Questions?",
-      "faqSubtitle": "Straight answers about guest uploads, the live wall, and privacy.",
+      "faqTitle": "Questions",
+      "faqSubtitle": "Uploads, the wall, music, wishes, and privacy.",
       "faqCta": "I’m ready to start",
       "faq": {
         "noApp": {
@@ -357,13 +416,21 @@
           "q": "How does the photo wall work?",
           "a": "The wall is a browser slideshow that updates as approved uploads arrive. Open it on any screen and cast or connect to a TV or projector."
         },
+        "music": {
+          "q": "How do song requests work?",
+          "a": "Guests search tracks from the album Music tab and send a request with an optional note. Hosts and DJs manage the queue in the DJ booth — Eventos stores title, artist, and artwork so the DJ can play from their own decks. We don’t stream full copyrighted tracks in the app."
+        },
+        "wishes": {
+          "q": "What are voice wishes?",
+          "a": "Guests can record a short sealed message (up to 30 seconds) during the event. Hosts unlock and listen after the celebration ends — a quieter keepsake beside the photos."
+        },
         "privacy": {
           "q": "Are our photos private?",
           "a": "Albums are private by default. Only people with your share link can view or contribute. Your media stays yours."
         },
         "moderation": {
           "q": "What if someone uploads something inappropriate?",
-          "a": "You can remove uploads from your dashboard anytime. For larger public events, turn on moderation so new media needs approval first."
+          "a": "You can remove uploads from your dashboard anytime. For larger events, turn on moderation so new media needs approval before it reaches the wall."
         },
         "photographer": {
           "q": "We already have a photographer — is this still useful?",
@@ -840,8 +907,24 @@
       "langAutomatic": "Automatic",
       "langEn": "English",
       "langEl": "Greek",
-      "themeColor": "Theme Color",
-      "themeColorDesc": "Used for buttons and accents on guest-facing pages.",
+      "themeColor": "Theme colors",
+      "themeColorDesc": "Primary, secondary, and accent colors for guest pages and this event’s apps.",
+      "customizeTheme": "Customize theme",
+      "themeStudioTitle": "Theme studio",
+      "themeStudioPresetsHint": "Pick a palette or fine-tune each color. Preview updates live below.",
+      "themeStudioPreview": "Preview",
+      "themeStudioResetDefault": "Reset to default",
+      "themePreviewPrimaryBtn": "Primary button",
+      "themePreviewGoldBtn": "Gold button",
+      "themePreviewOutlineBtn": "Outline",
+      "themePreviewInput": "Input focus preview",
+      "themePreviewPrimaryChip": "Primary",
+      "themePreviewSecondaryChip": "Secondary",
+      "themePreviewAccentChip": "Accent",
+      "accentColor": "Accent color",
+      "accentColorDesc": "Highlights, chips, and secondary accents.",
+      "removeLogo": "Remove logo",
+      "removeAlbumBackground": "Remove album background",
       "welcomeScreen": "Welcome Screen",
       "welcomeScreenDesc": "Greet guests before they enter your album or wall.",
       "addWelcomeScreen": "Add Welcome Screen",
@@ -936,6 +1019,7 @@
     "generic": "Something went wrong. Please try again.",
     "notFound": "Page not found",
     "notFoundDesc": "The page you're looking for doesn't exist or has been moved.",
+    "backHome": "Go to home",
     "backToDashboard": "Go to dashboard",
     "unauthorized": "Sign in required",
     "unauthorizedDesc": "Please sign in to continue.",
@@ -1172,6 +1256,10 @@
     "gamesEmpty": "No games yet. Add a custom game or load presets.",
     "customGameDefaultTitle": "Custom game",
     "customGamePhotoLabel": "Upload a photo",
+    "gameModeLabel": "Guest upload",
+    "gameModePhoto": "Photo",
+    "gameModeCollage": "Collage",
+    "gameModeCollageHint": "Guests pick 2–4 photos and the app stitches them into one image.",
     "gamesSelected": "{count} games selected",
     "gamesNone": "No games",
     "gamesLoadFailed": "Could not load games",
@@ -1188,6 +1276,7 @@
     "choosePalette": "Choose a color palette",
     "customColors": "Custom colors",
     "presets": {
+      "eventosDefault": "Eventos default",
       "elegantPurple": "Elegant purple",
       "romanticRose": "Romantic rose",
       "softSky": "Soft sky",
@@ -1349,20 +1438,31 @@
   },
   "admin": {
     "title": "Platform admin",
+    "platformAdmin": "Platform admin",
+    "overview": "Overview",
     "overviewDesc": "Monitor users, organizations, and platform health.",
     "users": "Users",
     "events": "Events",
     "organizations": "Organizations",
+    "media": "Media",
+    "billing": "Billing",
+    "billingDesc": "Plans, subscriptions, and invoices across the platform.",
+    "plans": "Plans",
     "subscriptions": "Subscriptions",
-    "payments": "Payments",
+    "payments": "Invoices",
     "reports": "Reports",
     "auditLogs": "Audit logs",
     "settings": "Settings",
+    "theme": "Theme",
     "totalCount": "{count} total",
     "name": "Name",
     "email": "Email",
+    "phone": "Phone",
+    "locale": "Locale",
     "role": "Role",
     "status": "Status",
+    "type": "Type",
+    "mode": "Mode",
     "organization": "Organization",
     "eventName": "Event",
     "plan": "Plan",
@@ -1371,6 +1471,55 @@
     "action": "Action",
     "user": "User",
     "entity": "Entity",
+    "description": "Description",
+    "brandName": "Brand name",
+    "logoUrl": "Logo URL",
+    "primaryColor": "Primary color",
+    "secondaryColor": "Secondary color",
+    "accentColor": "Accent color",
+    "customDomain": "Custom domain",
+    "members": "Members",
+    "memberships": "Memberships",
+    "endDate": "End date",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "location": "Location",
+    "address": "Address",
+    "hostName": "Host name",
+    "hostEmail": "Host email",
+    "hostPhone": "Host phone",
+    "priceMonthly": "Price monthly (cents)",
+    "priceYearly": "Price yearly (cents)",
+    "sortOrder": "Sort order",
+    "storage": "Storage",
+    "mediaPending": "Pending media",
+    "voiceWishes": "Voice wishes",
+    "chartSignups": "User signups (30d)",
+    "chartEvents": "Events created (30d)",
+    "chartMedia": "Media uploads (30d)",
+    "chartSubscriptions": "Subscriptions by status",
+    "recentActivity": "Recent activity",
+    "search": "Search…",
+    "searchUsers": "Search users…",
+    "allRoles": "All roles",
+    "allStatuses": "All statuses",
+    "includeDeleted": "Include deleted",
+    "active": "Active",
+    "deleted": "Deleted",
+    "softDelete": "Soft delete",
+    "restore": "Restore",
+    "remove": "Remove",
+    "delete": "Delete",
+    "approve": "Approve",
+    "reject": "Reject",
+    "feature": "Feature",
+    "actionDone": "Done",
+    "saveFailed": "Save failed",
+    "invalidJson": "Invalid JSON",
+    "backToList": "Back to list",
+    "openPublic": "Public page",
+    "openMod": "Moderator app",
+    "countsSummary": "{media} media · {guests} guests · {songs} songs · {wishes} wishes",
     "noUsers": "No users",
     "noUsersDesc": "No users registered yet.",
     "noEvents": "No events",

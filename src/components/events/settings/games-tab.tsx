@@ -9,7 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { getGamePresetsForType } from "@/lib/event-game-presets";
+import {
+  getGamePresetsForType,
+  resolveGameMode,
+  type EventGameMode,
+} from "@/lib/event-game-presets";
+import { cn } from "@/lib/utils";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
 
 type GameDraft = {
@@ -17,11 +22,53 @@ type GameDraft = {
   title: string;
   description: string;
   presetKey: string | null;
+  mode: EventGameMode;
   enabled: boolean;
   sortOrder: number;
   coverImage: string | null;
   fields: unknown;
 };
+
+function ModeToggle({
+  value,
+  onChange,
+  photoLabel,
+  collageLabel,
+}: {
+  value: EventGameMode;
+  onChange: (mode: EventGameMode) => void;
+  photoLabel: string;
+  collageLabel: string;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-border/60 p-0.5">
+      <button
+        type="button"
+        onClick={() => onChange("photo")}
+        className={cn(
+          "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+          value === "photo"
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        {photoLabel}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("collage")}
+        className={cn(
+          "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+          value === "collage"
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        {collageLabel}
+      </button>
+    </div>
+  );
+}
 
 export function GamesTab({ event }: { event: EventWithRelations }) {
   const t = useTranslations("wizard");
@@ -43,6 +90,7 @@ export function GamesTab({ event }: { event: EventWithRelations }) {
           title: string;
           description: string | null;
           presetKey: string | null;
+          mode?: string | null;
           enabled: boolean;
           sortOrder: number;
           coverImage: string | null;
@@ -54,6 +102,7 @@ export function GamesTab({ event }: { event: EventWithRelations }) {
             title: row.title,
             description: row.description ?? "",
             presetKey: row.presetKey,
+            mode: resolveGameMode(row),
             enabled: row.enabled,
             sortOrder: row.sortOrder,
             coverImage: row.coverImage,
@@ -105,6 +154,7 @@ export function GamesTab({ event }: { event: EventWithRelations }) {
         title: preset.title,
         description: preset.description,
         presetKey: preset.presetKey,
+        mode: resolveGameMode(preset),
         enabled: true,
         sortOrder: index,
         coverImage: preset.coverImage ?? null,
@@ -140,6 +190,7 @@ export function GamesTab({ event }: { event: EventWithRelations }) {
                   title: t("customGameDefaultTitle"),
                   description: "",
                   presetKey: null,
+                  mode: "photo",
                   enabled: true,
                   sortOrder: prev.length,
                   coverImage: null,
@@ -194,6 +245,22 @@ export function GamesTab({ event }: { event: EventWithRelations }) {
                       )
                     }
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("gameModeLabel")}</Label>
+                  <ModeToggle
+                    value={game.mode}
+                    onChange={(mode) =>
+                      setGames((prev) =>
+                        prev.map((row, i) => (i === index ? { ...row, mode } : row)),
+                      )
+                    }
+                    photoLabel={t("gameModePhoto")}
+                    collageLabel={t("gameModeCollage")}
+                  />
+                  {game.mode === "collage" ? (
+                    <p className="text-xs text-muted-foreground">{t("gameModeCollageHint")}</p>
+                  ) : null}
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">

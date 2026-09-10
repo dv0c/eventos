@@ -43,6 +43,7 @@ export interface CreateEventWizardInput {
     title: string;
     description?: string | null;
     presetKey?: string | null;
+    mode?: "photo" | "collage";
     sortOrder?: number;
     enabled?: boolean;
     fields?: unknown;
@@ -165,6 +166,7 @@ export const eventService = {
             title: game.title,
             description: game.description ?? null,
             presetKey: game.presetKey ?? null,
+            mode: game.mode === "collage" || game.presetKey === "collage" ? "collage" : "photo",
             sortOrder: game.sortOrder ?? index,
             enabled: game.enabled ?? true,
             fields: (game.fields ?? []) as Prisma.InputJsonValue,

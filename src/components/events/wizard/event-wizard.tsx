@@ -30,10 +30,11 @@ import {
   wizardSchema,
   type WizardFormData,
 } from "@/components/events/wizard/wizard-schema";
+import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
-import { getGamePresetsForType } from "@/lib/event-game-presets";
+import { getGamePresetsForType, resolveGameMode } from "@/lib/event-game-presets";
 
 export function EventWizard() {
   const t = useTranslations("wizard");
@@ -44,7 +45,7 @@ export function EventWizard() {
   const [direction, setDirection] = useState<WizardTransitionDirection>("forward");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverUploadOpen, setCoverUploadOpen] = useState(false);
   const formScrollRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
 
@@ -84,6 +85,7 @@ export function EventWizard() {
         title: preset.title,
         description: preset.description,
         presetKey: preset.presetKey,
+        mode: resolveGameMode(preset),
         enabled: true,
         sortOrder: index,
         coverImage: preset.coverImage ?? null,
@@ -130,6 +132,7 @@ export function EventWizard() {
               title: game.title,
               description: game.description || null,
               presetKey: game.presetKey ?? null,
+              mode: game.mode === "collage" ? "collage" : "photo",
               sortOrder: index,
               enabled: true,
               fields: game.fields,
@@ -158,34 +161,6 @@ export function EventWizard() {
       toast.error(t("submitError"));
       submittingRef.current = false;
       setIsSubmitting(false);
-    }
-  }
-
-  async function handleCoverUpload(file: File) {
-    setIsUploadingCover(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "covers");
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        toast.error(result.error?.message ?? t("coverUploadError"));
-        return;
-      }
-
-      form.setValue("coverImageKey", result.data.key, { shouldDirty: true });
-      setCoverPreview(result.data.url);
-      toast.success(t("coverUploadSuccess"));
-    } catch {
-      toast.error(t("coverUploadError"));
-    } finally {
-      setIsUploadingCover(false);
     }
   }
 
@@ -246,8 +221,7 @@ export function EventWizard() {
           <ThemeStep
             form={form}
             coverPreview={coverPreview}
-            isUploadingCover={isUploadingCover}
-            onCoverUpload={handleCoverUpload}
+            onOpenCoverUpload={() => setCoverUploadOpen(true)}
           />
         );
       case "games":
@@ -327,6 +301,34 @@ export function EventWizard() {
       <WizardStepTransition transitionKey={currentStepId} direction={direction}>
         {renderStep()}
       </WizardStepTransition>
+
+      <MediaUploadModal
+        open={coverUploadOpen}
+        onOpenChange={setCoverUploadOpen}
+        title={t("coverImage")}
+        mode="single"
+        maxBytes={5 * 1024 * 1024}
+        upload={{
+          url: "/api/upload",
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("folder", "covers");
+            return formData;
+          },
+        }}
+        onSuccess={({ files }) => {
+          const data = (
+            files[0]?.response as { data?: { key?: string; url?: string } } | undefined
+          )?.data;
+          if (!data?.key || !data.url) {
+            toast.error(t("coverUploadError"));
+            return;
+          }
+          form.setValue("coverImageKey", data.key, { shouldDirty: true });
+          setCoverPreview(data.url);
+        }}
+      />
     </WizardShell>
   );
 }

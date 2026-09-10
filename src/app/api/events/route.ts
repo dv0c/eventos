@@ -34,6 +34,7 @@ const createEventSchema = z.object({
         title: z.string().trim().min(1),
         description: z.string().nullable().optional(),
         presetKey: z.string().nullable().optional(),
+        mode: z.enum(["photo", "collage"]).optional(),
         sortOrder: z.number().int().optional(),
         enabled: z.boolean().optional(),
         fields: z.unknown().optional(),

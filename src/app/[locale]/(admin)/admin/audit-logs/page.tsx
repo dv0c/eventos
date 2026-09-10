@@ -1,87 +1,131 @@
-import { Suspense } from "react";
-import { ScrollText } from "lucide-react";
+import { AuditAction } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
-import type { AuditAction, Prisma } from "@prisma/client";
 
-import { AuditLogFilters } from "@/components/admin/audit-log-filters";
-import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent } from "@/components/ui/card";
-import { formatDate } from "@/lib/format";
-import { prisma } from "@/server/db";
+import { AdminFilterBar } from "@/components/admin/admin-filter-bar";
+import {
+  AdminPageHeader,
+  AdminPagination,
+  AdminTable,
+} from "@/components/admin/admin-ui";
+import { requireAdmin } from "@/server/auth/session";
+import { adminService } from "@/server/services/admin.service";
 
 export default async function AdminAuditLogsPage({
-  params,
   searchParams,
 }: {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<{ action?: string; search?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { locale } = await params;
-  const { action, search } = await searchParams;
+  await requireAdmin();
   const t = await getTranslations("admin");
+  const sp = await searchParams;
+  const search = typeof sp.q === "string" ? sp.q : undefined;
+  const action =
+    typeof sp.action === "string" &&
+    Object.values(AuditAction).includes(sp.action as AuditAction)
+      ? (sp.action as AuditAction)
+      : undefined;
+  const from = typeof sp.from === "string" ? new Date(sp.from) : undefined;
+  const to = typeof sp.to === "string" ? new Date(sp.to) : undefined;
+  const page = Number(sp.page ?? 1) || 1;
 
-  const where: Prisma.AuditLogWhereInput = {
-    ...(action && action !== "all" ? { action: action as AuditAction } : {}),
-    ...(search
-      ? {
-          OR: [
-            { user: { email: { contains: search, mode: "insensitive" } } },
-            { user: { name: { contains: search, mode: "insensitive" } } },
-            { entity: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {}),
-  };
-
-  const count = await prisma.auditLog.count({ where });
-  const logs = await prisma.auditLog.findMany({
-    where,
-    take: 50,
-    orderBy: { createdAt: "desc" },
-    include: { user: { select: { name: true, email: true } } },
+  const data = await adminService.listAuditLogs({
+    search,
+    action,
+    from: from && !Number.isNaN(from.getTime()) ? from : undefined,
+    to: to && !Number.isNaN(to.getTime()) ? to : undefined,
+    page,
+    pageSize: 40,
   });
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{t("auditLogs")}</h1>
-      <p className="text-muted-foreground">{t("totalCount", { count })}</p>
-
-      <Suspense fallback={null}>
-        <AuditLogFilters currentAction={action} currentSearch={search} />
-      </Suspense>
-
-      {logs.length === 0 ? (
-        <EmptyState icon={ScrollText} title={t("noAuditLogs")} description={t("noAuditLogsDesc")} />
-      ) : (
-        <Card className="surface-elevated">
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/60 text-left text-muted-foreground">
-                  <th className="p-4 font-medium">{t("action")}</th>
-                  <th className="p-4 font-medium">{t("user")}</th>
-                  <th className="p-4 font-medium">{t("entity")}</th>
-                  <th className="p-4 font-medium">{t("date")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-b border-border/40">
-                    <td className="p-4 font-medium">{log.action}</td>
-                    <td className="p-4 text-muted-foreground">
-                      {log.user?.name ?? log.user?.email ?? "—"}
-                    </td>
-                    <td className="p-4 text-muted-foreground">{log.entity}</td>
-                    <td className="p-4 text-muted-foreground">
-                      {formatDate(log.createdAt, locale as "el" | "en")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
+      <AdminPageHeader
+        title={t("auditLogs")}
+        description={t("totalCount", { count: data.total })}
+      />
+      <AdminFilterBar
+        basePath="/admin/audit-logs"
+        initial={{ q: search }}
+        extras={
+          <>
+            <select
+              name="action"
+              defaultValue={action ?? ""}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">{t("allActions")}</option>
+              {Object.values(AuditAction).map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              name="from"
+              defaultValue={
+                typeof sp.from === "string" ? sp.from : undefined
+              }
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            />
+            <input
+              type="date"
+              name="to"
+              defaultValue={typeof sp.to === "string" ? sp.to : undefined}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            />
+          </>
+        }
+      />
+      <AdminTable>
+        <thead>
+          <tr className="border-b border-white/10 text-left text-muted-foreground">
+            <th className="p-3 font-medium">{t("date")}</th>
+            <th className="p-3 font-medium">{t("user")}</th>
+            <th className="p-3 font-medium">{t("action")}</th>
+            <th className="p-3 font-medium">{t("entity")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.items.length === 0 ? (
+            <tr>
+              <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                {t("noAuditLogs")}
+              </td>
+            </tr>
+          ) : (
+            data.items.map((log) => (
+              <tr key={log.id} className="border-b border-white/5">
+                <td className="p-3 text-muted-foreground">
+                  {log.createdAt.toLocaleString()}
+                </td>
+                <td className="p-3">
+                  {log.user?.email ?? log.user?.name ?? "—"}
+                </td>
+                <td className="p-3">{log.action}</td>
+                <td className="p-3 text-muted-foreground">
+                  {log.entity}
+                  {log.entityId ? ` · ${log.entityId.slice(0, 10)}` : ""}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </AdminTable>
+      <AdminPagination
+        page={data.page}
+        pageSize={data.pageSize}
+        total={data.total}
+        hrefForPage={(p) => {
+          const params = new URLSearchParams();
+          if (search) params.set("q", search);
+          if (action) params.set("action", action);
+          if (typeof sp.from === "string") params.set("from", sp.from);
+          if (typeof sp.to === "string") params.set("to", sp.to);
+          params.set("page", String(p));
+          return `/admin/audit-logs?${params}`;
+        }}
+      />
     </div>
   );
 }

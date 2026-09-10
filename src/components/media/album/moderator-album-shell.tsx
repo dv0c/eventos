@@ -360,7 +360,7 @@ export function ModeratorAlbumShell({
                     className={cn(
                       "tap-press rounded-xl border px-3 py-3 text-left text-sm transition",
                       settings.albumPermission === value
-                        ? "border-amber-300/50 bg-amber-400/10 text-white"
+                        ? "border-primary/50 bg-primary/10 text-white"
                         : "border-white/15 bg-white/5 text-white/75 active:bg-white/10",
                     )}
                   >
@@ -525,16 +525,16 @@ function ModPost({
         </div>
       </div>
 
-      <div className="relative aspect-square w-full bg-black">
+      <div className="relative w-full bg-black">
         {isVideo ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={item.url} className="h-full w-full object-cover" controls playsInline />
+          <video src={item.url} className="h-auto w-full" controls playsInline />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.url}
             alt={item.caption ?? ""}
-            className="h-full w-full object-cover"
+            className="h-auto w-full"
           />
         )}
       </div>
@@ -548,7 +548,7 @@ function ModPost({
           <>
             <Button
               type="button"
-              variant="gold"
+              variant="default"
               className="h-11 flex-1 gap-1.5"
               disabled={busy}
               onClick={onApprove}

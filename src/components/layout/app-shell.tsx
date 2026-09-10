@@ -2,18 +2,21 @@
 
 import { PlatformRole } from "@prisma/client";
 import { useAuth } from "@meindesk/nextjs";
-import { Suspense, useEffect, useLayoutEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Suspense, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 
 import type { OrganizationSummary } from "@/components/layout/org-switcher";
+import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { EventSidebar } from "@/components/layout/event-sidebar";
 import { FreePlanBanner } from "@/components/layout/free-plan-banner";
 import { EventSidebarSkeleton } from "@/components/dashboard/org-skeletons";
-import { useOrg } from "@/components/providers/org-provider";
+import { useOptionalOrg } from "@/components/providers/org-provider";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { orgPath } from "@/lib/org-path";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -42,15 +45,43 @@ function useOrgDarkTheme(primaryColor?: string | null) {
     if (primaryColor) {
       root.style.setProperty("--org-primary", primaryColor);
       root.style.setProperty("--primary", primaryColor);
-      root.style.setProperty("--gold", primaryColor);
     }
     return () => {
       root.classList.remove("dark", "org-app");
       root.style.removeProperty("--org-primary");
       root.style.removeProperty("--primary");
-      root.style.removeProperty("--gold");
     };
   }, [primaryColor]);
+}
+
+function SidebarTransition({
+  workspaceKey,
+  className,
+  children,
+}: {
+  workspaceKey: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={workspaceKey}
+        className={cn("flex h-full min-h-0 w-full", className)}
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -8 }}
+        transition={{
+          duration: reduceMotion ? 0.12 : 0.28,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
 }
 
 export function AppShell({
@@ -59,15 +90,22 @@ export function AppShell({
   organizations,
   activeOrganizationId,
 }: AppShellProps) {
-  const { mode, primaryColor } = useOrg();
-  useOrgDarkTheme(mode === "B2B" ? primaryColor : null);
+  const org = useOptionalOrg();
+  useOrgDarkTheme(org?.mode === "B2B" ? org.primaryColor : null);
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
   const isAdmin = user.platformRole === PlatformRole.ADMIN;
   const eventId = getEventIdFromPath(pathname);
   const isEventWorkspace = Boolean(eventId);
+  const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const workspaceKey = isAdminArea
+    ? "admin"
+    : isEventWorkspace && eventId
+      ? `event:${eventId}`
+      : "org";
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -109,6 +147,27 @@ export function AppShell({
     onNavigate: () => setMobileNavOpen(false),
   };
 
+  function renderSidebar(className: string) {
+    if (isAdminArea) {
+      return (
+        <AdminSidebar
+          className={className}
+          userEmail={user.email}
+          userName={user.name}
+          onNavigate={() => setMobileNavOpen(false)}
+        />
+      );
+    }
+    if (isEventWorkspace && eventId) {
+      return (
+        <Suspense fallback={<EventSidebarSkeleton className={className} />}>
+          <EventSidebar eventId={eventId} className={className} {...sidebarProps} />
+        </Suspense>
+      );
+    }
+    return <AppSidebar className={className} {...sidebarProps} />;
+  }
+
   return (
     <div className="org-app dark relative flex h-screen overflow-hidden bg-background text-foreground">
       <div
@@ -116,17 +175,11 @@ export function AppShell({
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,oklch(0.32_0.06_55/0.45),transparent_55%),radial-gradient(ellipse_at_90%_10%,oklch(0.28_0.05_75/0.35),transparent_50%),radial-gradient(ellipse_at_50%_100%,oklch(0.22_0.04_40/0.4),transparent_55%)]"
       />
       <div className="relative z-10 flex h-full min-w-0 flex-1 overflow-hidden">
-        {isEventWorkspace && eventId ? (
-          <Suspense fallback={<EventSidebarSkeleton className="hidden md:flex" />}>
-            <EventSidebar
-              eventId={eventId}
-              className="hidden md:flex"
-              {...sidebarProps}
-            />
-          </Suspense>
-        ) : (
-          <AppSidebar className="hidden md:flex" {...sidebarProps} />
-        )}
+        <div className="relative hidden h-full w-56 shrink-0 overflow-hidden border-r border-white/10 md:block">
+          <SidebarTransition workspaceKey={workspaceKey} className="absolute inset-0">
+            {renderSidebar("h-full w-full border-0")}
+          </SidebarTransition>
+        </div>
 
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent
@@ -134,22 +187,14 @@ export function AppShell({
             className="w-[min(100%,18rem)] border-white/10 bg-sidebar/95 p-0 text-foreground backdrop-blur-xl [&>button]:text-foreground"
           >
             <SheetTitle className="sr-only">Navigation</SheetTitle>
-            {isEventWorkspace && eventId ? (
-              <Suspense fallback={<EventSidebarSkeleton className="w-full border-0" />}>
-                <EventSidebar
-                  eventId={eventId}
-                  className="w-full border-0"
-                  {...sidebarProps}
-                />
-              </Suspense>
-            ) : (
-              <AppSidebar className="w-full border-0" {...sidebarProps} />
-            )}
+            <SidebarTransition workspaceKey={workspaceKey}>
+              {renderSidebar("w-full border-0")}
+            </SidebarTransition>
           </SheetContent>
         </Sheet>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <FreePlanBanner />
+          {isAdminArea ? null : <FreePlanBanner />}
           <AppHeader
             user={user}
             organizations={organizations}

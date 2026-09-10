@@ -1,52 +1,64 @@
-import Link from "next/link";
+import { FileQuestion } from "lucide-react";
+import { Geist, Geist_Mono } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
+
+import { MarketingShell } from "@/components/layout/marketing-shell";
+import { MeindeskAuthProvider } from "@/components/providers/meindesk-auth-provider";
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
+import { Link } from "@/i18n/navigation";
+
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 /** Root fallback when locale context is unavailable (e.g. unmatched top-level routes). */
-export default function RootNotFoundPage() {
+export default async function RootNotFoundPage() {
+  const locale = "en";
+  setRequestLocale(locale);
+  const messages = await getMessages({ locale });
+  const t = await getTranslations({ locale, namespace: "errors" });
+
   return (
-    <html lang="en">
-      <body
-        style={{
-          margin: 0,
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
-          background:
-            "radial-gradient(ellipse at top, rgba(201,162,39,0.12), transparent 55%), radial-gradient(ellipse at bottom, rgba(139,115,85,0.08), transparent 50%), #faf8f4",
-          color: "#1f1a14",
-        }}
-      >
-        <main style={{ textAlign: "center", padding: 24, maxWidth: 420 }}>
-          <p
-            style={{
-              letterSpacing: "0.25em",
-              textTransform: "uppercase",
-              opacity: 0.7,
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            404
-          </p>
-          <h1 style={{ fontSize: 28, margin: "8px 0", fontWeight: 700 }}>Page not found</h1>
-          <p style={{ opacity: 0.75, marginBottom: 24, lineHeight: 1.5 }}>
-            The page you&apos;re looking for doesn&apos;t exist or has been moved.
-          </p>
-          <Link
-            href="/en/dashboard"
-            style={{
-              display: "inline-block",
-              padding: "10px 18px",
-              borderRadius: 12,
-              background: "#c9a227",
-              color: "#1f1a14",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
-            Go to dashboard
-          </Link>
-        </main>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">
+        <MeindeskAuthProvider>
+          <NextIntlClientProvider locale={locale} messages={messages}>
+            <MarketingShell>
+              <div className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden px-4 text-center">
+                <div className="relative mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                  <FileQuestion className="h-8 w-8 text-primary" />
+                </div>
+                <p className="relative text-xs font-semibold uppercase tracking-[0.25em] text-primary/80">
+                  404
+                </p>
+                <h1 className="relative mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                  {t("notFound")}
+                </h1>
+                <p className="relative mt-2 max-w-md text-muted-foreground">
+                  {t("notFoundDesc")}
+                </p>
+                <Button variant="gold" className="relative mt-6" asChild>
+                  <Link href="/">{t("backHome")}</Link>
+                </Button>
+              </div>
+            </MarketingShell>
+          </NextIntlClientProvider>
+          <Toaster richColors position="top-right" />
+        </MeindeskAuthProvider>
       </body>
     </html>
   );

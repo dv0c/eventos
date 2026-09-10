@@ -2,7 +2,7 @@
 
 import type { OrganizationSummary } from "@/components/layout/org-switcher";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
-import { useOrgPath } from "@/components/providers/org-provider";
+import { useOptionalOrg } from "@/components/providers/org-provider";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Link } from "@/i18n/navigation";
+import { orgPath } from "@/lib/org-path";
 import { cn } from "@/lib/utils";
 import { LogOut, Menu, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -63,7 +64,8 @@ export function AppHeader({
 }: AppHeaderProps) {
   const t = useTranslations("auth");
   const tNav = useTranslations("nav");
-  const orgPath = useOrgPath();
+  const org = useOptionalOrg();
+  const settingsHref = org ? orgPath(org.orgSlug, "/settings") : "/admin/settings";
 
   return (
     <header
@@ -128,7 +130,7 @@ export function AppHeader({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href={orgPath("/settings")} className="cursor-pointer">
+              <Link href={settingsHref} className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 {tNav("settings")}
               </Link>

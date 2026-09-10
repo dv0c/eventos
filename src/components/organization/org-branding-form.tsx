@@ -1,13 +1,14 @@
 "use client";
 
 import { OrgMode } from "@prisma/client";
-import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { DashedUploadBox } from "@/components/events/settings/settings-ui";
+import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "@/i18n/navigation";
 
 export function OrgBrandingForm({
   organizationId,
@@ -28,6 +29,7 @@ export function OrgBrandingForm({
   const router = useRouter();
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const isB2B = mode === OrgMode.B2B;
 
   async function patch(body: Record<string, unknown>, successKey: string) {
@@ -61,30 +63,6 @@ export function OrgBrandingForm({
     if (!ok) setLogoUrl(previous);
   }
 
-  async function uploadLogo(file: File) {
-    setIsSaving(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "org-logos");
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!uploadResponse.ok) {
-        toast.error(t("uploadFailed"));
-        return;
-      }
-      const uploadJson = await uploadResponse.json();
-      const url = uploadJson.data.url as string;
-      await patchLogo(url);
-    } catch {
-      toast.error(t("uploadFailed"));
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   if (!canManage) {
     return (
       <p className="text-sm text-muted-foreground">{t("brandingReadOnly")}</p>
@@ -106,7 +84,7 @@ export function OrgBrandingForm({
           label={t("upload")}
           previewUrl={logoUrl}
           disabled={isSaving}
-          onFile={(file) => void uploadLogo(file)}
+          onOpen={() => setUploadOpen(true)}
         />
         {logoUrl ? (
           <Button
@@ -120,6 +98,35 @@ export function OrgBrandingForm({
           </Button>
         ) : null}
       </div>
+
+      <MediaUploadModal
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        title={t("watermark")}
+        description={t("watermarkDesc")}
+        mode="single"
+        maxBytes={5 * 1024 * 1024}
+        upload={{
+          url: "/api/upload",
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("folder", "org-logos");
+            return formData;
+          },
+        }}
+        onSuccess={async ({ files }) => {
+          const response = files[0]?.response as
+            | { data?: { url?: string } }
+            | undefined;
+          const url = response?.data?.url;
+          if (!url) {
+            toast.error(t("uploadFailed"));
+            return;
+          }
+          await patchLogo(url);
+        }}
+      />
     </div>
   );
 }

@@ -142,12 +142,12 @@ export function DjBoothShell({ eventId, eventName }: DjBoothShellProps) {
               {t("nowPlaying")}
             </h2>
             {playing ? (
-              <div className="rounded-2xl border border-amber-300/35 bg-amber-300/10 p-4">
+              <div className="rounded-2xl border border-primary/35 bg-primary/10 p-4">
                 <SongCard item={playing} large />
                 <div className="mt-4 flex gap-2">
                   <Button
                     type="button"
-                    variant="gold"
+                    variant="default"
                     className="h-11 flex-1 gap-2 rounded-xl font-semibold"
                     disabled={busyId === playing.id}
                     onClick={() => void runAction(playing.id, "played")}
@@ -196,7 +196,7 @@ export function DjBoothShell({ eventId, eventName }: DjBoothShellProps) {
                     <Button
                       type="button"
                       size="icon"
-                      variant="gold"
+                      variant="default"
                       className="size-10 shrink-0 rounded-xl"
                       disabled={busyId === item.id}
                       onClick={() => void runAction(item.id, "play")}
@@ -230,7 +230,7 @@ export function DjBoothShell({ eventId, eventName }: DjBoothShellProps) {
                     <div className="mt-3 flex gap-2">
                       <Button
                         type="button"
-                        variant="gold"
+                        variant="default"
                         className="h-10 flex-1 gap-1.5 rounded-xl"
                         disabled={busyId === item.id}
                         onClick={() => void runAction(item.id, "approve")}

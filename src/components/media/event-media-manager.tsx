@@ -11,16 +11,15 @@ import {
   Upload,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SongRequestsPanel } from "@/components/media/song-requests-panel";
 import { VoiceWishesPanel } from "@/components/media/voice-wishes-panel";
+import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { useOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Link } from "@/i18n/navigation";
-import { uploadWithProgress } from "@/lib/upload-with-progress";
 import { cn } from "@/lib/utils";
 import type { EventLifecycle } from "@/server/events/event-ended";
 
@@ -56,14 +55,10 @@ export function EventMediaManager({
   const tMod = useTranslations("moderatorAlbum");
   const orgPath = useOrgPath();
   const { planName, planSlug } = useOrg();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadCurrent, setUploadCurrent] = useState(0);
-  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [filter, setFilter] = useState<MediaFilter>("published");
   const [sortNewest, setSortNewest] = useState(true);
 
@@ -150,80 +145,6 @@ export function EventMediaManager({
     }
   }
 
-  async function handleUpload(files: FileList | null) {
-    if (!files?.length) return;
-    const list = Array.from(files);
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadCurrent(0);
-    setUploadTotal(list.length);
-
-    let uploaded = 0;
-    try {
-      for (let i = 0; i < list.length; i++) {
-        setUploadCurrent(i + 1);
-        const formData = new FormData();
-        formData.append("file", list[i]);
-        const json = await uploadWithProgress<{
-          data?: {
-            media?: {
-              id: string;
-              url: string;
-              fileName: string | null;
-              mimeType: string;
-              status: MediaStatus;
-              caption: string | null;
-              createdAt: string;
-            };
-          };
-        }>({
-          url: `/api/events/${eventId}/media`,
-          formData,
-          onProgress: (filePercent) => {
-            const overall = ((i + filePercent / 100) / list.length) * 100;
-            setUploadProgress(Math.min(100, Math.round(overall)));
-          },
-        });
-
-        const media = json?.data?.media;
-        if (!media?.id) {
-          toast.error(t("uploadError"));
-          continue;
-        }
-
-        setItems((prev) => [
-          {
-            id: media.id,
-            url: media.url,
-            fileName: media.fileName,
-            mimeType: media.mimeType,
-            status: media.status,
-            caption: media.caption,
-            createdAt: media.createdAt,
-          },
-          ...prev.filter((item) => item.id !== media.id),
-        ]);
-        uploaded += 1;
-      }
-      setUploadProgress(100);
-      if (uploaded > 0) {
-        if (filter !== "published") {
-          setFilter("published");
-        }
-        toast.success(t("uploadSuccess"));
-        await loadMedia();
-      }
-    } catch {
-      toast.error(t("uploadError"));
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
-      setUploadCurrent(0);
-      setUploadTotal(0);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
   const filters: { id: MediaFilter; label: string; count: number }[] = [
     { id: "published", label: t("published"), count: counts.published },
     { id: "pending", label: t("needApproval"), count: counts.pending },
@@ -272,10 +193,9 @@ export function EventMediaManager({
           <Button
             size="icon"
             className="size-9"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-            aria-label={isUploading ? t("uploading") : t("uploadPhotos")}
-            title={isUploading ? t("uploading") : t("uploadPhotos")}
+            onClick={() => setUploadOpen(true)}
+            aria-label={t("uploadPhotos")}
+            title={t("uploadPhotos")}
           >
             <Upload className="size-4" />
           </Button>
@@ -327,32 +247,57 @@ export function EventMediaManager({
             ) : null}
           </Button>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple
-          className="hidden"
-          onChange={(e) => void handleUpload(e.target.files)}
-        />
       </header>
 
-      {isUploading ? (
-        <div className="dashboard-surface space-y-2 p-4">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <p className="text-muted-foreground">
-              {uploadTotal > 1
-                ? t("uploadProgressCount", {
-                    current: uploadCurrent,
-                    total: uploadTotal,
-                  })
-                : t("uploadProgress", { percent: uploadProgress })}
-            </p>
-            <span className="tabular-nums font-medium text-primary">{uploadProgress}%</span>
-          </div>
-          <Progress value={uploadProgress} className="h-2.5" />
-        </div>
-      ) : null}
+      <MediaUploadModal
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        title={t("uploadPhotos")}
+        mode="multiple"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        upload={{
+          url: `/api/events/${eventId}/media`,
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            return formData;
+          },
+        }}
+        onSuccess={async ({ files }) => {
+          for (const entry of files) {
+            const media = (
+              entry.response as {
+                data?: {
+                  media?: {
+                    id: string;
+                    url: string;
+                    fileName: string | null;
+                    mimeType: string;
+                    status: MediaStatus;
+                    caption: string | null;
+                    createdAt: string;
+                  };
+                };
+              }
+            )?.data?.media;
+            if (!media?.id) continue;
+            setItems((prev) => [
+              {
+                id: media.id,
+                url: media.url,
+                fileName: media.fileName,
+                mimeType: media.mimeType,
+                status: media.status,
+                caption: media.caption,
+                createdAt: media.createdAt,
+              },
+              ...prev.filter((item) => item.id !== media.id),
+            ]);
+          }
+          if (filter !== "published") setFilter("published");
+          await loadMedia();
+        }}
+      />
 
       <section className="dashboard-surface flex flex-wrap items-center gap-4 p-4 sm:p-5">
         <div

@@ -49,8 +49,9 @@ export async function GET(_request: Request, context: RouteContext) {
     return apiSuccess({
       wall,
       theme: {
-        primaryColor: event.theme?.primaryColor ?? "#8B5CF6",
+        primaryColor: event.theme?.primaryColor ?? "#C4A574",
         secondaryColor: event.theme?.secondaryColor ?? "#F59E0B",
+        accentColor: event.theme?.accentColor ?? "#E8C9A0",
         logoUrl: event.theme?.logoUrl ?? null,
       },
       appearance: {

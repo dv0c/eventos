@@ -19,6 +19,10 @@ import {
 } from "@/components/media/album/mobile-app-lock";
 import { AlbumAppShellSkeleton } from "@/components/media/album/album-app-skeletons";
 import { AlbumSongRequestPanel } from "@/components/media/album/album-song-request-panel";
+import {
+  eventThemeStyle,
+  type EventThemeColors,
+} from "@/components/events/event-theme-scope";
 import { PublicUploadForm } from "@/components/media/public-upload-form";
 import { VoiceWishRecorder } from "@/components/media/album/voice-wish-recorder";
 import { Logo } from "@/components/shared/logo";
@@ -29,6 +33,7 @@ import {
   ALBUM_CHALLENGES,
   isAlbumChallengeId,
 } from "@/lib/album-challenges";
+import { resolveGameMode, type EventGameMode } from "@/lib/event-game-presets";
 import { getOrCreateAlbumReactorKey } from "@/lib/album-reactor";
 import { WALL_REACTION_EMOJIS } from "@/lib/wall-reactions";
 import { cn } from "@/lib/utils";
@@ -49,8 +54,16 @@ interface AlbumFeedGame {
   title: string;
   description: string | null;
   presetKey: string | null;
+  mode?: EventGameMode | string | null;
   coverImage: string | null;
 }
+
+type ActiveChallenge = {
+  id: string;
+  mode: EventGameMode;
+  title: string;
+  coverImage: string | null;
+};
 
 interface AlbumFeedData {
   eventName: string;
@@ -72,6 +85,8 @@ interface AlbumFeedData {
   };
   theme?: {
     primaryColor: string;
+    secondaryColor?: string;
+    accentColor?: string;
     logoUrl: string | null;
     albumBackgroundUrl: string | null;
   };
@@ -125,7 +140,8 @@ export function PublicAlbumShell({
   const [nameError, setNameError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
-  const [activeChallenge, setActiveChallenge] = useState<string | null>(null);
+  const [activeChallenge, setActiveChallenge] = useState<ActiveChallenge | null>(null);
+  const [myReactions, setMyReactions] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (!nameReady) return;
@@ -247,21 +263,57 @@ export function PublicAlbumShell({
     const reactorKey = getOrCreateAlbumReactorKey();
     if (!reactorKey) return;
 
+    const previouslySelected = myReactions[mediaId]?.includes(emoji) ?? false;
+    setMyReactions((prev) => {
+      const current = new Set(prev[mediaId] ?? []);
+      if (current.has(emoji)) current.delete(emoji);
+      else current.add(emoji);
+      return { ...prev, [mediaId]: Array.from(current) };
+    });
+    setFeed((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: prev.items.map((item) => {
+          if (item.id !== mediaId) return item;
+          const nextCounts = { ...item.reactionCounts };
+          const currentCount = nextCounts[emoji] ?? 0;
+          nextCounts[emoji] = previouslySelected
+            ? Math.max(0, currentCount - 1)
+            : currentCount + 1;
+          return { ...item, reactionCounts: nextCounts };
+        }),
+      };
+    });
+
     try {
       const response = await fetch(`/api/public/album/${albumToken}/react`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mediaId, emoji, reactorKey }),
       });
+      if (!response.ok) {
+        void loadFeed();
+        return;
+      }
+      const json = (await response.json().catch(() => null)) as
+        | { data?: { removed?: boolean } }
+        | null;
+      const removed = Boolean(json?.data?.removed);
+      setMyReactions((prev) => {
+        const current = new Set(prev[mediaId] ?? []);
+        if (removed) current.delete(emoji);
+        else current.add(emoji);
+        return { ...prev, [mediaId]: Array.from(current) };
+      });
       void loadFeed();
-      if (!response.ok) return;
     } catch {
       void loadFeed();
     }
   }
 
-  function startChallenge(id: string) {
-    setActiveChallenge(id);
+  function startChallenge(challenge: ActiveChallenge) {
+    setActiveChallenge(challenge);
     setTab("upload");
   }
 
@@ -270,12 +322,12 @@ export function PublicAlbumShell({
     const welcomeTitle = feed?.appearance?.welcomeScreenTitle;
     const welcomeMessage = feed?.appearance?.welcomeScreenMessage;
     const logoUrl = feed?.theme?.logoUrl;
-    const primaryColor = feed?.theme?.primaryColor;
 
     return (
       <AlbumBackdrop
         urls={backdropUrls}
         backgroundUrl={feed?.theme?.albumBackgroundUrl}
+        themeColors={feed?.theme}
       >
         <div
           className="flex h-full items-center justify-center overflow-y-auto overscroll-none px-4 py-12"
@@ -348,10 +400,9 @@ export function PublicAlbumShell({
             </div>
             <Button
               type="submit"
-              variant="gold"
+              variant="default"
               className="h-11 w-full"
               disabled={!nameDraft.trim()}
-              style={primaryColor ? { backgroundColor: primaryColor } : undefined}
             >
               {t("albumJoinCta")}
             </Button>
@@ -393,7 +444,11 @@ export function PublicAlbumShell({
   const brandSrc = logoUrl || watermarkUrl || null;
 
   return (
-    <AlbumBackdrop urls={backdropUrls} backgroundUrl={feed.theme?.albumBackgroundUrl}>
+    <AlbumBackdrop
+      urls={backdropUrls}
+      backgroundUrl={feed.theme?.albumBackgroundUrl}
+      themeColors={feed.theme}
+    >
       <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-lg flex-col overflow-hidden bg-neutral-950/80 md:bg-neutral-950/90">
         <header
           className="fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-neutral-950/90 backdrop-blur-xl"
@@ -465,7 +520,10 @@ export function PublicAlbumShell({
                 eventName={feed.eventName}
                 defaultUploadedBy={guestName ?? undefined}
                 hideNameField
-                challengeId={activeChallenge}
+                challengeId={activeChallenge?.id ?? null}
+                challengeMode={activeChallenge?.mode ?? null}
+                challengeTitle={activeChallenge?.title ?? null}
+                challengeCoverImage={activeChallenge?.coverImage ?? null}
                 onClearChallenge={() => setActiveChallenge(null)}
                 native
                 allowPhotos={feed.allowPhotos !== false}
@@ -490,7 +548,7 @@ export function PublicAlbumShell({
                 {showUpload ? (
                   <Button
                     type="button"
-                    variant="gold"
+                    variant="default"
                     className="mt-2 gap-1.5"
                     onClick={() => setTab("upload")}
                   >
@@ -505,8 +563,10 @@ export function PublicAlbumShell({
                   <AlbumPost
                     key={item.id}
                     item={item}
+                    games={feed.games}
                     reactionsEnabled={feed.reactionsEnabled}
                     disableGuestDownload={feed.disableGuestDownload}
+                    myEmojis={myReactions[item.id] ?? []}
                     onReact={handleReact}
                   />
                 ))}
@@ -522,6 +582,7 @@ export function PublicAlbumShell({
                 {(feed.games && feed.games.length > 0
                   ? feed.games.map((game) => ({
                       id: game.presetKey || game.id,
+                      mode: resolveGameMode(game),
                       title: game.title,
                       desc: game.description ?? "",
                       image:
@@ -533,6 +594,7 @@ export function PublicAlbumShell({
                     }))
                   : ALBUM_CHALLENGES.map((challenge) => ({
                       id: challenge.id,
+                      mode: (challenge.collage ? "collage" : "photo") as EventGameMode,
                       title: t(`albumChallenge.${challenge.id}.title`),
                       desc: t(`albumChallenge.${challenge.id}.desc`),
                       image: challenge.image,
@@ -543,12 +605,12 @@ export function PublicAlbumShell({
                       type="button"
                       onClick={() => {
                         if (!showUpload) return;
-                        if (isAlbumChallengeId(challenge.id)) {
-                          startChallenge(challenge.id);
-                        } else {
-                          setActiveChallenge(null);
-                          setTab("upload");
-                        }
+                        startChallenge({
+                          id: challenge.id,
+                          mode: challenge.mode,
+                          title: challenge.title,
+                          coverImage: challenge.image,
+                        });
                       }}
                       disabled={!showUpload}
                       className="tap-press flex w-full items-center gap-3 px-4 py-4 text-left active:bg-white/5 disabled:opacity-50"
@@ -683,14 +745,19 @@ export function PublicAlbumShell({
 function AlbumBackdrop({
   urls,
   backgroundUrl,
+  themeColors,
   children,
 }: {
   urls: string[];
   backgroundUrl?: string | null;
+  themeColors?: EventThemeColors;
   children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 h-dvh overflow-hidden overscroll-none bg-neutral-950 text-white">
+    <div
+      className="fixed inset-0 h-dvh overflow-hidden overscroll-none bg-neutral-950 text-white"
+      style={themeColors ? eventThemeStyle(themeColors) : undefined}
+    >
       <MobileAppLock />
       <div className="pointer-events-none absolute inset-0 md:block">
         {backgroundUrl ? (
@@ -728,21 +795,33 @@ function AlbumBackdrop({
 
 function AlbumPost({
   item,
+  games,
   reactionsEnabled,
   disableGuestDownload,
+  myEmojis,
   onReact,
 }: {
   item: AlbumFeedItem;
+  games?: AlbumFeedGame[];
   reactionsEnabled: boolean;
   disableGuestDownload: boolean;
+  myEmojis: string[];
   onReact: (mediaId: string, emoji: string) => void;
 }) {
   const t = useTranslations("publicEvent");
   const isVideo = item.mimeType?.startsWith("video/");
-  const challengeLabel =
-    item.challengeId && isAlbumChallengeId(item.challengeId)
+  const gameMatch = item.challengeId
+    ? games?.find(
+        (game) =>
+          game.presetKey === item.challengeId || game.id === item.challengeId,
+      )
+    : null;
+  const challengeLabel = gameMatch
+    ? gameMatch.title
+    : item.challengeId && isAlbumChallengeId(item.challengeId)
       ? t(`albumChallenge.${item.challengeId}.title`)
       : null;
+  const selected = new Set(myEmojis);
 
   return (
     <li className="bg-neutral-950">
@@ -760,12 +839,12 @@ function AlbumPost({
         </div>
       </div>
 
-      <div className="relative aspect-square w-full bg-black">
+      <div className="relative w-full bg-black">
         {isVideo ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
             src={item.url}
-            className="h-full w-full object-cover"
+            className="h-auto w-full"
             controls
             playsInline
             controlsList={disableGuestDownload ? "nodownload" : undefined}
@@ -776,7 +855,7 @@ function AlbumPost({
             src={item.url}
             alt={item.caption ?? ""}
             className={cn(
-              "h-full w-full object-cover",
+              "h-auto w-full",
               disableGuestDownload && "pointer-events-none select-none",
             )}
             draggable={!disableGuestDownload}
@@ -788,13 +867,18 @@ function AlbumPost({
         <div className="flex flex-wrap items-center gap-0.5 px-2 pt-2">
           {WALL_REACTION_EMOJIS.map((emoji) => {
             const count = item.reactionCounts[emoji] ?? 0;
+            const isMine = selected.has(emoji);
             return (
               <button
                 key={emoji}
                 type="button"
-                className="tap-press inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full px-2 text-base active:bg-white/10"
+                className={cn(
+                  "tap-press inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full px-2 text-base transition-colors",
+                  isMine ? "bg-white/15 ring-1 ring-white/30" : "active:bg-white/10",
+                )}
                 onClick={() => onReact(item.id, emoji)}
                 aria-label={emoji}
+                aria-pressed={isMine}
               >
                 <span>{emoji}</span>
                 {count > 0 ? (

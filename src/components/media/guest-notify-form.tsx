@@ -123,7 +123,7 @@ export function GuestNotifyForm({
       </div>
       <Button
         type="submit"
-        variant="gold"
+        variant="default"
         className="h-12 w-full text-base"
         disabled={!canSend}
       >

@@ -21,15 +21,13 @@ import { cn } from "@/lib/utils";
 interface ThemeStepProps {
   form: UseFormReturn<WizardFormData>;
   coverPreview: string | null;
-  isUploadingCover: boolean;
-  onCoverUpload: (file: File) => Promise<void>;
+  onOpenCoverUpload: () => void;
 }
 
 export function ThemeStep({
   form,
   coverPreview,
-  isUploadingCover,
-  onCoverUpload,
+  onOpenCoverUpload,
 }: ThemeStepProps) {
   const t = useTranslations("wizard");
   const values = form.watch();
@@ -90,22 +88,10 @@ export function ThemeStep({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="coverImage" className="text-base">
+        <Label className="text-base">{t("coverImage")}</Label>
+        <Button type="button" variant="outline" className="h-12 w-full" onClick={onOpenCoverUpload}>
           {t("coverImage")}
-        </Label>
-        <Input
-          id="coverImage"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          disabled={isUploadingCover}
-          className="h-12"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              void onCoverUpload(file);
-            }
-          }}
-        />
+        </Button>
         {coverPreview ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

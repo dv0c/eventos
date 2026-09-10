@@ -33,6 +33,9 @@ interface PublicUploadFormProps {
   onUploaded?: () => void;
   glass?: boolean;
   challengeId?: string | null;
+  challengeMode?: "photo" | "collage" | null;
+  challengeTitle?: string | null;
+  challengeCoverImage?: string | null;
   onClearChallenge?: () => void;
   /** Mobile-native layout used inside the album shell */
   native?: boolean;
@@ -134,6 +137,9 @@ export function PublicUploadForm({
   onUploaded,
   glass = false,
   challengeId = null,
+  challengeMode = null,
+  challengeTitle = null,
+  challengeCoverImage = null,
   onClearChallenge,
   native = false,
   allowPhotos = true,
@@ -160,10 +166,17 @@ export function PublicUploadForm({
   const [preview, setPreview] = useState<string | null>(null);
   const [buildingCollage, setBuildingCollage] = useState(false);
 
-  const isCollageChallenge = challengeId === "collage";
+  const isCollageChallenge =
+    challengeMode === "collage" || challengeId === "collage";
   const challengeMeta = ALBUM_CHALLENGES.find((c) => c.id === challengeId);
+  const challengeImage =
+    challengeCoverImage || challengeMeta?.image || null;
+  const resolvedChallengeTitle =
+    challengeTitle ||
+    (challengeId && isAlbumChallengeId(challengeId)
+      ? tAlbum(`albumChallenge.${challengeId}.title`)
+      : null);
   const isVideoPreview = Boolean(file?.type.startsWith("video/"));
-
   useEffect(() => {
     setUploadedBy(defaultUploadedBy);
   }, [defaultUploadedBy]);
@@ -332,13 +345,13 @@ export function PublicUploadForm({
         <div className="flex-1 overflow-y-auto overscroll-none" data-app-scroll>
           {challengeId ? (
             <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-              {challengeMeta ? (
+              {challengeImage ? (
                 <span
                   className="relative size-9 shrink-0 overflow-hidden rounded-xl bg-black"
                   aria-hidden
                 >
                   <Image
-                    src={challengeMeta.image}
+                    src={challengeImage}
                     alt=""
                     fill
                     className="object-cover"
@@ -351,9 +364,7 @@ export function PublicUploadForm({
                   {tAlbum("albumChallengeChip")}
                 </p>
                 <p className="truncate text-sm font-semibold text-white">
-                  {challengeMeta
-                    ? tAlbum(`albumChallenge.${challengeId}.title`)
-                    : challengeId}
+                  {resolvedChallengeTitle ?? challengeId}
                 </p>
               </div>
               {onClearChallenge ? (
@@ -507,7 +518,7 @@ export function PublicUploadForm({
           <div className="border-t border-white/10 bg-black/60 px-4 py-3 backdrop-blur-xl">
             <Button
               type="submit"
-              variant="gold"
+              variant="default"
               className="h-12 w-full text-base"
               disabled={!file || isUploading}
             >
@@ -630,7 +641,7 @@ export function PublicUploadForm({
 
         <Button
           type="submit"
-          variant="gold"
+          variant="default"
           className="w-full"
           disabled={!file || isUploading}
         >

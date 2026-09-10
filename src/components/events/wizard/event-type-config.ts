@@ -287,6 +287,14 @@ export interface ThemePreset {
 
 export const THEME_PRESETS: ThemePreset[] = [
   {
+    id: "eventos-default",
+    nameKey: "presets.eventosDefault",
+    primaryColor: "#C4A574",
+    secondaryColor: "#F59E0B",
+    accentColor: "#E8C9A0",
+    style: "classic",
+  },
+  {
     id: "elegant-purple",
     nameKey: "presets.elegantPurple",
     primaryColor: "#7C3AED",

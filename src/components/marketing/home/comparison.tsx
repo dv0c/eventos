@@ -17,7 +17,8 @@ export function HomeComparison() {
   return (
     <SectionShell className="py-20 sm:py-28">
       <Reveal className="mx-auto max-w-2xl text-center">
-        <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+        <p className="text-sm font-medium text-accent/90">{t("compareScene")}</p>
+        <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
           {t("compareTitle")}
         </h2>
         <p className="mt-3 text-muted-foreground sm:text-lg">{t("compareSubtitle")}</p>
@@ -25,9 +26,11 @@ export function HomeComparison() {
 
       <div className="mt-14 grid gap-6 lg:grid-cols-2">
         <Reveal>
-          <div className="glass-panel h-full border-accent/30 bg-accent/5 p-6 sm:p-8">
-            <h3 className="text-xl font-bold text-accent">{t("compareUsTitle")}</h3>
-            <ul className="mt-6 space-y-3.5">
+          <div className="glass-panel relative h-full overflow-hidden border-accent/30 bg-accent/5 p-6 sm:p-8">
+            <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-accent/20 blur-3xl" />
+            <h3 className="relative text-xl font-bold text-accent">{t("compareUsTitle")}</h3>
+            <p className="relative mt-2 text-sm text-muted-foreground">{t("compareUsLead")}</p>
+            <ul className="relative mt-6 space-y-3.5">
               {US_KEYS.map((key) => (
                 <li key={key} className="flex items-start gap-3 text-sm sm:text-base">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
@@ -44,6 +47,7 @@ export function HomeComparison() {
             <h3 className="text-xl font-bold text-muted-foreground">
               {t("compareThemTitle")}
             </h3>
+            <p className="mt-2 text-sm text-muted-foreground/80">{t("compareThemLead")}</p>
             <ul className="mt-6 space-y-3.5">
               {THEM_KEYS.map((key) => (
                 <li

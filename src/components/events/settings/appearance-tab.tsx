@@ -4,11 +4,17 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { EVENTOS_DEFAULT_THEME } from "@/components/events/event-theme-scope";
+import {
+  ThemeStudioDialog,
+  type ThemeColors,
+} from "@/components/events/settings/theme-studio-dialog";
 import {
   DashedUploadBox,
   SegmentedControl,
   SettingsRow,
 } from "@/components/events/settings/settings-ui";
+import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,9 +49,16 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
   const [albumBackgroundUrl, setAlbumBackgroundUrl] = useState(
     event.theme?.albumBackgroundUrl ?? null,
   );
-  const [primaryColor, setPrimaryColor] = useState(
-    event.theme?.primaryColor ?? "#8B5CF6",
-  );
+  const [themeColors, setThemeColors] = useState<ThemeColors>({
+    primaryColor:
+      event.theme?.primaryColor ?? EVENTOS_DEFAULT_THEME.primaryColor,
+    secondaryColor:
+      event.theme?.secondaryColor ?? EVENTOS_DEFAULT_THEME.secondaryColor,
+    accentColor: event.theme?.accentColor ?? EVENTOS_DEFAULT_THEME.accentColor,
+  });
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [logoUploadOpen, setLogoUploadOpen] = useState(false);
+  const [albumBgUploadOpen, setAlbumBgUploadOpen] = useState(false);
   const [appearance, setAppearance] = useState<AppearanceSettings>(() =>
     getAppearanceFromSections(event.settings?.sections),
   );
@@ -83,6 +96,8 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
 
   async function patchTheme(patch: {
     primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
     logoUrl?: string | null;
     albumBackgroundUrl?: string | null;
   }) {
@@ -96,42 +111,29 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
       if (!response.ok) {
         toast.error(t("saveFailed"));
         setIsSaving(false);
-        return;
+        return false;
       }
+      setIsSaving(false);
+      return true;
     } catch {
       toast.error(t("saveFailed"));
+      setIsSaving(false);
+      return false;
     }
-    setIsSaving(false);
   }
 
-  async function uploadImage(
-    file: File,
-    folder: string,
-    onUrl: (url: string) => void,
+  async function applyUploadedThemeImage(
     themeKey: "logoUrl" | "albumBackgroundUrl",
+    onUrl: (url: string) => void,
+    response: unknown,
   ) {
-    setIsSaving(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", folder);
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!uploadResponse.ok) {
-        toast.error(t("uploadFailed"));
-        setIsSaving(false);
-        return;
-      }
-      const uploadJson = await uploadResponse.json();
-      const url = uploadJson.data.url as string;
-      onUrl(url);
-      await patchTheme({ [themeKey]: url });
-    } catch {
+    const url = (response as { data?: { url?: string } } | undefined)?.data?.url;
+    if (!url) {
       toast.error(t("uploadFailed"));
+      return;
     }
-    setIsSaving(false);
+    onUrl(url);
+    await patchTheme({ [themeKey]: url });
   }
 
   return (
@@ -141,9 +143,12 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
           label={t("upload")}
           previewUrl={logoUrl}
           disabled={isSaving}
-          onFile={(file) =>
-            void uploadImage(file, "event-logos", setLogoUrl, "logoUrl")
-          }
+          removeLabel={t("removeLogo")}
+          onOpen={() => setLogoUploadOpen(true)}
+          onRemove={() => {
+            setLogoUrl(null);
+            void patchTheme({ logoUrl: null });
+          }}
         />
       </SettingsRow>
 
@@ -169,16 +174,31 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
       </SettingsRow>
 
       <SettingsRow title={t("themeColor")} description={t("themeColorDesc")}>
-        <input
-          type="color"
-          value={primaryColor}
-          disabled={isSaving}
-          onChange={(e) => {
-            setPrimaryColor(e.target.value);
-            void patchTheme({ primaryColor: e.target.value });
-          }}
-          className="h-10 w-14 cursor-pointer rounded border border-border bg-transparent"
-        />
+        <div className="flex items-center gap-3">
+          <div className="flex -space-x-1.5">
+            <span
+              className="size-8 rounded-full border border-white/30 shadow-sm"
+              style={{ backgroundColor: themeColors.primaryColor }}
+            />
+            <span
+              className="size-8 rounded-full border border-white/30 shadow-sm"
+              style={{ backgroundColor: themeColors.secondaryColor }}
+            />
+            <span
+              className="size-8 rounded-full border border-white/30 shadow-sm"
+              style={{ backgroundColor: themeColors.accentColor }}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isSaving}
+            onClick={() => setThemeOpen(true)}
+          >
+            {t("customizeTheme")}
+          </Button>
+        </div>
       </SettingsRow>
 
       <SettingsRow title={t("welcomeScreen")} description={t("welcomeScreenDesc")}>
@@ -209,14 +229,12 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
           label={t("change")}
           previewUrl={albumBackgroundUrl}
           disabled={isSaving}
-          onFile={(file) =>
-            void uploadImage(
-              file,
-              "album-backgrounds",
-              setAlbumBackgroundUrl,
-              "albumBackgroundUrl",
-            )
-          }
+          removeLabel={t("removeAlbumBackground")}
+          onOpen={() => setAlbumBgUploadOpen(true)}
+          onRemove={() => {
+            setAlbumBackgroundUrl(null);
+            void patchTheme({ albumBackgroundUrl: null });
+          }}
         />
       </SettingsRow>
 
@@ -230,6 +248,20 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
           ]}
         />
       </SettingsRow>
+
+      <ThemeStudioDialog
+        open={themeOpen}
+        onOpenChange={setThemeOpen}
+        value={themeColors}
+        saving={isSaving}
+        onSave={async (colors) => {
+          const ok = await patchTheme(colors);
+          if (!ok) return;
+          setThemeColors(colors);
+          setThemeOpen(false);
+          toast.success(tCommon("save"));
+        }}
+      />
 
       <Dialog open={welcomeOpen} onOpenChange={setWelcomeOpen}>
         <DialogContent>
@@ -287,6 +319,52 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MediaUploadModal
+        open={logoUploadOpen}
+        onOpenChange={setLogoUploadOpen}
+        title={t("eventLogo")}
+        description={t("eventLogoDesc")}
+        mode="single"
+        maxBytes={5 * 1024 * 1024}
+        upload={{
+          url: "/api/upload",
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("folder", "event-logos");
+            return formData;
+          },
+        }}
+        onSuccess={async ({ files }) => {
+          await applyUploadedThemeImage("logoUrl", setLogoUrl, files[0]?.response);
+        }}
+      />
+
+      <MediaUploadModal
+        open={albumBgUploadOpen}
+        onOpenChange={setAlbumBgUploadOpen}
+        title={t("albumBackground")}
+        description={t("albumBackgroundDesc")}
+        mode="single"
+        maxBytes={5 * 1024 * 1024}
+        upload={{
+          url: "/api/upload",
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("folder", "album-backgrounds");
+            return formData;
+          },
+        }}
+        onSuccess={async ({ files }) => {
+          await applyUploadedThemeImage(
+            "albumBackgroundUrl",
+            setAlbumBackgroundUrl,
+            files[0]?.response,
+          );
+        }}
+      />
     </div>
   );
 }

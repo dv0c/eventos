@@ -522,6 +522,8 @@ model EventGame {
   title       String
   description String?  @db.Text
   presetKey   String?
+  /// Guest upload interaction: photo (single) or collage (2–4 stitched)
+  mode        String   @default("photo")
   sortOrder   Int      @default(0)
   enabled     Boolean  @default(true)
   fields      Json     @default("[]")
@@ -1055,8 +1057,9 @@ model MediaReaction {
   media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  @@unique([mediaId, reactorKey])
+  @@unique([mediaId, reactorKey, emoji])
   @@index([mediaId])
+  @@index([mediaId, reactorKey])
   @@index([eventId])
   @@index([createdAt])
   @@map("media_reactions")
