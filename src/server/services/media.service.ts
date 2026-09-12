@@ -657,11 +657,11 @@ export const mediaService = {
     const event = await eventRepository.findBySlugPublic(eventSlug);
 
     if (!event?.settings?.enableWall) {
-      return [];
+      return { events: [], countsByMedia: {} as Record<string, Record<string, number>>, latestCreatedAt: null as Date | null };
     }
 
     if (isEventEnded(event)) {
-      return [];
+      return { events: [], countsByMedia: {} as Record<string, Record<string, number>>, latestCreatedAt: null as Date | null };
     }
 
     const items = await prisma.mediaReaction.findMany({
@@ -673,13 +673,67 @@ export const mediaService = {
       take: 50,
     });
 
-    return items.map((item) => ({
-      type: "reaction" as const,
-      id: item.id,
-      mediaId: item.mediaId,
-      emoji: item.emoji,
-      createdAt: item.createdAt.toISOString(),
-    }));
+    const mediaIds = [...new Set(items.map((item) => item.mediaId))];
+    const countsByMedia: Record<string, Record<string, number>> = {};
+
+    if (mediaIds.length > 0) {
+      const grouped = await prisma.mediaReaction.groupBy({
+        by: ["mediaId", "emoji"],
+        where: {
+          eventId: event.id,
+          mediaId: { in: mediaIds },
+        },
+        _count: { _all: true },
+      });
+
+      for (const row of grouped) {
+        if (!countsByMedia[row.mediaId]) {
+          countsByMedia[row.mediaId] = {};
+        }
+        countsByMedia[row.mediaId]![row.emoji] = row._count._all;
+      }
+
+      // Ensure touched media include zeroed known emojis when all reactions removed
+      for (const mediaId of mediaIds) {
+        if (!countsByMedia[mediaId]) {
+          countsByMedia[mediaId] = {};
+        }
+      }
+    }
+
+    return {
+      events: items.map((item) => ({
+        type: "reaction" as const,
+        id: item.id,
+        mediaId: item.mediaId,
+        emoji: item.emoji,
+        createdAt: item.createdAt.toISOString(),
+      })),
+      countsByMedia,
+      latestCreatedAt: items.length > 0 ? items[items.length - 1]!.createdAt : null,
+    };
+  },
+
+  async getWallReactionCountMap(eventSlug: string) {
+    const event = await eventRepository.findBySlugPublic(eventSlug);
+    if (!event?.settings?.enableWall || isEventEnded(event)) {
+      return {} as Record<string, Record<string, number>>;
+    }
+
+    const grouped = await prisma.mediaReaction.groupBy({
+      by: ["mediaId", "emoji"],
+      where: { eventId: event.id },
+      _count: { _all: true },
+    });
+
+    const countsByMedia: Record<string, Record<string, number>> = {};
+    for (const row of grouped) {
+      if (!countsByMedia[row.mediaId]) {
+        countsByMedia[row.mediaId] = {};
+      }
+      countsByMedia[row.mediaId]![row.emoji] = row._count._all;
+    }
+    return countsByMedia;
   },
 
   async addAlbumReaction(

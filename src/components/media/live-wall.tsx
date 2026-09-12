@@ -197,6 +197,7 @@ export function LiveWall({
           media?: WallMediaItem[];
           removed?: string[];
           reactions?: WallReactionEvent[];
+          reactionCounts?: Record<string, Record<string, number>>;
           announcement?: WallAnnouncement | null;
           initial?: boolean;
           panic?: boolean;
@@ -250,17 +251,23 @@ export function LiveWall({
 
         if (data.reactions && data.reactions.length > 0) {
           setReactionEvents(data.reactions);
+        }
+
+        if (data.reactionCounts) {
+          const absolute = data.reactionCounts;
           setMedia((prev) => {
             let changed = false;
             const next = prev.map((item) => {
-              const incoming = data.reactions!.filter((r) => r.mediaId === item.id);
-              if (incoming.length === 0) return item;
+              const nextCounts = absolute[item.id] ?? {};
+              const prevCounts = item.reactionCounts ?? {};
+              const prevKeys = Object.keys(prevCounts);
+              const nextKeys = Object.keys(nextCounts);
+              const same =
+                prevKeys.length === nextKeys.length &&
+                nextKeys.every((key) => prevCounts[key] === nextCounts[key]);
+              if (same) return item;
               changed = true;
-              const reactionCounts = { ...(item.reactionCounts ?? {}) };
-              for (const reaction of incoming) {
-                reactionCounts[reaction.emoji] = (reactionCounts[reaction.emoji] ?? 0) + 1;
-              }
-              return { ...item, reactionCounts };
+              return { ...item, reactionCounts: { ...nextCounts } };
             });
             return changed ? next : prev;
           });

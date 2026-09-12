@@ -93,14 +93,17 @@ export async function GET(request: Request, context: RouteContext) {
             return;
           }
 
-          const [media, removed, reactions, announcement] = await Promise.all([
-            mediaService.getWallMedia(eventSlug, lastMediaPoll),
-            mediaService.getWallRemovedMediaIds(eventSlug, lastMediaPoll),
-            mediaService.getWallReactions(eventSlug, lastReactionPoll),
-            mediaService.getWallAnnouncement(eventSlug),
-          ]);
+          const [media, removed, reactionBatch, announcement, reactionCountMap] =
+            await Promise.all([
+              mediaService.getWallMedia(eventSlug, lastMediaPoll),
+              mediaService.getWallRemovedMediaIds(eventSlug, lastMediaPoll),
+              mediaService.getWallReactions(eventSlug, lastReactionPoll),
+              mediaService.getWallAnnouncement(eventSlug),
+              mediaService.getWallReactionCountMap(eventSlug),
+            ]);
 
           const now = new Date();
+          const reactions = reactionBatch.events;
           const hasMedia = media.length > 0;
           const hasRemoved = removed.length > 0;
           const hasReactions = reactions.length > 0;
@@ -109,7 +112,9 @@ export async function GET(request: Request, context: RouteContext) {
 
           if (hasMedia || hasRemoved || hasReactions || freshAnnouncement) {
             if (hasMedia || hasRemoved) lastMediaPoll = now;
-            if (hasReactions) lastReactionPoll = now;
+            if (hasReactions && reactionBatch.latestCreatedAt) {
+              lastReactionPoll = reactionBatch.latestCreatedAt;
+            }
             if (freshAnnouncement) lastAnnouncementId = freshAnnouncement.id;
             controller.enqueue(
               encoder.encode(
@@ -117,14 +122,21 @@ export async function GET(request: Request, context: RouteContext) {
                   media: hasMedia ? media : [],
                   removed: hasRemoved ? removed : [],
                   reactions: hasReactions ? reactions : [],
+                  reactionCounts: reactionCountMap,
                   announcement: freshAnnouncement,
                   panic: false,
                 })}\n\n`,
               ),
             );
           } else {
+            // Keep badge counts in sync even when no new create events (toggle deletes).
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ panic: false })}\n\n`),
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  panic: false,
+                  reactionCounts: reactionCountMap,
+                })}\n\n`,
+              ),
             );
           }
         } catch {

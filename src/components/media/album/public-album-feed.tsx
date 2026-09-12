@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "@/i18n/navigation";
+import { toast } from "sonner";
 import {
   ALBUM_CHALLENGES,
   isAlbumChallengeId,
@@ -141,9 +142,23 @@ export function PublicAlbumShell({
   const [feed, setFeed] = useState<AlbumFeedData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [guestName, setGuestName] = useState<string | null>(null);
+  const [guestName, setGuestName] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return localStorage.getItem(GUEST_NAME_KEY(albumToken))?.trim() || null;
+    } catch {
+      return null;
+    }
+  });
   const [nameDraft, setNameDraft] = useState("");
-  const [nameReady, setNameReady] = useState(false);
+  const [nameReady, setNameReady] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return Boolean(localStorage.getItem(GUEST_NAME_KEY(albumToken))?.trim());
+    } catch {
+      return false;
+    }
+  });
   const [nameError, setNameError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -151,6 +166,7 @@ export function PublicAlbumShell({
   const [myReactions, setMyReactions] = useState<Record<string, string[]>>({});
   const [storyOpen, setStoryOpen] = useState(false);
   const autoOpenedStory = useRef(false);
+  const reactInFlightRef = useRef<Set<string>>(new Set());
   const [activeMediaId, setActiveMediaId] = useState<string | null>(
     initialMediaId ?? null,
   );
@@ -162,12 +178,22 @@ export function PublicAlbumShell({
   }, [initialMediaId]);
 
   useEffect(() => {
+    function onPopState() {
+      const match = window.location.pathname.match(/\/m\/([^/]+)\/?$/);
+      setActiveMediaId(match?.[1] ?? null);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
     if (!nameReady) return;
     const id = requestAnimationFrame(() => focusAppScroll(mainRef.current));
     return () => cancelAnimationFrame(id);
   }, [tab, nameReady, activeMediaId]);
 
   useEffect(() => {
+    if (nameReady && guestName) return;
     try {
       const stored = localStorage.getItem(GUEST_NAME_KEY(albumToken));
       if (stored?.trim()) {
@@ -177,7 +203,7 @@ export function PublicAlbumShell({
     } catch {
       // localStorage unavailable
     }
-  }, [albumToken]);
+  }, [albumToken, nameReady, guestName]);
 
   const loadFeed = useCallback(async (opts?: { showLoader?: boolean }) => {
     if (opts?.showLoader) setLoading(true);
@@ -278,8 +304,13 @@ export function PublicAlbumShell({
   async function handleReact(mediaId: string, emoji: string) {
     if (!feed?.reactionsEnabled) return;
 
+    const flightKey = `${mediaId}:${emoji}`;
+    if (reactInFlightRef.current.has(flightKey)) return;
+
     const reactorKey = getOrCreateAlbumReactorKey();
     if (!reactorKey) return;
+
+    reactInFlightRef.current.add(flightKey);
 
     const previouslySelected = myReactions[mediaId]?.includes(emoji) ?? false;
     setMyReactions((prev) => {
@@ -327,6 +358,8 @@ export function PublicAlbumShell({
       void loadFeed();
     } catch {
       void loadFeed();
+    } finally {
+      reactInFlightRef.current.delete(flightKey);
     }
   }
 
@@ -339,19 +372,32 @@ export function PublicAlbumShell({
     setStoryOpen(true);
   }
 
+  function albumBasePath() {
+    return window.location.pathname.replace(/\/m\/[^/]+\/?$/, "") || window.location.pathname;
+  }
+
   function openMediaDetail(mediaId: string) {
     setActiveMediaId(mediaId);
-    router.push(`/a/${albumToken}/m/${mediaId}`);
+    const next = `${albumBasePath()}/m/${mediaId}`;
+    if (window.location.pathname !== next) {
+      window.history.pushState({ mediaId }, "", next);
+    }
   }
 
   function closeMediaDetail() {
     setActiveMediaId(null);
-    router.push(`/a/${albumToken}`);
+    const next = albumBasePath();
+    if (window.location.pathname !== next) {
+      window.history.pushState({}, "", next);
+    }
   }
 
   function selectTab(next: AlbumTab) {
     setActiveMediaId(null);
     setTab(next);
+    if (window.location.pathname.match(/\/m\/[^/]+\/?$/)) {
+      window.history.pushState({}, "", albumBasePath());
+    }
     if (initialMediaId) {
       const qs = next !== "feed" ? `?tab=${next}` : "";
       router.push(`/a/${albumToken}${qs}`);
@@ -371,10 +417,13 @@ export function PublicAlbumShell({
     const found = feed.items.some((item) => item.id === activeMediaId);
     if (!found) {
       missingMediaHandled.current = true;
-      router.replace(`/a/${albumToken}`);
       setActiveMediaId(null);
+      const next = window.location.pathname.replace(/\/m\/[^/]+\/?$/, "");
+      if (next && window.location.pathname !== next) {
+        window.history.replaceState({}, "", next);
+      }
     }
-  }, [feed, activeMediaId, loading, albumToken, router]);
+  }, [feed, activeMediaId, loading, albumToken]);
 
   if (!nameReady) {
     const welcomeEnabled = feed?.appearance?.welcomeScreenEnabled;
@@ -1067,28 +1116,29 @@ function AlbumMediaDetail({
   const selected = new Set(myEmojis);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col pb-6">
       <div className="relative w-full bg-black">
         {isVideo ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
             src={item.url}
             poster={item.thumbnailUrl ?? undefined}
-            className="h-auto max-h-[70vh] w-full object-contain"
+            className="h-auto max-h-[min(60vh,100%)] w-full object-contain"
             controls
             playsInline
+            preload="metadata"
             controlsList={disableGuestDownload ? "nodownload" : undefined}
+            onError={() => {
+              toast.error(t("albumVideoPlayError"));
+            }}
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.url}
             alt={item.caption ?? ""}
-            className={cn(
-              "h-auto max-h-[70vh] w-full object-contain",
-              disableGuestDownload && "pointer-events-none select-none",
-            )}
-            draggable={!disableGuestDownload}
+            className="h-auto max-h-[min(60vh,100%)] w-full touch-pan-y select-none object-contain"
+            draggable={false}
           />
         )}
       </div>

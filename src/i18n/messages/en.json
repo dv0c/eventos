@@ -1638,6 +1638,7 @@
     "albumTitle": "Album",
     "albumLoading": "Loading album…",
     "albumLoadError": "Could not load the album.",
+    "albumVideoPlayError": "This video can’t play on your device. Try another browser or upload MP4.",
     "albumEmpty": "No photos yet",
     "albumEmptyDesc": "Approved guest photos will appear here.",
     "albumUploadCta": "Upload",
