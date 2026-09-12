@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Gamepad2, Images, Mic, Music2 } from "lucide-react";
+import { Camera, ChevronLeft, Gamepad2, Images, Mic, Music2, Play } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import {
@@ -23,12 +23,13 @@ import {
   eventThemeStyle,
   type EventThemeColors,
 } from "@/components/events/event-theme-scope";
-import { PublicUploadForm } from "@/components/media/public-upload-form";
+import { StoryStudio } from "@/components/media/story/story-studio";
 import { VoiceWishRecorder } from "@/components/media/album/voice-wish-recorder";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRouter } from "@/i18n/navigation";
 import {
   ALBUM_CHALLENGES,
   isAlbumChallengeId,
@@ -105,6 +106,8 @@ interface PublicAlbumShellProps {
   albumToken: string;
   uploadToken: string | null;
   initialTab?: AlbumTab;
+  /** Open media detail for this id (route `/a/.../m/[mediaId]`). */
+  initialMediaId?: string;
   /** Hide feed/games (and other browse tabs); upload-only permission mode */
   uploadOnly?: boolean;
 }
@@ -119,9 +122,11 @@ export function PublicAlbumShell({
   albumToken,
   uploadToken,
   initialTab = "feed",
+  initialMediaId,
   uploadOnly = false,
 }: PublicAlbumShellProps) {
   const t = useTranslations("publicEvent");
+  const router = useRouter();
   const [tab, setTab] = useState<AlbumTab>(
     uploadOnly
       ? "upload"
@@ -144,12 +149,23 @@ export function PublicAlbumShell({
   const mainRef = useRef<HTMLElement>(null);
   const [activeChallenge, setActiveChallenge] = useState<ActiveChallenge | null>(null);
   const [myReactions, setMyReactions] = useState<Record<string, string[]>>({});
+  const [storyOpen, setStoryOpen] = useState(false);
+  const autoOpenedStory = useRef(false);
+  const [activeMediaId, setActiveMediaId] = useState<string | null>(
+    initialMediaId ?? null,
+  );
+  const missingMediaHandled = useRef(false);
+
+  useEffect(() => {
+    setActiveMediaId(initialMediaId ?? null);
+    missingMediaHandled.current = false;
+  }, [initialMediaId]);
 
   useEffect(() => {
     if (!nameReady) return;
     const id = requestAnimationFrame(() => focusAppScroll(mainRef.current));
     return () => cancelAnimationFrame(id);
-  }, [tab, nameReady]);
+  }, [tab, nameReady, activeMediaId]);
 
   useEffect(() => {
     try {
@@ -316,8 +332,49 @@ export function PublicAlbumShell({
 
   function startChallenge(challenge: ActiveChallenge) {
     setActiveChallenge(challenge);
-    setTab("upload");
+    setStoryOpen(true);
   }
+
+  function openCreate() {
+    setStoryOpen(true);
+  }
+
+  function openMediaDetail(mediaId: string) {
+    setActiveMediaId(mediaId);
+    router.push(`/a/${albumToken}/m/${mediaId}`);
+  }
+
+  function closeMediaDetail() {
+    setActiveMediaId(null);
+    router.push(`/a/${albumToken}`);
+  }
+
+  function selectTab(next: AlbumTab) {
+    setActiveMediaId(null);
+    setTab(next);
+    if (initialMediaId) {
+      const qs = next !== "feed" ? `?tab=${next}` : "";
+      router.push(`/a/${albumToken}${qs}`);
+    }
+  }
+
+  useEffect(() => {
+    if (autoOpenedStory.current) return;
+    if ((uploadOnly || initialTab === "upload") && uploadToken && guestName && nameReady) {
+      autoOpenedStory.current = true;
+      setStoryOpen(true);
+    }
+  }, [uploadOnly, initialTab, uploadToken, guestName, nameReady]);
+
+  useEffect(() => {
+    if (!feed || !activeMediaId || loading || missingMediaHandled.current) return;
+    const found = feed.items.some((item) => item.id === activeMediaId);
+    if (!found) {
+      missingMediaHandled.current = true;
+      router.replace(`/a/${albumToken}`);
+      setActiveMediaId(null);
+    }
+  }, [feed, activeMediaId, loading, albumToken, router]);
 
   if (!nameReady) {
     const welcomeEnabled = feed?.appearance?.welcomeScreenEnabled;
@@ -455,6 +512,12 @@ export function PublicAlbumShell({
   const removeBranding = feed.appearance?.removeBranding === true;
   const brandingEnabled = !removeBranding;
   const brandSrc = logoUrl || watermarkUrl || null;
+  const viewingDetail = Boolean(activeMediaId) && !uploadOnly;
+  const detailItem =
+    viewingDetail && activeMediaId
+      ? (feed.items.find((item) => item.id === activeMediaId) ?? null)
+      : null;
+  const hideChromeHeader = tab === "feed" && !viewingDetail && !uploadOnly;
 
   return (
     <AlbumBackdrop
@@ -463,55 +526,75 @@ export function PublicAlbumShell({
       themeColors={feed.theme}
     >
       <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-lg flex-col overflow-hidden bg-neutral-950/80 md:bg-neutral-950/90">
-        <header
-          className="fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-neutral-950/90 backdrop-blur-xl"
-          style={{ paddingTop: "env(safe-area-inset-top)" }}
-        >
-          <div
-            className={cn(
-              "mx-auto flex h-14 w-full max-w-lg items-center px-4",
-              brandingEnabled ? "justify-center" : "gap-3",
-            )}
+        {hideChromeHeader ? null : (
+          <header
+            className="fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-neutral-950/90 backdrop-blur-xl"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
-            {brandingEnabled ? (
-              brandSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={brandSrc}
-                  alt=""
-                  className="h-8 max-w-[10rem] object-contain"
-                />
-              ) : (
-                <Logo
-                  variant="full"
-                  theme="light"
-                  size="sm"
-                  className="h-7 w-auto"
-                  priority
-                />
-              )
-            ) : (
-              <>
-                {logoUrl ? (
+            <div
+              className={cn(
+                "mx-auto flex h-14 w-full max-w-lg items-center px-4",
+                viewingDetail ? "gap-2" : brandingEnabled ? "justify-center" : "gap-3",
+              )}
+            >
+              {viewingDetail ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={closeMediaDetail}
+                    className="tap-press flex size-10 items-center justify-center rounded-full text-white active:bg-white/10"
+                    aria-label={t("albumBack")}
+                  >
+                    <ChevronLeft className="size-6" />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-white">
+                      {detailItem?.uploadedBy
+                        ? `@${detailItem.uploadedBy}`
+                        : t("albumTitle")}
+                    </p>
+                  </div>
+                </>
+              ) : brandingEnabled ? (
+                brandSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={logoUrl}
+                    src={brandSrc}
                     alt=""
-                    className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                    className="h-8 max-w-[10rem] object-contain"
                   />
-                ) : null}
-                <div className="min-w-0 flex-1">
-                  <h1 className="truncate text-base font-semibold tracking-tight text-white">
-                    {feed.eventName}
-                  </h1>
-                  {guestName ? (
-                    <p className="truncate text-xs text-white/55">@{guestName}</p>
+                ) : (
+                  <Logo
+                    variant="full"
+                    theme="light"
+                    size="sm"
+                    className="h-7 w-auto"
+                    priority
+                  />
+                )
+              ) : (
+                <>
+                  {logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={logoUrl}
+                      alt=""
+                      className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                    />
                   ) : null}
-                </div>
-              </>
-            )}
-          </div>
-        </header>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="truncate text-base font-semibold tracking-tight text-white">
+                      {feed.eventName}
+                    </h1>
+                    {guestName ? (
+                      <p className="truncate text-xs text-white/55">@{guestName}</p>
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </div>
+          </header>
+        )}
 
         <main
           ref={mainRef}
@@ -522,69 +605,61 @@ export function PublicAlbumShell({
             uploadOnly || tab === "upload" ? "overflow-hidden" : "overflow-y-auto",
           )}
           style={{
-            paddingTop: "calc(3.5rem + env(safe-area-inset-top))",
+            paddingTop: hideChromeHeader
+              ? "env(safe-area-inset-top)"
+              : "calc(3.5rem + env(safe-area-inset-top))",
             paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom))",
           }}
         >
-          {uploadOnly || tab === "upload" ? (
-            showUpload && uploadToken ? (
-              <PublicUploadForm
-                uploadToken={uploadToken}
-                eventName={feed.eventName}
-                defaultUploadedBy={guestName ?? undefined}
-                hideNameField
-                challengeId={activeChallenge?.id ?? null}
-                challengeMode={activeChallenge?.mode ?? null}
-                challengeTitle={activeChallenge?.title ?? null}
-                challengeCoverImage={activeChallenge?.coverImage ?? null}
-                onClearChallenge={() => setActiveChallenge(null)}
-                native
-                allowPhotos={feed.allowPhotos !== false}
-                allowVideos={feed.allowVideos !== false}
-                primaryColor={primaryColor}
-                onUploaded={() => {
-                  void loadFeed();
-                  setActiveChallenge(null);
-                  if (!uploadOnly) setTab("feed");
-                }}
+          {viewingDetail ? (
+            detailItem ? (
+              <AlbumMediaDetail
+                item={detailItem}
+                games={feed.games}
+                reactionsEnabled={feed.reactionsEnabled}
+                disableGuestDownload={feed.disableGuestDownload}
+                myEmojis={myReactions[detailItem.id] ?? []}
+                onReact={handleReact}
               />
+            ) : (
+              <div className="px-6 py-24 text-center text-sm text-white/70">
+                {t("albumLoading")}
+              </div>
+            )
+          ) : uploadOnly || tab === "upload" ? (
+            showUpload && uploadToken ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+                <p className="text-base font-medium text-white">{t("albumNavUpload")}</p>
+                <p className="max-w-xs text-sm text-white/60">{t("albumEmptyDesc")}</p>
+                <Button
+                  type="button"
+                  className="h-11 gap-1.5 px-6"
+                  style={
+                    primaryColor
+                      ? { backgroundColor: primaryColor, color: "#0f0f12" }
+                      : undefined
+                  }
+                  onClick={openCreate}
+                >
+                  <Camera className="size-4" />
+                  {t("albumNavUpload")}
+                </Button>
+              </div>
             ) : (
               <div className="px-6 py-24 text-center text-sm text-white/70">
                 {t("albumUploadDisabled")}
               </div>
             )
           ) : tab === "feed" ? (
-            feed.items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center text-white">
-                <p className="text-lg font-medium">{t("albumEmpty")}</p>
-                <p className="max-w-sm text-sm text-white/65">{t("albumEmptyDesc")}</p>
-                {showUpload ? (
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="mt-2 gap-1.5"
-                    onClick={() => setTab("upload")}
-                  >
-                    <Camera className="size-4" />
-                    {t("albumUploadCta")}
-                  </Button>
-                ) : null}
-              </div>
-            ) : (
-              <ul className="divide-y divide-white/10">
-                {feed.items.map((item) => (
-                  <AlbumPost
-                    key={item.id}
-                    item={item}
-                    games={feed.games}
-                    reactionsEnabled={feed.reactionsEnabled}
-                    disableGuestDownload={feed.disableGuestDownload}
-                    myEmojis={myReactions[item.id] ?? []}
-                    onReact={handleReact}
-                  />
-                ))}
-              </ul>
-            )
+            <AlbumFeedGrid
+              eventName={feed.eventName}
+              coverUrl={feed.theme?.albumBackgroundUrl}
+              primaryColor={primaryColor}
+              items={feed.items}
+              showUpload={showUpload}
+              onUpload={openCreate}
+              onOpenItem={openMediaDetail}
+            />
           ) : tab === "games" ? (
             <div className="flex flex-col">
               <div className="px-4 py-5">
@@ -677,7 +752,7 @@ export function PublicAlbumShell({
             {uploadOnly ? (
               <button
                 type="button"
-                onClick={() => setTab("upload")}
+                onClick={openCreate}
                 className="tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium text-white transition"
               >
                 <Camera className="size-5" />
@@ -687,10 +762,12 @@ export function PublicAlbumShell({
               <>
                 <button
                   type="button"
-                  onClick={() => setTab("feed")}
+                  onClick={() => selectTab("feed")}
                   className={cn(
                     "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
-                    tab === "feed" ? "text-white" : "text-white/45 active:text-white/75",
+                    tab === "feed" && !viewingDetail
+                      ? "text-white"
+                      : "text-white/45 active:text-white/75",
                   )}
                 >
                   <Images className="size-5" />
@@ -698,7 +775,7 @@ export function PublicAlbumShell({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTab("games")}
+                  onClick={() => selectTab("games")}
                   className={cn(
                     "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
                     tab === "games" ? "text-white" : "text-white/45 active:text-white/75",
@@ -710,7 +787,7 @@ export function PublicAlbumShell({
                 {showWishes ? (
                   <button
                     type="button"
-                    onClick={() => setTab("wishes")}
+                    onClick={() => selectTab("wishes")}
                     className={cn(
                       "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
                       tab === "wishes" ? "text-white" : "text-white/45 active:text-white/75",
@@ -723,7 +800,7 @@ export function PublicAlbumShell({
                 {showMusic ? (
                   <button
                     type="button"
-                    onClick={() => setTab("music")}
+                    onClick={() => selectTab("music")}
                     className={cn(
                       "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
                       tab === "music" ? "text-white" : "text-white/45 active:text-white/75",
@@ -736,10 +813,15 @@ export function PublicAlbumShell({
                 {showUpload ? (
                   <button
                     type="button"
-                    onClick={() => setTab("upload")}
+                    onClick={() => {
+                      selectTab("upload");
+                      openCreate();
+                    }}
                     className={cn(
                       "tap-press flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
-                      tab === "upload" ? "text-white" : "text-white/45 active:text-white/75",
+                      tab === "upload" || storyOpen
+                        ? "text-white"
+                        : "text-white/45 active:text-white/75",
                     )}
                   >
                     <Camera className="size-5" />
@@ -751,6 +833,25 @@ export function PublicAlbumShell({
           </div>
         </nav>
       </div>
+
+      {storyOpen && uploadToken && guestName ? (
+        <StoryStudio
+          uploadToken={uploadToken}
+          eventName={feed.eventName}
+          guestName={guestName}
+          primaryColor={primaryColor}
+          onClose={() => {
+            setStoryOpen(false);
+            setActiveChallenge(null);
+            if (!uploadOnly) setTab("feed");
+          }}
+          onPublished={() => {
+            setActiveChallenge(null);
+            void loadFeed();
+            if (!uploadOnly) setTab("feed");
+          }}
+        />
+      ) : null}
     </AlbumBackdrop>
   );
 }
@@ -806,7 +907,116 @@ function AlbumBackdrop({
   );
 }
 
-function AlbumPost({
+function AlbumFeedGrid({
+  eventName,
+  coverUrl,
+  primaryColor,
+  items,
+  showUpload,
+  onUpload,
+  onOpenItem,
+}: {
+  eventName: string;
+  coverUrl?: string | null;
+  primaryColor?: string;
+  items: AlbumFeedItem[];
+  showUpload: boolean;
+  onUpload: () => void;
+  onOpenItem: (id: string) => void;
+}) {
+  const t = useTranslations("publicEvent");
+  const heroUrl =
+    coverUrl ||
+    items.find((item) => !item.mimeType?.startsWith("video/"))?.url ||
+    items[0]?.url ||
+    null;
+
+  return (
+    <div className="flex flex-col">
+      <section className="relative isolate min-h-[42vh] overflow-hidden">
+        {heroUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={heroUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{
+              background: primaryColor
+                ? `linear-gradient(160deg, ${primaryColor}, #0f0f12)`
+                : "linear-gradient(160deg, #3f3f46, #0f0f12)",
+            }}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/55 to-black/25" />
+        <div className="relative flex min-h-[42vh] flex-col justify-end gap-3 px-5 pb-6 pt-16">
+          <h1 className="max-w-[16ch] text-3xl font-semibold leading-tight tracking-tight text-white">
+            {eventName}
+          </h1>
+          {showUpload ? (
+            <Button
+              type="button"
+              className="h-11 w-fit gap-2 px-5 font-semibold text-neutral-950"
+              style={
+                primaryColor ? { backgroundColor: primaryColor } : undefined
+              }
+              onClick={onUpload}
+            >
+              <Camera className="size-4" />
+              {t("albumUploadPhotos")}
+            </Button>
+          ) : null}
+          <p className="text-sm text-white/75">
+            {t("albumPhotosCollected", { count: items.length })}
+          </p>
+        </div>
+      </section>
+
+      {items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center text-white">
+          <p className="text-lg font-medium">{t("albumEmpty")}</p>
+          <p className="max-w-sm text-sm text-white/65">{t("albumEmptyDesc")}</p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-3 gap-1.5 p-1.5">
+          {items.map((item) => {
+            const isVideo = item.mimeType?.startsWith("video/");
+            const thumb = item.thumbnailUrl || item.url;
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenItem(item.id)}
+                  className="tap-press relative aspect-square w-full overflow-hidden rounded-xl bg-white/5"
+                  aria-label={item.caption || item.uploadedBy || t("albumTitle")}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumb}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                  {isVideo ? (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                      <span className="flex size-9 items-center justify-center rounded-full bg-white/90 text-neutral-950">
+                        <Play className="size-4 fill-current" />
+                      </span>
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function AlbumMediaDetail({
   item,
   games,
   reactionsEnabled,
@@ -837,28 +1047,14 @@ function AlbumPost({
   const selected = new Set(myEmojis);
 
   return (
-    <li className="bg-neutral-950">
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white/80">
-          {(item.uploadedBy ?? "?").slice(0, 1).toUpperCase()}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">
-            {item.uploadedBy ? `@${item.uploadedBy}` : "guest"}
-          </p>
-          {challengeLabel ? (
-            <p className="truncate text-xs text-amber-300/90">{challengeLabel}</p>
-          ) : null}
-        </div>
-      </div>
-
+    <div className="flex flex-col">
       <div className="relative w-full bg-black">
         {isVideo ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
             src={item.url}
             poster={item.thumbnailUrl ?? undefined}
-            className="h-auto w-full"
+            className="h-auto max-h-[70vh] w-full object-contain"
             controls
             playsInline
             controlsList={disableGuestDownload ? "nodownload" : undefined}
@@ -869,7 +1065,7 @@ function AlbumPost({
             src={item.url}
             alt={item.caption ?? ""}
             className={cn(
-              "h-auto w-full",
+              "h-auto max-h-[70vh] w-full object-contain",
               disableGuestDownload && "pointer-events-none select-none",
             )}
             draggable={!disableGuestDownload}
@@ -877,44 +1073,58 @@ function AlbumPost({
         )}
       </div>
 
-      {reactionsEnabled ? (
-        <div className="flex flex-wrap items-center gap-0.5 px-2 pt-2">
-          {WALL_REACTION_EMOJIS.map((emoji) => {
-            const count = item.reactionCounts[emoji] ?? 0;
-            const isMine = selected.has(emoji);
-            return (
-              <button
-                key={emoji}
-                type="button"
-                className={cn(
-                  "tap-press inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full px-2 text-base transition-colors",
-                  isMine ? "bg-white/15 ring-1 ring-white/30" : "active:bg-white/10",
-                )}
-                onClick={() => onReact(item.id, emoji)}
-                aria-label={emoji}
-                aria-pressed={isMine}
-              >
-                <span>{emoji}</span>
-                {count > 0 ? (
-                  <span className="text-xs font-medium text-white/55">{count}</span>
-                ) : null}
-              </button>
-            );
-          })}
+      <div className="space-y-3 px-3 py-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white/80">
+            {(item.uploadedBy ?? "?").slice(0, 1).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white">
+              {item.uploadedBy ? `@${item.uploadedBy}` : "guest"}
+            </p>
+            {challengeLabel ? (
+              <p className="truncate text-xs text-amber-300/90">{challengeLabel}</p>
+            ) : null}
+          </div>
         </div>
-      ) : null}
 
-      {item.caption ? (
-        <p className="px-3 pb-4 pt-1 text-sm leading-relaxed text-white/90">
-          {item.uploadedBy ? (
-            <span className="mr-1.5 font-semibold text-white">@{item.uploadedBy}</span>
-          ) : null}
-          {item.caption}
-        </p>
-      ) : (
-        <div className="pb-3" />
-      )}
-    </li>
+        {reactionsEnabled ? (
+          <div className="flex flex-wrap items-center gap-0.5">
+            {WALL_REACTION_EMOJIS.map((emoji) => {
+              const count = item.reactionCounts[emoji] ?? 0;
+              const isMine = selected.has(emoji);
+              return (
+                <button
+                  key={emoji}
+                  type="button"
+                  className={cn(
+                    "tap-press inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full px-2 text-base transition-colors",
+                    isMine ? "bg-white/15 ring-1 ring-white/30" : "active:bg-white/10",
+                  )}
+                  onClick={() => onReact(item.id, emoji)}
+                  aria-label={emoji}
+                  aria-pressed={isMine}
+                >
+                  <span>{emoji}</span>
+                  {count > 0 ? (
+                    <span className="text-xs font-medium text-white/55">{count}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {item.caption ? (
+          <p className="text-sm leading-relaxed text-white/90">
+            {item.uploadedBy ? (
+              <span className="mr-1.5 font-semibold text-white">@{item.uploadedBy}</span>
+            ) : null}
+            {item.caption}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
