@@ -36,6 +36,8 @@ interface AppHeaderProps {
   onOpenMobileNav?: () => void;
   /** Slimmer header for event workspace (still shows hamburger on mobile). */
   compact?: boolean;
+  /** Truncated event name shown when compact. */
+  eventName?: string | null;
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -61,6 +63,7 @@ export function AppHeader({
   onSignOut,
   onOpenMobileNav,
   compact = false,
+  eventName = null,
 }: AppHeaderProps) {
   const t = useTranslations("auth");
   const tNav = useTranslations("nav");
@@ -70,7 +73,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-black/35 px-4 backdrop-blur-xl sm:px-6",
+        "flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-neutral-950/80 px-4 sm:px-6",
         className,
       )}
     >
@@ -96,6 +99,8 @@ export function AppHeader({
             onOrganizationChange={onOrganizationChange}
             onCreateOrganization={onCreateOrganization}
           />
+        ) : eventName ? (
+          <p className="min-w-0 truncate text-sm font-medium text-foreground">{eventName}</p>
         ) : null}
       </div>
 

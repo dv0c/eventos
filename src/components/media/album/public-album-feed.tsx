@@ -19,6 +19,7 @@ import {
 } from "@/components/media/album/mobile-app-lock";
 import { AlbumAppShellSkeleton } from "@/components/media/album/album-app-skeletons";
 import { AlbumSongRequestPanel } from "@/components/media/album/album-song-request-panel";
+import { AlbumVideoPlayer } from "@/components/media/album/album-video-player";
 import {
   eventThemeStyle,
   type EventThemeColors,
@@ -165,6 +166,7 @@ export function PublicAlbumShell({
   const [activeChallenge, setActiveChallenge] = useState<ActiveChallenge | null>(null);
   const [myReactions, setMyReactions] = useState<Record<string, string[]>>({});
   const [storyOpen, setStoryOpen] = useState(false);
+  const [storyPurpose, setStoryPurpose] = useState<"post" | "wish">("post");
   const autoOpenedStory = useRef(false);
   const reactInFlightRef = useRef<Set<string>>(new Set());
   const [activeMediaId, setActiveMediaId] = useState<string | null>(
@@ -365,10 +367,17 @@ export function PublicAlbumShell({
 
   function startChallenge(challenge: ActiveChallenge) {
     setActiveChallenge(challenge);
+    setStoryPurpose("post");
     setStoryOpen(true);
   }
 
   function openCreate() {
+    setStoryPurpose("post");
+    setStoryOpen(true);
+  }
+
+  function openWishStudio() {
+    setStoryPurpose("wish");
     setStoryOpen(true);
   }
 
@@ -777,7 +786,11 @@ export function PublicAlbumShell({
               </ul>
             </div>
           ) : tab === "wishes" && guestName ? (
-            <VoiceWishRecorder albumToken={albumToken} guestName={guestName} />
+            <VoiceWishRecorder
+              albumToken={albumToken}
+              guestName={guestName}
+              onOpenVideoStudio={openWishStudio}
+            />
           ) : tab === "music" && guestName ? (
             <AlbumSongRequestPanel albumToken={albumToken} guestName={guestName} />
           ) : (
@@ -883,22 +896,28 @@ export function PublicAlbumShell({
         </nav>
       </div>
 
-      {storyOpen && uploadToken && guestName ? (
+      {storyOpen && guestName && (storyPurpose === "wish" || uploadToken) ? (
         <StoryStudio
-          uploadToken={uploadToken}
+          uploadToken={uploadToken ?? undefined}
+          albumToken={albumToken}
+          purpose={storyPurpose}
           eventName={feed.eventName}
           guestName={guestName}
           primaryColor={primaryColor}
           allowVideos={feed.allowVideos !== false}
           onClose={() => {
+            const wasWish = storyPurpose === "wish";
             setStoryOpen(false);
+            setStoryPurpose("post");
             setActiveChallenge(null);
-            if (!uploadOnly) setTab("feed");
+            if (!uploadOnly && !wasWish) setTab("feed");
           }}
           onPublished={() => {
+            const wasWish = storyPurpose === "wish";
             setActiveChallenge(null);
             void loadFeed();
-            if (!uploadOnly) setTab("feed");
+            setStoryPurpose("post");
+            if (!uploadOnly && !wasWish) setTab("feed");
           }}
         />
       ) : null}
@@ -1089,7 +1108,7 @@ function AlbumMediaDetail({
   item,
   games,
   reactionsEnabled,
-  disableGuestDownload,
+  disableGuestDownload: _disableGuestDownload,
   myEmojis,
   onReact,
 }: {
@@ -1119,15 +1138,9 @@ function AlbumMediaDetail({
     <div className="flex flex-col pb-6">
       <div className="relative w-full bg-black">
         {isVideo ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video
+          <AlbumVideoPlayer
             src={item.url}
-            poster={item.thumbnailUrl ?? undefined}
-            className="h-auto max-h-[min(60vh,100%)] w-full object-contain"
-            controls
-            playsInline
-            preload="metadata"
-            controlsList={disableGuestDownload ? "nodownload" : undefined}
+            poster={item.thumbnailUrl}
             onError={() => {
               toast.error(t("albumVideoPlayError"));
             }}

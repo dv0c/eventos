@@ -79,11 +79,11 @@ export function EventHomeFeatures({
   return (
     <>
       <section className="grid gap-4 lg:grid-cols-2" aria-label={t("featuresLabel")}>
-        <article className="dashboard-surface flex flex-col overflow-hidden">
-          <div className="space-y-1 border-b border-border/40 px-5 py-4">
+        <article className="flex flex-col overflow-hidden rounded-lg border border-white/10 bg-white/[0.02]">
+          <div className="space-y-1 border-b border-white/10 px-5 py-4">
             <div className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4 text-primary" />
-              <h3 className="text-base font-semibold tracking-tight">{t("albumTitle")}</h3>
+              <h3 className="text-sm font-semibold tracking-tight">{t("albumTitle")}</h3>
             </div>
             <p className="text-sm text-muted-foreground">{t("albumDescription")}</p>
           </div>
@@ -121,11 +121,11 @@ export function EventHomeFeatures({
           </div>
         </article>
 
-        <article className="dashboard-surface flex flex-col overflow-hidden">
-          <div className="space-y-1 border-b border-border/40 px-5 py-4">
+        <article className="flex flex-col overflow-hidden rounded-lg border border-white/10 bg-white/[0.02]">
+          <div className="space-y-1 border-b border-white/10 px-5 py-4">
             <div className="flex items-center gap-2">
               <MonitorPlay className="h-4 w-4 text-primary" />
-              <h3 className="text-base font-semibold tracking-tight">{t("wallTitle")}</h3>
+              <h3 className="text-sm font-semibold tracking-tight">{t("wallTitle")}</h3>
             </div>
             <p className="text-sm text-muted-foreground">{t("wallDescription")}</p>
           </div>

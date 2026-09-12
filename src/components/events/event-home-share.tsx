@@ -77,13 +77,10 @@ export function EventHomeShare({
   }
 
   return (
-    <section id="share-with-guests" aria-labelledby={sectionId} className="dashboard-section">
-      <div className="dashboard-surface p-5 sm:p-6">
+    <section id="share-with-guests" aria-labelledby={sectionId} className="space-y-4">
+      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5 sm:p-6">
         <div className="mb-5 space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-            {t("shareStepLabel")}
-          </p>
-          <h2 id={sectionId} className="text-lg font-semibold tracking-tight text-foreground">
+          <h2 id={sectionId} className="text-sm font-semibold tracking-tight text-foreground">
             {t("shareTitle")}
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -164,9 +161,9 @@ export function EventHomeShare({
                 return (
                   <li
                     key={step.label}
-                    className="flex items-start gap-2.5 rounded-lg bg-muted/40 px-3 py-2.5"
+                    className="flex items-start gap-2.5 rounded-md border border-white/10 px-3 py-2.5"
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background text-primary shadow-sm">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-primary">
                       <Icon className="h-3.5 w-3.5" />
                     </span>
                     <div className="min-w-0 pt-0.5">

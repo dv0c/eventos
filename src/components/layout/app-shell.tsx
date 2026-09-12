@@ -3,7 +3,7 @@
 import { PlatformRole } from "@prisma/client";
 import { useAuth } from "@meindesk/nextjs";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Suspense, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 
 import type { OrganizationSummary } from "@/components/layout/org-switcher";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
@@ -100,6 +100,7 @@ export function AppShell({
   const isEventWorkspace = Boolean(eventId);
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [eventWorkspaceName, setEventWorkspaceName] = useState<string | null>(null);
 
   const workspaceKey = isAdminArea
     ? "admin"
@@ -110,6 +111,16 @@ export function AppShell({
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!isEventWorkspace) {
+      setEventWorkspaceName(null);
+    }
+  }, [isEventWorkspace, eventId]);
+
+  const handleActiveEventNameChange = useCallback((name: string | null) => {
+    setEventWorkspaceName(name);
+  }, []);
 
   async function handleOrganizationChange(organizationId: string) {
     const organization = organizations.find((org) => org.id === organizationId);
@@ -161,7 +172,12 @@ export function AppShell({
     if (isEventWorkspace && eventId) {
       return (
         <Suspense fallback={<EventSidebarSkeleton className={className} />}>
-          <EventSidebar eventId={eventId} className={className} {...sidebarProps} />
+          <EventSidebar
+            eventId={eventId}
+            className={className}
+            onActiveEventNameChange={handleActiveEventNameChange}
+            {...sidebarProps}
+          />
         </Suspense>
       );
     }
@@ -169,10 +185,10 @@ export function AppShell({
   }
 
   return (
-    <div className="org-app dark relative flex h-screen overflow-hidden bg-background text-foreground">
+    <div className="org-app dark relative flex h-screen overflow-hidden bg-neutral-950 text-foreground">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,oklch(0.32_0.06_55/0.45),transparent_55%),radial-gradient(ellipse_at_90%_10%,oklch(0.28_0.05_75/0.35),transparent_50%),radial-gradient(ellipse_at_50%_100%,oklch(0.22_0.04_40/0.4),transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_0%_0%,oklch(0.28_0.03_55/0.25),transparent_50%)]"
       />
       <div className="relative z-10 flex h-full min-w-0 flex-1 overflow-hidden">
         <div className="relative hidden h-full w-56 shrink-0 overflow-hidden border-r border-white/10 md:block">
@@ -184,7 +200,7 @@ export function AppShell({
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent
             side="left"
-            className="w-[min(100%,18rem)] border-white/10 bg-sidebar/95 p-0 text-foreground backdrop-blur-xl [&>button]:text-foreground"
+            className="w-[min(100%,18rem)] border-white/10 bg-neutral-950 p-0 text-foreground [&>button]:text-foreground"
           >
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SidebarTransition workspaceKey={workspaceKey}>
@@ -204,6 +220,7 @@ export function AppShell({
             onSignOut={handleSignOut}
             onOpenMobileNav={() => setMobileNavOpen(true)}
             compact={isEventWorkspace}
+            eventName={isEventWorkspace ? eventWorkspaceName : null}
           />
           <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8">
             {children}

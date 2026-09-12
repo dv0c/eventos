@@ -26,6 +26,7 @@ import {
   ModFeedListSkeleton,
   WishCountSkeleton,
 } from "@/components/media/album/album-app-skeletons";
+import { AlbumVideoPlayer } from "@/components/media/album/album-video-player";
 import { GuestNotifyForm } from "@/components/media/guest-notify-form";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -579,13 +580,10 @@ function ModPost({
 
       <div className="relative w-full bg-black">
         {isVideo ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video
+          <AlbumVideoPlayer
             src={item.url}
-            poster={item.thumbnailUrl ?? undefined}
-            className="h-auto w-full"
-            controls
-            playsInline
+            poster={item.thumbnailUrl}
+            videoClassName="max-h-none h-auto w-full"
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element

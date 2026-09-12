@@ -15,7 +15,6 @@ import {
   Trash2,
   Type,
   Undo2,
-  Video,
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -32,6 +31,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { AlbumVideoPlayer } from "@/components/media/album/album-video-player";
 import { Button } from "@/components/ui/button";
 import { backgroundCss, STORY_BACKGROUND_PRESETS } from "@/lib/story/backgrounds";
 import { exportStoryToBlob, storyHasPublishableContent } from "@/lib/story/export";
@@ -43,6 +43,7 @@ import {
 } from "@/lib/story/story-fonts";
 import {
   STORY_TEXT_LINE_HEIGHT,
+  fitStoryTextBox,
   storyTextCssHighlightStyle,
 } from "@/lib/story/text-layout";
 import {
@@ -78,11 +79,14 @@ type StudioMode =
   | "textEdit";
 
 export type StoryStudioProps = {
-  uploadToken: string;
+  uploadToken?: string;
   eventName: string;
   guestName: string;
   primaryColor?: string;
   allowVideos?: boolean;
+  /** Sealed wish video recorder — skips start screen, posts to wishes API. */
+  purpose?: "post" | "wish";
+  albumToken?: string;
   onClose: () => void;
   onPublished?: () => void;
 };
@@ -91,6 +95,7 @@ const MAX_VIDEO_DURATION_MS = 30_000;
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 const VIDEO_ACCEPT = "video/mp4,video/webm,video/quicktime";
 const MEDIA_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
+const STORY_TEXT_MAX_WIDTH = STORY_WIDTH * 0.84;
 
 const HOLD_TO_RECORD_MS = 200;
 const LAYER_SCALE_MIN = 0.4;
@@ -113,6 +118,15 @@ function pickVideoRecorderMime(): string | undefined {
     "video/webm",
   ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type));
+}
+
+/** Strip codec params; force video/mp4 when the recorder reports mp4. */
+function normalizeVideoMime(raw: string | undefined): string {
+  const value = (raw || "video/webm").toLowerCase();
+  if (value.includes("mp4")) return "video/mp4";
+  if (value.includes("quicktime")) return "video/quicktime";
+  if (value.includes("webm")) return "video/webm";
+  return raw?.split(";")[0]?.trim() || "video/webm";
 }
 
 function readVideoDurationMs(file: Blob): Promise<number> {
@@ -140,6 +154,11 @@ function readVideoDurationMs(file: Blob): Promise<number> {
 function formatElapsed(ms: number): string {
   const totalSec = Math.min(30, Math.ceil(ms / 1000));
   return `0:${String(totalSec).padStart(2, "0")}`;
+}
+
+function formatRemaining(elapsedMs: number): string {
+  const remainingSec = Math.max(0, 30 - Math.floor(elapsedMs / 1000));
+  return `0:${String(remainingSec).padStart(2, "0")}`;
 }
 
 function fitCoverRect(
@@ -171,14 +190,18 @@ export function StoryStudio({
   guestName,
   primaryColor = "#C4A574",
   allowVideos = true,
+  purpose = "post",
+  albumToken,
   onClose,
   onPublished,
 }: StoryStudioProps) {
   const t = useTranslations("storyStudio");
+  const isWish = purpose === "wish";
+  const videosAllowed = isWish ? true : allowVideos;
   const history = useStoryHistory();
   const { doc, push, replace, commit, undo, redo, reset, canUndo, canRedo } = history;
 
-  const [mode, setMode] = useState<StudioMode>("start");
+  const [mode, setMode] = useState<StudioMode>(isWish ? "camera" : "start");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -301,7 +324,7 @@ export function StoryStudio({
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: facingMode } },
-          audio: allowVideos,
+          audio: videosAllowed,
         });
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
@@ -328,7 +351,7 @@ export function StoryStudio({
     return () => {
       cancelled = true;
     };
-  }, [mode, facingMode, allowVideos, stopCamera]);
+  }, [mode, facingMode, videosAllowed, stopCamera]);
 
   useEffect(() => {
     if (mode === "textEdit" && textInputRef.current) {
@@ -377,22 +400,43 @@ export function StoryStudio({
   function patchTextElement(id: string, patch: Partial<TextElement>) {
     replace({
       ...doc,
-      elements: doc.elements.map((el) =>
-        el.id === id && el.type === "text" ? { ...el, ...patch } : el,
-      ),
+      elements: doc.elements.map((el) => {
+        if (el.id !== id || el.type !== "text") return el;
+        // Live draft may be ahead of committed el.text while in textEdit
+        const base: TextElement =
+          mode === "textEdit" && editingTextId === id
+            ? { ...el, text: textDraft.trim() || t("defaultText") }
+            : el;
+        const next: TextElement = { ...base, ...patch };
+        const layoutKeys: (keyof TextElement)[] = [
+          "fontFamily",
+          "fontSize",
+          "bold",
+          "italic",
+          "highlight",
+          "scale",
+          "width",
+          "text",
+          "align",
+        ];
+        const needsRemeasure = layoutKeys.some((key) => key in patch);
+        if (!needsRemeasure) return next;
+        return fitStoryTextBox(next, STORY_TEXT_MAX_WIDTH);
+      }),
     });
   }
 
-  function commitTextDraft() {
+  function applyTextDraft(value: string) {
+    setTextDraft(value);
     const id = editingTextId;
     if (!id) return;
-    push({
+    const text = value.trim() || t("defaultText");
+    replace({
       ...doc,
-      elements: doc.elements.map((el) =>
-        el.id === id && el.type === "text"
-          ? { ...el, text: textDraft.trim() || t("defaultText") }
-          : el,
-      ),
+      elements: doc.elements.map((el) => {
+        if (el.id !== id || el.type !== "text") return el;
+        return fitStoryTextBox({ ...el, text }, STORY_TEXT_MAX_WIDTH);
+      }),
     });
   }
 
@@ -409,14 +453,19 @@ export function StoryStudio({
 
   function openVideoPreview(blob: Blob, durationMs: number, mimeType: string) {
     stopCamera();
-    const url = URL.createObjectURL(blob);
+    const normalized = normalizeVideoMime(mimeType);
+    const fileBlob =
+      blob.type === normalized
+        ? blob
+        : new Blob([blob], { type: normalized });
+    const url = URL.createObjectURL(fileBlob);
     setPendingVideo((prev) => {
       if (prev?.url) URL.revokeObjectURL(prev.url);
       return {
-        blob,
+        blob: fileBlob,
         url,
         durationMs: Math.max(1, Math.min(MAX_VIDEO_DURATION_MS, durationMs)),
-        mimeType,
+        mimeType: normalized,
       };
     });
     setMode("videoPreview");
@@ -544,7 +593,18 @@ export function StoryStudio({
     shutterPressedRef.current = true;
     holdRecordStartedRef.current = false;
     if (shutterHoldTimerRef.current) clearTimeout(shutterHoldTimerRef.current);
-    if (!allowVideos) return;
+
+    // Wish mode: tap toggles record (no photo)
+    if (isWish) {
+      if (recording) {
+        stopVideoRecording();
+      } else {
+        void startVideoRecording();
+      }
+      return;
+    }
+
+    if (!videosAllowed) return;
     shutterHoldTimerRef.current = setTimeout(() => {
       shutterHoldTimerRef.current = null;
       if (!shutterPressedRef.current) return;
@@ -554,6 +614,10 @@ export function StoryStudio({
   }
 
   function onShutterPointerUp() {
+    if (isWish) {
+      shutterPressedRef.current = false;
+      return;
+    }
     if (shutterHoldTimerRef.current) {
       clearTimeout(shutterHoldTimerRef.current);
       shutterHoldTimerRef.current = null;
@@ -574,7 +638,7 @@ export function StoryStudio({
   }
 
   async function startVideoRecording() {
-    if (!allowVideos) return;
+    if (!videosAllowed) return;
     const stream = streamRef.current;
     if (!stream || !cameraReady) {
       toast.error(t("cameraNotReady"));
@@ -605,7 +669,7 @@ export function StoryStudio({
     };
     recorder.onstop = () => {
       setAudioEnabled(false);
-      const type = recorder.mimeType || mimeType || "video/webm";
+      const type = normalizeVideoMime(recorder.mimeType || mimeType);
       const blob = new Blob(recordChunksRef.current, { type });
       const duration = Math.min(
         MAX_VIDEO_DURATION_MS,
@@ -626,7 +690,8 @@ export function StoryStudio({
     recordStartedAtRef.current = Date.now();
     setElapsedMs(0);
     setRecording(true);
-    recorder.start(250);
+    // No timeslice: iOS/Safari mp4 chunks do not concatenate into a playable file.
+    recorder.start();
 
     recordTimerRef.current = setInterval(() => {
       setElapsedMs(
@@ -662,7 +727,18 @@ export function StoryStudio({
   }
 
   function finishTextEdit() {
-    commitTextDraft();
+    const id = editingTextId;
+    if (id) {
+      const text = textDraft.trim() || t("defaultText");
+      replace({
+        ...doc,
+        elements: doc.elements.map((el) => {
+          if (el.id !== id || el.type !== "text") return el;
+          if (el.text === text) return el;
+          return fitStoryTextBox({ ...el, text }, STORY_TEXT_MAX_WIDTH);
+        }),
+      });
+    }
     setEditingTextId(null);
     setTextChromePanel("fonts");
     setMode("edit");
@@ -674,7 +750,7 @@ export function StoryStudio({
       STORY_BACKGROUND_PRESETS.find((p) => p.id === "dusk")?.background ??
       ({ kind: "gradient", from: "#1a1423", to: "#4a3728", angle: 160 } as const);
     const id = newElementId();
-    const el: TextElement = {
+    const base: TextElement = {
       id,
       type: "text",
       text: t("defaultText"),
@@ -685,22 +761,23 @@ export function StoryStudio({
       bold: true,
       italic: false,
       highlight: null,
-      x: STORY_WIDTH * 0.08,
+      x: (STORY_WIDTH - STORY_TEXT_MAX_WIDTH) / 2,
       y: STORY_HEIGHT * 0.35,
-      width: STORY_WIDTH * 0.84,
-      height: 280,
+      width: STORY_TEXT_MAX_WIDTH,
+      height: 0,
       rotation: 0,
       scale: 1,
       zIndex: TEXT_LAYER_Z_BASE + 1,
       opacity: 1,
     };
+    const el = fitStoryTextBox(base, STORY_TEXT_MAX_WIDTH);
     reset({ ...createEmptyStory(bg), elements: [el] });
     beginTextEdit(el);
   }
 
   function addTextLayer() {
     const id = newElementId();
-    const el: TextElement = {
+    const base: TextElement = {
       id,
       type: "text",
       text: t("defaultText"),
@@ -711,15 +788,16 @@ export function StoryStudio({
       bold: true,
       italic: false,
       highlight: null,
-      x: STORY_WIDTH * 0.08,
+      x: (STORY_WIDTH - STORY_TEXT_MAX_WIDTH) / 2,
       y: STORY_HEIGHT * 0.38,
-      width: STORY_WIDTH * 0.84,
-      height: 220,
+      width: STORY_TEXT_MAX_WIDTH,
+      height: 0,
       rotation: 0,
       scale: 1,
       zIndex: nextZIndexFor(doc.elements, "text"),
       opacity: 1,
     };
+    const el = fitStoryTextBox(base, STORY_TEXT_MAX_WIDTH);
     push({ ...doc, elements: [...doc.elements, el] });
     beginTextEdit(el);
   }
@@ -761,21 +839,46 @@ export function StoryStudio({
             : "webm";
         const file = new File(
           [pendingVideo.blob],
-          `post-${Date.now()}.${ext}`,
-          { type: pendingVideo.mimeType || "video/webm" },
+          isWish ? `wish-${Date.now()}.${ext}` : `post-${Date.now()}.${ext}`,
+          { type: normalizeVideoMime(pendingVideo.mimeType) },
         );
         const formData = new FormData();
         formData.append("file", file);
         formData.append("uploadedBy", guestName);
-        formData.append("caption", eventName);
         formData.append("durationMs", String(pendingVideo.durationMs));
-        const poster = await captureVideoPoster(file);
-        if (poster) formData.append("thumbnail", poster);
-        await uploadWithProgress({
-          url: `/api/public/media/${uploadToken}`,
-          formData,
-        });
-        toast.success(t("publishSuccess"));
+
+        if (isWish) {
+          if (!albumToken) {
+            toast.error(t("publishError"));
+            setPublishing(false);
+            return;
+          }
+          const response = await fetch(`/api/public/album/${albumToken}/wishes`, {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) {
+            const json = (await response.json().catch(() => null)) as {
+              error?: { message?: string };
+            } | null;
+            throw new Error(json?.error?.message || t("publishError"));
+          }
+          toast.success(t("wishPublishSuccess"));
+        } else {
+          if (!uploadToken) {
+            toast.error(t("publishError"));
+            setPublishing(false);
+            return;
+          }
+          formData.append("caption", eventName);
+          const poster = await captureVideoPoster(file);
+          if (poster) formData.append("thumbnail", poster);
+          await uploadWithProgress({
+            url: `/api/public/media/${uploadToken}`,
+            formData,
+          });
+          toast.success(t("publishSuccess"));
+        }
         clearPendingVideo();
         reset(createEmptyStory());
         onPublished?.();
@@ -784,10 +887,22 @@ export function StoryStudio({
         const message =
           error instanceof UploadWithProgressError
             ? error.message
-            : t("publishError");
+            : error instanceof Error
+              ? error.message
+              : t("publishError");
         toast.error(message || t("publishError"));
       }
       setPublishing(false);
+      return;
+    }
+
+    if (isWish) {
+      toast.error(t("emptyWishVideo"));
+      return;
+    }
+
+    if (!uploadToken) {
+      toast.error(t("publishError"));
       return;
     }
 
@@ -824,6 +939,14 @@ export function StoryStudio({
   }
 
   function handleClose() {
+    if (isWish) {
+      if (mode === "videoPreview") {
+        clearPendingVideo();
+      }
+      stopCamera();
+      onClose();
+      return;
+    }
     if (mode === "textEdit") {
       finishTextEdit();
       return;
@@ -865,6 +988,7 @@ export function StoryStudio({
 
   return (
     <div
+      data-app-scroll
       className={cn(
         "fixed inset-0 z-[80] bg-black text-white",
         storyFontsClassName,
@@ -893,6 +1017,9 @@ export function StoryStudio({
             onPointerDown={() => {
               if (mode === "edit") {
                 setSelectedId(null);
+              }
+              if (mode === "textEdit") {
+                finishTextEdit();
               }
             }}
           >
@@ -923,21 +1050,36 @@ export function StoryStudio({
                     <p className="mt-2 text-sm text-white/70">{t("cameraDenied")}</p>
                   </div>
                 ) : null}
-                {recording ? (
+                {isWish ? (
+                  <div
+                    className="absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/55 px-4 py-1.5 text-base font-semibold tabular-nums tracking-wide text-white ring-1 ring-white/20 backdrop-blur-sm"
+                    style={{
+                      top: "max(4.5rem, calc(env(safe-area-inset-top) + 3.25rem))",
+                    }}
+                  >
+                    {recording ? (
+                      <span className="text-red-400">{formatRemaining(elapsedMs)}</span>
+                    ) : (
+                      formatRemaining(0)
+                    )}
+                  </div>
+                ) : recording ? (
                   <div className="absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full bg-red-600/90 px-3 py-1 text-sm font-semibold tabular-nums">
                     {formatElapsed(elapsedMs)} / 0:30
                   </div>
                 ) : null}
               </>
             ) : mode === "videoPreview" && pendingVideo ? (
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video
+              <AlbumVideoPlayer
+                key={pendingVideo.url}
                 src={pendingVideo.url}
-                className="absolute inset-0 h-full w-full object-contain"
-                controls
-                playsInline
                 autoPlay
                 loop
+                className="absolute inset-0 h-full w-full"
+                videoClassName="absolute inset-0 max-h-none h-full w-full object-contain"
+                onError={() => {
+                  toast.error(t("videoInvalid"));
+                }}
               />
             ) : mode === "imageEdit" && pendingImage ? (
               <div
@@ -1006,54 +1148,67 @@ export function StoryStudio({
                   snapshotDoc={() => structuredClone(doc)}
                 />
                 {mode === "textEdit" && editingText ? (
-                  <div
-                    className="absolute z-20"
-                    style={{
-                      left: editingText.x * scale.factor,
-                      top: editingText.y * scale.factor,
-                      width: editingText.width * editingText.scale * scale.factor,
-                      minHeight:
-                        editingText.height * editingText.scale * scale.factor,
-                      transform: `rotate(${editingText.rotation}deg)`,
-                      transformOrigin: "center center",
-                    }}
-                  >
-                    <textarea
-                      ref={textInputRef}
-                      value={textDraft}
-                      onChange={(e) => setTextDraft(e.target.value)}
-                      placeholder={t("defaultText")}
-                      rows={Math.max(2, textDraft.split("\n").length)}
-                      enterKeyHint="done"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          finishTextEdit();
-                        }
-                      }}
-                      className="h-full w-full resize-none border-0 bg-transparent outline-none placeholder:text-white/35"
+                  <>
+                    <button
+                      type="button"
+                      className="absolute inset-0 z-[15] cursor-default"
+                      aria-label={t("done")}
+                      onClick={finishTextEdit}
+                    />
+                    <div
+                      className="absolute z-20 overflow-visible"
                       style={{
-                        fontFamily: editingText.fontFamily,
-                        fontSize:
-                          editingText.fontSize *
-                          editingText.scale *
-                          scale.factor,
-                        fontWeight: editingText.bold ? 700 : 400,
-                        fontStyle: editingText.italic ? "italic" : "normal",
-                        color: editingText.color,
-                        textAlign: editingText.align,
-                        lineHeight: STORY_TEXT_LINE_HEIGHT,
-                        caretColor: "#38bdf8",
-                        ...storyTextCssHighlightStyle(
-                          editingText.fontSize *
+                        left: editingText.x * scale.factor,
+                        top: editingText.y * scale.factor,
+                        width: editingText.width * editingText.scale * scale.factor,
+                        height:
+                          editingText.height * editingText.scale * scale.factor,
+                        transform: `rotate(${editingText.rotation}deg)`,
+                        transformOrigin: "center center",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <textarea
+                        ref={textInputRef}
+                        value={textDraft}
+                        onChange={(e) => applyTextDraft(e.target.value)}
+                        placeholder={t("defaultText")}
+                        rows={1}
+                        enterKeyHint="done"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            finishTextEdit();
+                          }
+                        }}
+                        className="h-full w-full resize-none overflow-hidden border-0 bg-transparent outline-none placeholder:text-white/35"
+                        style={{
+                          fontFamily: editingText.fontFamily,
+                          fontSize:
+                            editingText.fontSize *
                             editingText.scale *
                             scale.factor,
-                          editingText.highlight,
-                        ),
-                      }}
-                      aria-label={t("textPlaceholder")}
-                    />
-                  </div>
+                          fontWeight: editingText.bold ? 700 : 400,
+                          fontStyle: editingText.italic ? "italic" : "normal",
+                          color: editingText.color,
+                          textAlign: editingText.align,
+                          lineHeight: STORY_TEXT_LINE_HEIGHT,
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word",
+                          caretColor: "#38bdf8",
+                          ...storyTextCssHighlightStyle(
+                            editingText.fontSize *
+                              editingText.scale *
+                              scale.factor,
+                            editingText.highlight,
+                          ),
+                        }}
+                        aria-label={t("textPlaceholder")}
+                      />
+                    </div>
+                  </>
                 ) : null}
               </div>
             )}
@@ -1092,18 +1247,6 @@ export function StoryStudio({
                   {t("next")}
                 </Button>
               ) : null}
-              {mode === "textEdit" ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-10 rounded-full px-4 font-semibold text-neutral-950"
-                  style={{ backgroundColor: primaryColor }}
-                  onClick={finishTextEdit}
-                >
-                  <Check className="mr-1 size-4" />
-                  {t("done")}
-                </Button>
-              ) : null}
               <ChromeIconButton label={t("close")} onClick={handleClose}>
                 <X className="size-5" />
               </ChromeIconButton>
@@ -1111,40 +1254,53 @@ export function StoryStudio({
           </div>
 
           {/* Start screen actions */}
-          {isStart ? (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-8">
-              <p className="text-center text-xl font-semibold tracking-tight">
-                {t("startPrompt")}
-              </p>
-              <p className="mt-2 max-w-xs text-center text-sm text-white/65">
-                {t("startHint")}
-              </p>
-              <div className="mt-10 grid w-full max-w-sm grid-cols-3 gap-4">
-                <StartAction
-                  label={t("actionCamera")}
-                  onClick={() => setMode("camera")}
-                  icon={<Camera className="size-6" />}
-                />
-                <StartAction
-                  label={allowVideos ? t("actionLibrary") : t("actionPhoto")}
-                  onClick={() => fileRef.current?.click()}
-                  icon={
-                    allowVideos ? (
-                      <Video className="size-6" />
-                    ) : (
-                      <ImageIcon className="size-6" />
-                    )
-                  }
-                />
-                <StartAction
-                  label={t("actionText")}
-                  onClick={startTextPost}
-                  icon={<Type className="size-6" />}
-                />
+          {isStart && !isWish ? (
+            <div
+              className="absolute inset-0 z-20 flex flex-col px-5"
+              style={{
+                paddingTop: "max(5.5rem, calc(env(safe-area-inset-top) + 4rem))",
+                paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
+              }}
+            >
+              <div className="flex flex-1 flex-col items-center justify-center">
+                <p className="text-center text-4xl font-semibold tracking-[0.28em] text-white">
+                  {t("modePost")}
+                </p>
+                <h1 className="mt-4 text-center text-2xl font-semibold tracking-tight text-white">
+                  {t("startPrompt")}
+                </h1>
+                {eventName ? (
+                  <p className="mt-1.5 max-w-sm truncate text-center text-sm text-white/55">
+                    {t("startForEvent", { eventName })}
+                  </p>
+                ) : null}
+                <p className="mt-3 max-w-sm text-center text-sm leading-relaxed text-white/65">
+                  {t("startHint")}
+                </p>
+
+                <div className="mt-10 flex w-full max-w-md flex-col gap-3">
+                  <StartAction
+                    label={t("actionCamera")}
+                    description={
+                      videosAllowed ? t("actionCameraDesc") : t("actionCameraPhotoDesc")
+                    }
+                    onClick={() => setMode("camera")}
+                    icon={<Camera className="size-6" />}
+                  />
+                  <StartAction
+                    label={videosAllowed ? t("actionLibrary") : t("actionPhoto")}
+                    description={t("actionLibraryDesc")}
+                    onClick={() => fileRef.current?.click()}
+                    icon={<ImageIcon className="size-6" />}
+                  />
+                  <StartAction
+                    label={t("actionText")}
+                    description={t("actionTextDesc")}
+                    onClick={startTextPost}
+                    icon={<Type className="size-6" />}
+                  />
+                </div>
               </div>
-              <p className="absolute bottom-8 text-sm font-semibold tracking-[0.25em] text-white">
-                {t("modePost")}
-              </p>
             </div>
           ) : null}
 
@@ -1179,31 +1335,35 @@ export function StoryStudio({
               className="absolute inset-x-0 bottom-0 z-20 px-4"
               style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
             >
-              {allowVideos && !recording ? (
+              {videosAllowed && !recording ? (
                 <p className="mb-3 text-center text-xs font-medium tracking-wide text-white/55">
-                  {t("holdToRecord")}
+                  {isWish ? t("wishTapToRecord") : t("holdToRecord")}
                 </p>
               ) : (
                 <div className="mb-3 h-4" aria-hidden />
               )}
 
               <div className="mb-5 flex items-end justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={recording}
-                  className="tap-press relative size-12 overflow-hidden rounded-xl bg-white/15 ring-2 ring-white/40 disabled:opacity-40"
-                  aria-label={t("actionPhoto")}
-                >
-                  {galleryPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={galleryPreview} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center">
-                      <ImageIcon className="size-5" />
-                    </span>
-                  )}
-                </button>
+                {isWish ? (
+                  <span className="size-12" aria-hidden />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={recording}
+                    className="tap-press relative size-12 overflow-hidden rounded-xl bg-white/15 ring-2 ring-white/40 disabled:opacity-40"
+                    aria-label={t("actionPhoto")}
+                  >
+                    {galleryPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={galleryPreview} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center">
+                        <ImageIcon className="size-5" />
+                      </span>
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
                   onPointerDown={onShutterPointerDown}
@@ -1237,7 +1397,7 @@ export function StoryStudio({
                 </button>
               </div>
               <p className="pb-1 text-center text-sm font-semibold tracking-[0.25em]">
-                {t("modePost")}
+                {isWish ? t("modeWish") : t("modePost")}
               </p>
             </div>
           ) : null}
@@ -1249,9 +1409,10 @@ export function StoryStudio({
               style={{
                 paddingBottom: `max(0.75rem, calc(env(safe-area-inset-bottom) + ${keyboardInset}px))`,
               }}
+              onPointerDown={(e) => e.stopPropagation()}
             >
               {textChromePanel === "fonts" ? (
-                <div className="mb-3 flex snap-x snap-mandatory gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="mb-3 flex touch-pan-x snap-x snap-mandatory gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {TEXT_FONTS.map((font) => {
                     const active = editingText.fontFamily === font.family;
                     const italicPill = font.italicPill;
@@ -1279,7 +1440,7 @@ export function StoryStudio({
                   })}
                 </div>
               ) : (
-                <div className="mb-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="mb-3 flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto px-1 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {TEXT_COLORS.map((color) => (
                     <button
                       key={color}
@@ -1448,7 +1609,7 @@ export function StoryStudio({
                 disabled={publishing}
                 onClick={() => {
                   clearPendingVideo();
-                  setMode("start");
+                  setMode(isWish ? "camera" : "start");
                 }}
               >
                 {t("retake")}
@@ -1460,7 +1621,11 @@ export function StoryStudio({
                 disabled={publishing}
                 onClick={() => void publish()}
               >
-                {publishing ? t("publishing") : t("publish")}
+                {publishing
+                  ? t("publishing")
+                  : isWish
+                    ? t("wishSend")
+                    : t("publish")}
               </Button>
             </div>
           </div>
@@ -1472,7 +1637,7 @@ export function StoryStudio({
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
             <p className="mb-2 text-sm font-medium">{t("pickBackground")}</p>
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex touch-pan-x gap-2 overflow-x-auto pb-2">
               {STORY_BACKGROUND_PRESETS.map((preset) => (
                 <button
                   key={preset.id}
@@ -1562,10 +1727,12 @@ export function StoryStudio({
 
 function StartAction({
   label,
+  description,
   icon,
   onClick,
 }: {
   label: string;
+  description: string;
   icon: ReactNode;
   onClick: () => void;
 }) {
@@ -1573,12 +1740,17 @@ function StartAction({
     <button
       type="button"
       onClick={onClick}
-      className="tap-press flex flex-col items-center gap-3 rounded-2xl bg-white/10 px-2 py-5 text-white ring-1 ring-white/15 transition active:scale-[0.98]"
+      className="tap-press flex w-full items-center gap-4 rounded-2xl bg-white/10 px-4 py-4 text-left text-white ring-1 ring-white/15 transition active:scale-[0.99]"
     >
-      <span className="flex size-14 items-center justify-center rounded-full bg-white/15">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/15">
         {icon}
       </span>
-      <span className="text-sm font-medium">{label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold tracking-tight">{label}</span>
+        <span className="mt-0.5 block text-sm leading-snug text-white/60">
+          {description}
+        </span>
+      </span>
     </button>
   );
 }
@@ -1703,7 +1875,21 @@ function StoryCanvasLayers({
 }) {
   const sorted = [...doc.elements].sort(compareStoryElements);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const gestureRef = useRef<{
+  const layerStageRef = useRef<HTMLDivElement>(null);
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  const designScaleRef = useRef(designScale);
+  designScaleRef.current = designScale;
+  const onChangeRef = useRef(onChangeElement);
+  onChangeRef.current = onChangeElement;
+  const onCommitRef = useRef(onCommitMove);
+  onCommitRef.current = onCommitMove;
+  const onEditRef = useRef(onEditText);
+  onEditRef.current = onEditText;
+  const snapshotRef = useRef(snapshotDoc);
+  snapshotRef.current = snapshotDoc;
+
+  type GestureState = {
     id: string;
     mode: "drag" | "pinch";
     startX: number;
@@ -1711,12 +1897,20 @@ function StoryCanvasLayers({
     origX: number;
     origY: number;
     origScale: number;
+    origW: number;
+    origH: number;
     startDist: number;
+    startMidX: number;
+    startMidY: number;
+    offsetX: number;
+    offsetY: number;
     fromDoc: StoryDocument;
     isText: boolean;
     moved: boolean;
     pointers: Map<number, { x: number; y: number }>;
-  } | null>(null);
+  };
+
+  const gestureRef = useRef<GestureState | null>(null);
 
   function pointerDistance(
     pointers: Map<number, { x: number; y: number }>,
@@ -1728,27 +1922,102 @@ function StoryCanvasLayers({
     return Math.hypot(b.x - a.x, b.y - a.y);
   }
 
+  function pointerMidpoint(pointers: Map<number, { x: number; y: number }>) {
+    const pts = [...pointers.values()];
+    const a = pts[0]!;
+    const b = pts[1]!;
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+
+  function clientToDesign(clientX: number, clientY: number) {
+    const rect = layerStageRef.current?.getBoundingClientRect();
+    const scale = designScaleRef.current || 1;
+    if (!rect) {
+      return { x: clientX / scale, y: clientY / scale };
+    }
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale,
+    };
+  }
+
+  function snapshotPinch(gesture: GestureState, el: StoryElement) {
+    gesture.mode = "pinch";
+    gesture.startDist = pointerDistance(gesture.pointers);
+    gesture.origScale = el.scale;
+    gesture.origX = el.x;
+    gesture.origY = el.y;
+    gesture.origW = el.width * el.scale;
+    gesture.origH = el.height * el.scale;
+    const midClient = pointerMidpoint(gesture.pointers);
+    const mid = clientToDesign(midClient.x, midClient.y);
+    gesture.startMidX = mid.x;
+    gesture.startMidY = mid.y;
+    const centerX = el.x + gesture.origW / 2;
+    const centerY = el.y + gesture.origH / 2;
+    gesture.offsetX = centerX - mid.x;
+    gesture.offsetY = centerY - mid.y;
+    gesture.moved = true;
+  }
+
+  function applyPinch(gesture: GestureState) {
+    if (gesture.startDist <= 0 || gesture.pointers.size < 2) return;
+    const el = docRef.current.elements.find((item) => item.id === gesture.id);
+    if (!el) return;
+
+    const dist = pointerDistance(gesture.pointers);
+    const nextScale = Math.min(
+      LAYER_SCALE_MAX,
+      Math.max(LAYER_SCALE_MIN, gesture.origScale * (dist / gesture.startDist)),
+    );
+    const midClient = pointerMidpoint(gesture.pointers);
+    const mid = clientToDesign(midClient.x, midClient.y);
+    const centerX = mid.x + gesture.offsetX;
+    const centerY = mid.y + gesture.offsetY;
+    const newW = el.width * nextScale;
+    const newH = el.height * nextScale;
+    gesture.moved = true;
+    onChangeRef.current(gesture.id, {
+      scale: nextScale,
+      x: centerX - newW / 2,
+      y: centerY - newH / 2,
+    });
+  }
+
   function onPointerDown(e: ReactPointerEvent, el: StoryElement) {
     if (!interactive) return;
     e.stopPropagation();
     e.preventDefault();
-    onSelect(el.id);
-    setActiveId(el.id);
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
 
     const existing = gestureRef.current;
-    if (existing && existing.id === el.id) {
-      existing.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (existing.pointers.size >= 2) {
-        existing.mode = "pinch";
-        existing.startDist = pointerDistance(existing.pointers);
-        existing.origScale = el.scale;
-        existing.moved = true;
+
+    // Second finger landed on another layer — fold into active pinch
+    if (existing && existing.id !== el.id) {
+      if (!existing.pointers.has(e.pointerId)) {
+        existing.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const activeEl = docRef.current.elements.find(
+          (item) => item.id === existing.id,
+        );
+        if (activeEl && existing.pointers.size >= 2) {
+          snapshotPinch(existing, activeEl);
+        }
       }
       return;
     }
 
-    const fromBase = snapshotDoc();
+    onSelect(el.id);
+    setActiveId(el.id);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+
+    if (existing && existing.id === el.id) {
+      existing.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (existing.pointers.size >= 2) {
+        snapshotPinch(existing, el);
+      }
+      return;
+    }
+
+    const fromBase = snapshotRef.current();
     const newZ = nextZIndexFor(fromBase.elements, el.type);
     const fromDoc: StoryDocument = {
       ...fromBase,
@@ -1756,7 +2025,7 @@ function StoryCanvasLayers({
         item.id === el.id ? { ...item, zIndex: newZ } : item,
       ),
     };
-    onChangeElement(el.id, { zIndex: newZ });
+    onChangeRef.current(el.id, { zIndex: newZ });
 
     const pointers = new Map<number, { x: number; y: number }>();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1768,7 +2037,13 @@ function StoryCanvasLayers({
       origX: el.x,
       origY: el.y,
       origScale: el.scale,
+      origW: el.width * el.scale,
+      origH: el.height * el.scale,
       startDist: 0,
+      startMidX: 0,
+      startMidY: 0,
+      offsetX: 0,
+      offsetY: 0,
       fromDoc,
       isText: el.type === "text",
       moved: false,
@@ -1783,25 +2058,15 @@ function StoryCanvasLayers({
     gesture.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (gesture.mode === "pinch" && gesture.pointers.size >= 2) {
-      const dist = pointerDistance(gesture.pointers);
-      if (gesture.startDist > 0) {
-        const nextScale = Math.min(
-          LAYER_SCALE_MAX,
-          Math.max(
-            LAYER_SCALE_MIN,
-            gesture.origScale * (dist / gesture.startDist),
-          ),
-        );
-        gesture.moved = true;
-        onChangeElement(gesture.id, { scale: nextScale });
-      }
+      applyPinch(gesture);
       return;
     }
 
-    const dx = (e.clientX - gesture.startX) / designScale;
-    const dy = (e.clientY - gesture.startY) / designScale;
+    const scale = designScaleRef.current || 1;
+    const dx = (e.clientX - gesture.startX) / scale;
+    const dy = (e.clientY - gesture.startY) / scale;
     if (Math.abs(dx) + Math.abs(dy) > 3) gesture.moved = true;
-    onChangeElement(gesture.id, {
+    onChangeRef.current(gesture.id, {
       x: gesture.origX + dx,
       y: gesture.origY + dy,
     });
@@ -1810,13 +2075,12 @@ function StoryCanvasLayers({
   function endPointer(e: ReactPointerEvent) {
     const gesture = gestureRef.current;
     if (!gesture) return;
+    if (!gesture.pointers.has(e.pointerId)) return;
     gesture.pointers.delete(e.pointerId);
 
     if (gesture.pointers.size >= 2) {
-      gesture.mode = "pinch";
-      gesture.startDist = pointerDistance(gesture.pointers);
-      const el = doc.elements.find((item) => item.id === gesture.id);
-      if (el) gesture.origScale = el.scale;
+      const el = docRef.current.elements.find((item) => item.id === gesture.id);
+      if (el) snapshotPinch(gesture, el);
       return;
     }
 
@@ -1825,7 +2089,7 @@ function StoryCanvasLayers({
       gesture.mode = "drag";
       gesture.startX = remaining.x;
       gesture.startY = remaining.y;
-      const el = doc.elements.find((item) => item.id === gesture.id);
+      const el = docRef.current.elements.find((item) => item.id === gesture.id);
       if (el) {
         gesture.origX = el.x;
         gesture.origY = el.y;
@@ -1836,16 +2100,115 @@ function StoryCanvasLayers({
     gestureRef.current = null;
     setActiveId(null);
     if (gesture.isText && !gesture.moved) {
-      onEditText(gesture.id);
+      onEditRef.current(gesture.id);
       return;
     }
     if (gesture.moved) {
-      onCommitMove(gesture.fromDoc, snapshotDoc());
+      onCommitRef.current(gesture.fromDoc, snapshotRef.current());
     }
   }
 
+  // Stage/document capture: second finger outside the hit box joins pinch
+  useEffect(() => {
+    if (!interactive) return;
+
+    function onDocPointerDown(e: PointerEvent) {
+      const gesture = gestureRef.current;
+      if (!gesture) return;
+      if (gesture.pointers.has(e.pointerId)) return;
+      const stage = layerStageRef.current;
+      if (!stage) return;
+      const target = e.target as Node | null;
+      if (!target || !stage.contains(target)) return;
+
+      gesture.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try {
+        stage.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+
+      const el = docRef.current.elements.find((item) => item.id === gesture.id);
+      if (el && gesture.pointers.size >= 2) {
+        snapshotPinch(gesture, el);
+      }
+    }
+
+    function onDocPointerMove(e: PointerEvent) {
+      const gesture = gestureRef.current;
+      if (!gesture || !gesture.pointers.has(e.pointerId)) return;
+      gesture.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (gesture.mode === "pinch" && gesture.pointers.size >= 2) {
+        applyPinch(gesture);
+        return;
+      }
+
+      if (gesture.mode === "drag" && gesture.pointers.size === 1) {
+        const scale = designScaleRef.current || 1;
+        const dx = (e.clientX - gesture.startX) / scale;
+        const dy = (e.clientY - gesture.startY) / scale;
+        if (Math.abs(dx) + Math.abs(dy) > 3) gesture.moved = true;
+        onChangeRef.current(gesture.id, {
+          x: gesture.origX + dx,
+          y: gesture.origY + dy,
+        });
+      }
+    }
+
+    function onDocPointerUp(e: PointerEvent) {
+      const gesture = gestureRef.current;
+      if (!gesture || !gesture.pointers.has(e.pointerId)) return;
+      // Reuse end logic via synthetic-compatible path
+      gesture.pointers.delete(e.pointerId);
+
+      if (gesture.pointers.size >= 2) {
+        const el = docRef.current.elements.find((item) => item.id === gesture.id);
+        if (el) snapshotPinch(gesture, el);
+        return;
+      }
+
+      if (gesture.pointers.size === 1) {
+        const remaining = [...gesture.pointers.values()][0]!;
+        gesture.mode = "drag";
+        gesture.startX = remaining.x;
+        gesture.startY = remaining.y;
+        const el = docRef.current.elements.find((item) => item.id === gesture.id);
+        if (el) {
+          gesture.origX = el.x;
+          gesture.origY = el.y;
+        }
+        return;
+      }
+
+      gestureRef.current = null;
+      setActiveId(null);
+      if (gesture.isText && !gesture.moved) {
+        onEditRef.current(gesture.id);
+        return;
+      }
+      if (gesture.moved) {
+        onCommitRef.current(gesture.fromDoc, snapshotRef.current());
+      }
+    }
+
+    document.addEventListener("pointerdown", onDocPointerDown, true);
+    document.addEventListener("pointermove", onDocPointerMove);
+    document.addEventListener("pointerup", onDocPointerUp);
+    document.addEventListener("pointercancel", onDocPointerUp);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
+      document.removeEventListener("pointermove", onDocPointerMove);
+      document.removeEventListener("pointerup", onDocPointerUp);
+      document.removeEventListener("pointercancel", onDocPointerUp);
+    };
+  }, [interactive]);
+
   return (
-    <div className="absolute inset-0 select-none [-webkit-touch-callout:none]">
+    <div
+      ref={layerStageRef}
+      className="absolute inset-0 select-none [-webkit-touch-callout:none]"
+    >
       {sorted.map((el, paintOrder) => {
         if (hideTextId && el.id === hideTextId) return null;
         const selected = el.id === selectedId;
@@ -1905,26 +2268,20 @@ function StoryCanvasLayers({
               />
             ) : el.type === "text" ? (
               <div
-                className="flex h-full w-full items-center px-1"
-                style={{
-                  justifyContent:
-                    el.align === "left"
-                      ? "flex-start"
-                      : el.align === "right"
-                        ? "flex-end"
-                        : "center",
-                }}
+                className="h-full w-full"
+                style={{ textAlign: el.align }}
               >
                 <span
-                  className="max-w-full select-none"
+                  className="select-none"
                   style={{
                     fontFamily: el.fontFamily,
                     fontSize: fontSizePx,
                     fontWeight: el.bold ? 700 : 400,
                     fontStyle: el.italic ? "italic" : "normal",
                     color: el.color,
-                    textAlign: el.align,
                     whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
                     lineHeight: STORY_TEXT_LINE_HEIGHT,
                     ...storyTextCssHighlightStyle(fontSizePx, el.highlight),
                   }}
@@ -1956,3 +2313,4 @@ function StoryCanvasLayers({
     </div>
   );
 }
+

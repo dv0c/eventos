@@ -13,6 +13,7 @@ interface VoiceWishRecorderProps {
   albumToken: string;
   guestName: string;
   className?: string;
+  onOpenVideoStudio?: () => void;
 }
 
 type Phase = "idle" | "recording" | "preview" | "sending" | "sent";
@@ -127,6 +128,7 @@ export function VoiceWishRecorder({
   albumToken,
   guestName,
   className,
+  onOpenVideoStudio,
 }: VoiceWishRecorderProps) {
   const t = useTranslations("publicEvent");
   const audioInputId = useId();
@@ -404,7 +406,10 @@ export function VoiceWishRecorder({
               </button>
               <button
                 type="button"
-                onClick={() => setMode("video")}
+                onClick={() => {
+                  setMode("video");
+                  onOpenVideoStudio?.();
+                }}
                 className={cn(
                   "rounded-xl border px-3 py-3.5 text-sm font-semibold transition",
                   mode === "video"
@@ -489,10 +494,10 @@ export function VoiceWishRecorder({
                   type="button"
                   variant="default"
                   className="h-14 w-full gap-2 rounded-full text-base"
-                  onClick={() => videoInputRef.current?.click()}
+                  onClick={() => onOpenVideoStudio?.()}
                 >
                   <Video className="size-5" />
-                  {t("wishChooseVideo")}
+                  {t("wishRecordVideo")}
                 </Button>
               ) : null}
 

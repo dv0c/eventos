@@ -87,15 +87,15 @@ export function EventSettingsForm({
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
-      <header>
+    <div className="mx-auto w-full max-w-4xl space-y-8">
+      <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
           {t("title")}
         </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">{t("subtitle")}</p>
+        <p className="max-w-xl text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
-      <div className="flex flex-wrap gap-1 border-b border-border/50">
+      <div className="flex flex-wrap gap-1 border-b border-white/10">
         {tabs.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -105,9 +105,9 @@ export function EventSettingsForm({
               type="button"
               onClick={() => selectTab(item.id)}
               className={cn(
-                "inline-flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors",
+                "inline-flex items-center gap-2 rounded-t-md px-3 py-2.5 text-sm font-medium transition-colors",
                 active
-                  ? "border-b-2 border-primary text-primary"
+                  ? "border-b-2 border-primary text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -118,7 +118,7 @@ export function EventSettingsForm({
         })}
       </div>
 
-      <div className={tab === "photoWall" ? undefined : "max-w-2xl"}>
+      <div className={cn(tab === "photoWall" ? undefined : "max-w-2xl", "pt-1")}>
         {tab === "general" ? <GeneralTab event={event} orgSlug={orgSlug} /> : null}
         {tab === "appearance" ? <AppearanceTab event={event} /> : null}
         {tab === "photoWall" ? <PhotoWallTab event={event} /> : null}

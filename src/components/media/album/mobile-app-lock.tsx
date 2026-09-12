@@ -33,13 +33,13 @@ export function MobileAppLock() {
     };
 
     const onTouchMove = (event: TouchEvent) => {
+      // Allow all pans (incl. horizontal strips + pinch) inside scroll regions
+      if (isInsideAppScroll(event.target)) return;
       if (event.touches.length > 1) {
         event.preventDefault();
         return;
       }
-      if (!isInsideAppScroll(event.target)) {
-        event.preventDefault();
-      }
+      event.preventDefault();
     };
 
     // iOS Safari pinch gestures

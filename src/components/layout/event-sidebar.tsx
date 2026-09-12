@@ -5,15 +5,15 @@ import {
   Camera,
   Check,
   ChevronsUpDown,
-  Home,
+  LayoutDashboard,
   MonitorPlay,
-  Palette,
   Settings,
   Shield,
   Smartphone,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useOrgPath } from "@/components/providers/org-provider";
@@ -41,7 +41,23 @@ interface EventSidebarProps {
   className?: string;
   isAdmin?: boolean;
   onNavigate?: () => void;
+  onActiveEventNameChange?: (name: string | null) => void;
 }
+
+type NavMatch = "overview" | "media" | "settings-moderation" | "settings" | "mod";
+
+interface NavItem {
+  labelKey: string;
+  icon: LucideIcon;
+  match?: NavMatch;
+  path?: string;
+  href?: string;
+  external?: boolean;
+  sameTab?: boolean;
+}
+
+const navItemClass =
+  "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors";
 
 export function EventSidebar({
   eventId,
@@ -49,6 +65,7 @@ export function EventSidebar({
   userName,
   className,
   onNavigate,
+  onActiveEventNameChange,
 }: EventSidebarProps) {
   const t = useTranslations("eventWorkspace");
   const pathname = usePathname();
@@ -66,67 +83,73 @@ export function EventSidebar({
       const json = await response.json();
       const list = (json.data?.events ?? []) as EventSummary[];
       setEvents(list);
-      setActiveEvent(list.find((event) => event.id === eventId) ?? list[0] ?? null);
+      const current = list.find((event) => event.id === eventId) ?? list[0] ?? null;
+      setActiveEvent(current);
+      onActiveEventNameChange?.(current?.name ?? null);
     } catch {
       // ignore
     }
-  }, [eventId]);
+  }, [eventId, onActiveEventNameChange]);
 
   useEffect(() => {
     void loadEvents();
   }, [loadEvents]);
 
-  const primaryNav = [
+  useEffect(() => {
+    onActiveEventNameChange?.(activeEvent?.name ?? null);
+  }, [activeEvent?.name, onActiveEventNameChange]);
+
+  const eventNav: NavItem[] = [
     {
       path: `/events/${eventId}/overview`,
-      label: t("navHome"),
-      icon: Home,
+      labelKey: "navHome",
+      icon: LayoutDashboard,
       match: "overview",
     },
     {
       path: `/events/${eventId}/media`,
-      label: t("navAlbum"),
+      labelKey: "navAlbum",
       icon: Camera,
       match: "media",
     },
-    {
-      href: activeEvent?.slug ? `/e/${activeEvent.slug}/wall` : undefined,
-      external: true,
-      label: t("navPhotoWall"),
-      icon: MonitorPlay,
-      match: "wall-external",
-    },
+    ...(activeEvent?.slug
+      ? [
+          {
+            href: `/e/${activeEvent.slug}/wall`,
+            external: true,
+            labelKey: "navPhotoWall",
+            icon: MonitorPlay,
+          } satisfies NavItem,
+        ]
+      : []),
+  ];
+
+  const manageNav: NavItem[] = [
     {
       path: `/events/${eventId}/settings?tab=moderation`,
-      label: t("navModeration"),
+      labelKey: "navModeration",
       icon: Shield,
       match: "settings-moderation",
     },
     {
+      path: `/events/${eventId}/settings`,
+      labelKey: "navSettings",
+      icon: Settings,
+      match: "settings",
+    },
+  ];
+
+  const toolsNav: NavItem[] = [
+    {
       href: `/mod/${eventId}`,
-      label: t("navModeratorApp"),
+      labelKey: "navModeratorApp",
       icon: Smartphone,
       match: "mod",
       sameTab: true,
     },
   ];
 
-  const secondaryNav = [
-    {
-      path: `/events/${eventId}/settings?tab=appearance`,
-      label: t("navCustomize"),
-      icon: Palette,
-      match: "settings-appearance",
-    },
-    {
-      path: `/events/${eventId}/settings`,
-      label: t("navSettings"),
-      icon: Settings,
-      match: "settings",
-    },
-  ];
-
-  function isActive(match: string) {
+  function isActive(match: NavMatch) {
     if (match === "overview") {
       return pathname.includes(`/events/${eventId}/overview`);
     }
@@ -139,18 +162,9 @@ export function EventSidebar({
     if (match === "settings-moderation") {
       return pathname.includes(`/events/${eventId}/settings`) && settingsTab === "moderation";
     }
-    if (match === "settings-appearance") {
-      return pathname.includes(`/events/${eventId}/settings`) && settingsTab === "appearance";
-    }
     if (match === "settings") {
       if (!pathname.includes(`/events/${eventId}/settings`)) return false;
-      // General + photo wall + collaborators all live under Settings
-      return (
-        !settingsTab ||
-        settingsTab === "general" ||
-        settingsTab === "photoWall" ||
-        settingsTab === "collaborators"
-      );
+      return settingsTab !== "moderation";
     }
     return false;
   }
@@ -173,24 +187,110 @@ export function EventSidebar({
     .slice(0, 2)
     .toUpperCase();
 
+  function renderNavItem(item: NavItem) {
+    const Icon = item.icon;
+    const label = t(item.labelKey);
+
+    if (item.external && item.href) {
+      return (
+        <a
+          key={item.labelKey}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onNavigate}
+          className={cn(
+            navItemClass,
+            "text-sidebar-foreground/70 hover:bg-white/5 hover:text-foreground",
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+          {label}
+        </a>
+      );
+    }
+
+    if (item.sameTab && item.href) {
+      const active = item.match ? isActive(item.match) : false;
+      return (
+        <Link
+          key={item.labelKey}
+          href={item.href}
+          onClick={onNavigate}
+          className={cn(
+            navItemClass,
+            active
+              ? "bg-white/10 text-foreground"
+              : "text-sidebar-foreground/70 hover:bg-white/5 hover:text-foreground",
+          )}
+        >
+          <Icon
+            className={cn(
+              "h-4 w-4 shrink-0",
+              active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+            )}
+          />
+          {label}
+        </Link>
+      );
+    }
+
+    if (!item.path || !item.match) return null;
+
+    const active = isActive(item.match);
+    return (
+      <Link
+        key={item.path}
+        href={orgPath(item.path)}
+        onClick={onNavigate}
+        className={cn(
+          navItemClass,
+          active
+            ? "bg-white/10 text-foreground"
+            : "text-sidebar-foreground/70 hover:bg-white/5 hover:text-foreground",
+        )}
+      >
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+          )}
+        />
+        {label}
+      </Link>
+    );
+  }
+
+  function renderSection(title: string, items: NavItem[]) {
+    return (
+      <div className="space-y-0.5">
+        <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+          {title}
+        </p>
+        {items.map(renderNavItem)}
+      </div>
+    );
+  }
+
   return (
     <aside
       className={cn(
-        "flex h-full w-56 shrink-0 flex-col border-r border-white/10 bg-sidebar/60 backdrop-blur-xl",
+        "flex h-full w-56 shrink-0 flex-col border-r border-white/10 bg-sidebar",
         className,
       )}
     >
-      <div className="flex h-14 items-center px-4">
+      <div className="flex h-14 items-center border-b border-white/10 px-4">
         <Logo variant="full" size="sm" theme="light" />
       </div>
 
-      <div className="space-y-2 px-3 pb-3">
-        <div className="flex items-center justify-between px-1">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="space-y-2 border-b border-white/10 px-2 py-3">
+        <div className="flex items-center justify-between px-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
             {t("currentEvent")}
           </p>
           <Link
             href={orgPath("/events")}
+            onClick={onNavigate}
             className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
           >
             {t("viewAll")}
@@ -200,8 +300,8 @@ export function EventSidebar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="glass"
-              className="h-9 w-full justify-between rounded-full px-2.5 font-normal"
+              variant="ghost"
+              className="h-9 w-full justify-between rounded-md border border-white/10 bg-white/[0.03] px-2.5 font-normal hover:bg-white/5"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -213,18 +313,18 @@ export function EventSidebar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-52 rounded-xl border-white/15 bg-black/85 text-foreground shadow-none backdrop-blur-xl"
+            className="w-52 rounded-md border-white/15 bg-neutral-950 text-foreground shadow-none"
             align="start"
           >
             {events.map((event) => (
               <DropdownMenuItem
                 key={event.id}
-                className="cursor-pointer rounded-lg focus:bg-white/10 focus:text-foreground"
+                className="cursor-pointer rounded-md focus:bg-white/10 focus:text-foreground"
                 onClick={() => switchEvent(event.id)}
               >
                 <span className="flex-1 truncate">{event.name}</span>
                 {event.id === eventId ? (
-                  <Check className="ml-2 h-3.5 w-3.5 text-gold" />
+                  <Check className="ml-2 h-3.5 w-3.5 text-primary" />
                 ) : null}
               </DropdownMenuItem>
             ))}
@@ -232,128 +332,19 @@ export function EventSidebar({
         </DropdownMenu>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2">
-        {primaryNav.map((item) => {
-          const Icon = item.icon;
-          const navClass =
-            "group relative flex items-center gap-2.5 rounded-full px-2.5 py-2 text-[13px] font-medium transition-all";
-
-          if (item.external || item.sameTab) {
-            if (!item.href) {
-              return (
-                <span
-                  key={item.label}
-                  className={cn(navClass, "cursor-default text-sidebar-foreground/40")}
-                >
-                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                  {item.label}
-                </span>
-              );
-            }
-            if (item.sameTab) {
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    navClass,
-                    isActive(item.match)
-                      ? "border border-white/20 bg-black/45 text-foreground backdrop-blur-md"
-                      : "border border-transparent text-sidebar-foreground/70 hover:border-white/10 hover:bg-white/5 hover:text-foreground",
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      isActive(item.match)
-                        ? "text-gold"
-                        : "text-muted-foreground group-hover:text-foreground",
-                    )}
-                  />
-                  {item.label}
-                </Link>
-              );
-            }
-            return (
-              <a
-                key={item.label}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onNavigate}
-                className={cn(
-                  navClass,
-                  "border border-transparent text-sidebar-foreground/70 hover:border-white/10 hover:bg-white/5 hover:text-foreground",
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
-                {item.label}
-              </a>
-            );
-          }
-
-          if (!item.path) return null;
-
-          const active = isActive(item.match);
-          return (
-            <Link
-              key={item.path}
-              href={orgPath(item.path)}
-              onClick={onNavigate}
-              className={cn(
-                navClass,
-                active
-                  ? "border border-white/20 bg-black/45 text-foreground backdrop-blur-md"
-                  : "border border-transparent text-sidebar-foreground/70 hover:border-white/10 hover:bg-white/5 hover:text-foreground",
-              )}
-            >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  active ? "text-gold" : "text-muted-foreground group-hover:text-foreground",
-                )}
-              />
-              {item.label}
-            </Link>
-          );
-        })}
-
-        <div className="my-2 border-t border-white/10" />
-
-        {secondaryNav.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.match);
-          return (
-            <Link
-              key={item.path}
-              href={orgPath(item.path)}
-              onClick={onNavigate}
-              className={cn(
-                "group relative flex items-center gap-2.5 rounded-full px-2.5 py-2 text-[13px] font-medium transition-all",
-                active
-                  ? "border border-white/20 bg-black/45 text-foreground backdrop-blur-md"
-                  : "border border-transparent text-sidebar-foreground/70 hover:border-white/10 hover:bg-white/5 hover:text-foreground",
-              )}
-            >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  active ? "text-gold" : "text-muted-foreground group-hover:text-foreground",
-                )}
-              />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 py-3">
+        {renderSection(t("sectionEvent"), eventNav)}
+        {renderSection(t("sectionManage"), manageNav)}
+        {renderSection(t("sectionTools"), toolsNav)}
       </nav>
 
       <div className="border-t border-white/10 p-3">
         <Link
           href={orgPath("/settings")}
-          className="flex items-center gap-2.5 rounded-full border border-transparent px-1.5 py-1.5 transition-colors hover:border-white/10 hover:bg-white/5"
+          onClick={onNavigate}
+          className="flex items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors hover:bg-white/5"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/45 text-[11px] font-semibold text-foreground backdrop-blur-md">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-[11px] font-semibold text-foreground">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
