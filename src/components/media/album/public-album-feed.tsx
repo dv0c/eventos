@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 export interface AlbumFeedItem {
   id: string;
   url: string;
+  thumbnailUrl?: string | null;
   caption: string | null;
   uploadedBy: string | null;
   mimeType: string;
@@ -68,6 +69,7 @@ type ActiveChallenge = {
 interface AlbumFeedData {
   eventName: string;
   canUpload: boolean;
+  panic?: boolean;
   enableVoiceWishes?: boolean;
   enableSongRequests?: boolean;
   reactionsEnabled: boolean;
@@ -430,6 +432,17 @@ export function PublicAlbumShell({
           {error ?? t("albumLoadError")}
         </div>
       </AlbumBackdrop>
+    );
+  }
+
+  if (feed.panic) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-black px-6 text-center">
+        <div className="space-y-2">
+          <p className="text-sm font-medium tracking-wide text-white/80">{t("wallPanic")}</p>
+          <p className="text-xs text-white/40">{t("wallPanicDesc")}</p>
+        </div>
+      </div>
     );
   }
 
@@ -844,6 +857,7 @@ function AlbumPost({
           // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
             src={item.url}
+            poster={item.thumbnailUrl ?? undefined}
             className="h-auto w-full"
             controls
             playsInline

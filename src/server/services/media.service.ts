@@ -211,6 +211,7 @@ export const mediaService = {
     uploadedBy?: string,
     challengeId?: string | null,
     durationMs?: number | null,
+    thumbnail?: File | null,
   ) {
     const event = await getEventByUploadToken(uploadToken);
 
@@ -268,6 +269,24 @@ export const mediaService = {
     const storage = getStorageProvider();
     const storedKey = await storage.upload(storageKey, buffer, { contentType });
 
+    let thumbnailKey: string | null = null;
+    if (isVideo && thumbnail && ALLOWED_IMAGE_TYPES.includes(thumbnail.type)) {
+      if (thumbnail.size <= MAX_IMAGE_SIZE) {
+        const thumbRaw = Buffer.from(await thumbnail.arrayBuffer());
+        const oriented = await autoOrientImageBuffer(thumbRaw, thumbnail.type);
+        const thumbExt =
+          oriented.contentType === "image/png"
+            ? "png"
+            : oriented.contentType === "image/webp"
+              ? "webp"
+              : "jpg";
+        const thumbStorageKey = `media/${event.slug}/${mediaId}.poster.${thumbExt}`;
+        thumbnailKey = await storage.upload(thumbStorageKey, oriented.buffer, {
+          contentType: oriented.contentType,
+        });
+      }
+    }
+
     const requireManualApproval = event.settings?.requireManualApproval ?? false;
     const rawChallenge = challengeId?.trim() || null;
     let normalizedChallenge: string | null = null;
@@ -293,6 +312,7 @@ export const mediaService = {
         eventId: event.id,
         uploadToken: nanoid(21),
         storageKey: storedKey,
+        thumbnailKey,
         mimeType: contentType,
         fileName: file.name,
         fileSize: buffer.length,
@@ -490,6 +510,13 @@ export const mediaService = {
     } catch {
       // Storage miss or transient failure — still remove DB row so the UI stays consistent.
     }
+    if (media.thumbnailKey) {
+      try {
+        await storage.delete(media.thumbnailKey);
+      } catch {
+        // ignore
+      }
+    }
 
     await prisma.media.delete({ where: { id: mediaId } });
 
@@ -509,6 +536,10 @@ export const mediaService = {
     const event = await eventRepository.findBySlugPublic(eventSlug);
 
     if (!event?.settings?.enableWall) {
+      return [];
+    }
+
+    if (event.mediaPanicAt) {
       return [];
     }
 
@@ -537,6 +568,9 @@ export const mediaService = {
     return items.map((item) => ({
       id: item.id,
       url: storage.getPublicUrl(item.storageKey),
+      thumbnailUrl: item.thumbnailKey
+        ? storage.getPublicUrl(item.thumbnailKey)
+        : null,
       caption: item.caption,
       uploadedBy: item.uploadedBy,
       isFeatured: item.isFeatured,
@@ -546,10 +580,33 @@ export const mediaService = {
     }));
   },
 
+  async getWallRemovedMediaIds(eventSlug: string, since: Date): Promise<string[]> {
+    const event = await eventRepository.findBySlugPublic(eventSlug);
+    if (!event?.settings?.enableWall) {
+      return [];
+    }
+
+    const items = await prisma.media.findMany({
+      where: {
+        eventId: event.id,
+        status: MediaStatus.REJECTED,
+        updatedAt: { gt: since },
+      },
+      select: { id: true },
+      take: 100,
+    });
+
+    return items.map((item) => item.id);
+  },
+
   async getAllWallMedia(eventSlug: string) {
     const event = await eventRepository.findBySlugPublic(eventSlug);
 
     if (!event?.settings?.enableWall) {
+      return [];
+    }
+
+    if (event.mediaPanicAt) {
       return [];
     }
 
@@ -572,6 +629,9 @@ export const mediaService = {
     return items.map((item) => ({
       id: item.id,
       url: storage.getPublicUrl(item.storageKey),
+      thumbnailUrl: item.thumbnailKey
+        ? storage.getPublicUrl(item.thumbnailKey)
+        : null,
       caption: item.caption,
       uploadedBy: item.uploadedBy,
       isFeatured: item.isFeatured,
@@ -737,8 +797,10 @@ export const mediaService = {
 
     const uploadOnly = moderation.albumPermission === "upload_only";
     const waiting = isEventWaiting(event);
+    const panic = Boolean(event.mediaPanicAt);
     const canUpload =
       !waiting &&
+      !panic &&
       event.settings.enableGallery &&
       moderation.albumPermission !== "view_only";
 
@@ -788,6 +850,7 @@ export const mediaService = {
         items: [] as Array<{
           id: string;
           url: string;
+          thumbnailUrl: string | null;
           caption: string | null;
           uploadedBy: string | null;
           mimeType: string;
@@ -803,19 +866,21 @@ export const mediaService = {
     const storage = getStorageProvider();
 
     const [items, takenNameRows, games] = await Promise.all([
-      prisma.media.findMany({
-        where: {
-          eventId: event.id,
-          status: { in: [MediaStatus.APPROVED, MediaStatus.FEATURED] },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 100,
-        include: {
-          reactions: {
-            select: { emoji: true },
-          },
-        },
-      }),
+      panic
+        ? Promise.resolve([])
+        : prisma.media.findMany({
+            where: {
+              eventId: event.id,
+              status: { in: [MediaStatus.APPROVED, MediaStatus.FEATURED] },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 100,
+            include: {
+              reactions: {
+                select: { emoji: true },
+              },
+            },
+          }),
       prisma.media.findMany({
         where: {
           eventId: event.id,
@@ -843,6 +908,7 @@ export const mediaService = {
       eventName: event.name,
       canUpload,
       waiting,
+      panic,
       enableVoiceWishes: event.settings.enableVoiceWishes ?? true,
       enableSongRequests: event.settings.enableSongRequests ?? true,
       reactionsEnabled,
@@ -883,6 +949,9 @@ export const mediaService = {
       items: items.map((item) => ({
         id: item.id,
         url: storage.getPublicUrl(item.storageKey),
+        thumbnailUrl: item.thumbnailKey
+          ? storage.getPublicUrl(item.thumbnailKey)
+          : null,
         caption: item.caption,
         uploadedBy: item.uploadedBy,
         mimeType: item.mimeType,

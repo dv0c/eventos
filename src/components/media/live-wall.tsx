@@ -69,6 +69,7 @@ interface WallConfig {
   uploadUrl: string | null;
   uploadQrImageUrl: string | null;
   eventName: string;
+  panic?: boolean;
 }
 
 interface LiveWallProps {
@@ -94,6 +95,7 @@ export function LiveWall({
   const [media, setMedia] = useState<WallMediaItem[]>([]);
   const [connected, setConnected] = useState(false);
   const [config, setConfig] = useState<WallConfig | null>(null);
+  const [panic, setPanic] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -169,6 +171,10 @@ export function LiveWall({
       if (response.ok) {
         const json = await response.json();
         setConfig(json.data);
+        if (typeof json.data?.panic === "boolean") {
+          setPanic(json.data.panic);
+          if (json.data.panic) setMedia([]);
+        }
       }
     } catch {
       // Config is optional for graceful degradation
@@ -189,10 +195,20 @@ export function LiveWall({
       try {
         const data = JSON.parse(event.data) as {
           media?: WallMediaItem[];
+          removed?: string[];
           reactions?: WallReactionEvent[];
           announcement?: WallAnnouncement | null;
           initial?: boolean;
+          panic?: boolean;
         };
+
+        if (typeof data.panic === "boolean") {
+          setPanic(data.panic);
+          if (data.panic) {
+            setMedia([]);
+            return;
+          }
+        }
 
         if (data.announcement?.id) {
           const id = data.announcement.id;
@@ -206,6 +222,11 @@ export function LiveWall({
         if (data.initial) {
           setMedia(data.media ?? []);
           return;
+        }
+
+        if (Array.isArray(data.removed) && data.removed.length > 0) {
+          const removedIds = new Set(data.removed as string[]);
+          setMedia((prev) => prev.filter((m) => !removedIds.has(m.id)));
         }
 
         if (data.media && data.media.length > 0) {
@@ -349,6 +370,13 @@ export function LiveWall({
         accentColor: config?.theme.accentColor ?? primaryColor,
       }}
     >
+      {panic ? (
+        <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center gap-2 bg-black">
+          <p className="text-sm font-medium tracking-wide text-white/80">{t("wallPanic")}</p>
+          <p className="text-xs text-white/40">{t("wallPanicDesc")}</p>
+        </div>
+      ) : null}
+
       {wallSettings.backgroundUrl ? (
         <>
           <div

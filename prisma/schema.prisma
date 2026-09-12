@@ -483,6 +483,7 @@ model Event {
   expectedCouples Int        @default(0)
   expectedChildren Int        @default(0)
   expectedVip    Int         @default(0)
+  mediaPanicAt   DateTime?
   deletedAt      DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -983,6 +984,7 @@ model Media {
   eventId     String
   uploadToken String?     @unique
   storageKey  String
+  thumbnailKey String?
   mimeType    String
   fileName    String
   fileSize    Int

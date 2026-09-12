@@ -83,4 +83,30 @@ describe("revokeGuestConnectIfEnded", () => {
       data: { status: EventStatus.COMPLETED },
     });
   });
+
+  it("returns false when start date passed but endDate is still in the future", async () => {
+    const start = new Date();
+    start.setDate(start.getDate() - 2);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setDate(end.getDate() + 8);
+    end.setHours(0, 0, 0, 0);
+
+    findFirst.mockResolvedValue({
+      id: "evt-3",
+      status: EventStatus.ACTIVE,
+      date: start,
+      endDate: end,
+      startTime: "10:00",
+      endTime: "23:59",
+    });
+
+    const { revokeGuestConnectIfEnded } = await import(
+      "@/server/events/revoke-guest-connect"
+    );
+    const revoked = await revokeGuestConnectIfEnded("evt-3");
+
+    expect(revoked).toBe(false);
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });

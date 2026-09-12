@@ -1,6 +1,7 @@
 export interface WallMediaItem {
   id: string;
   url: string;
+  thumbnailUrl?: string | null;
   caption: string | null;
   uploadedBy?: string | null;
   isFeatured: boolean;

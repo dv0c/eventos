@@ -6,6 +6,7 @@ import {
   Download,
   EyeOff,
   Music2,
+  ShieldAlert,
   Smartphone,
   Trash2,
   Upload,
@@ -41,6 +42,7 @@ interface EventMediaManagerProps {
   eventSlug: string;
   albumHref: string | null;
   lifecycle?: EventLifecycle;
+  mediaPurgeAt?: string | null;
 }
 
 const FREE_UPLOAD_CAP = 100;
@@ -50,6 +52,7 @@ export function EventMediaManager({
   eventSlug,
   albumHref,
   lifecycle = "active",
+  mediaPurgeAt = null,
 }: EventMediaManagerProps) {
   const t = useTranslations("eventWorkspace.media");
   const tMod = useTranslations("moderatorAlbum");
@@ -61,6 +64,8 @@ export function EventMediaManager({
   const [uploadOpen, setUploadOpen] = useState(false);
   const [filter, setFilter] = useState<MediaFilter>("published");
   const [sortNewest, setSortNewest] = useState(true);
+  const [panic, setPanic] = useState(false);
+  const [panicBusy, setPanicBusy] = useState(false);
 
   const loadMedia = useCallback(async () => {
     setIsLoading(true);
@@ -82,6 +87,49 @@ export function EventMediaManager({
   useEffect(() => {
     void loadMedia();
   }, [loadMedia]);
+
+  useEffect(() => {
+    async function loadPanic() {
+      try {
+        const response = await fetch(`/api/events/${eventId}/panic`);
+        if (!response.ok) return;
+        const json = await response.json();
+        setPanic(Boolean(json.data?.panic));
+      } catch {
+        // optional
+      }
+    }
+    void loadPanic();
+  }, [eventId]);
+
+  async function togglePanic() {
+    const next = !panic;
+    if (next && !window.confirm(tMod("panicConfirm"))) return;
+    setPanicBusy(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/panic`, {
+        method: next ? "POST" : "DELETE",
+      });
+      if (!response.ok) {
+        toast.error(tMod("panicError"));
+        setPanicBusy(false);
+        return;
+      }
+      setPanic(next);
+      toast.success(next ? tMod("panicArmed") : tMod("panicCleared"));
+    } catch {
+      toast.error(tMod("panicError"));
+    }
+    setPanicBusy(false);
+  }
+
+  const retentionLabel = useMemo(() => {
+    if (lifecycle !== "ended" || !mediaPurgeAt) return null;
+    const purgeMs = new Date(mediaPurgeAt).getTime();
+    if (!Number.isFinite(purgeMs)) return null;
+    const daysLeft = Math.max(0, Math.ceil((purgeMs - Date.now()) / (24 * 60 * 60 * 1000)));
+    return t("retentionCountdown", { days: daysLeft });
+  }, [lifecycle, mediaPurgeAt, t]);
 
   const counts = useMemo(() => {
     const published = items.filter(
@@ -188,6 +236,12 @@ export function EventMediaManager({
               {lifecycle === "waiting" ? t("albumWaiting") : t("albumClosed")}
             </p>
           ) : null}
+          {retentionLabel ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">{retentionLabel}</p>
+          ) : null}
+          {lifecycle === "ended" ? (
+            <p className="text-sm text-muted-foreground">{t("downloadAfterEndHint")}</p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
@@ -226,6 +280,20 @@ export function EventMediaManager({
             >
               <Music2 className="size-4" />
             </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className={cn(
+              "size-9 bg-background",
+              panic && "border-destructive/50 text-destructive",
+            )}
+            disabled={panicBusy}
+            onClick={() => void togglePanic()}
+            aria-label={panic ? tMod("panicClear") : tMod("panicArm")}
+            title={panic ? tMod("panicClear") : tMod("panicArm")}
+          >
+            <ShieldAlert className="size-4" />
           </Button>
           <Button
             variant="outline"

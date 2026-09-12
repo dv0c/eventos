@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Bell,
   Music2,
+  ShieldAlert,
   Star,
   Trash2,
   X,
@@ -79,6 +80,8 @@ export function ModeratorAlbumShell({
   } | null>(null);
   const [wishCount, setWishCount] = useState<number | null>(null);
   const [wishesUnlocked, setWishesUnlocked] = useState(false);
+  const [panic, setPanic] = useState(false);
+  const [panicBusy, setPanicBusy] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -105,6 +108,41 @@ export function ModeratorAlbumShell({
   useEffect(() => {
     void loadMedia();
   }, [loadMedia]);
+
+  useEffect(() => {
+    async function loadPanic() {
+      try {
+        const response = await fetch(`/api/events/${eventId}/panic`);
+        if (!response.ok) return;
+        const json = await response.json();
+        setPanic(Boolean(json.data?.panic));
+      } catch {
+        // optional
+      }
+    }
+    void loadPanic();
+  }, [eventId]);
+
+  async function togglePanic() {
+    const next = !panic;
+    if (next && !window.confirm(t("panicConfirm"))) return;
+    setPanicBusy(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/panic`, {
+        method: next ? "POST" : "DELETE",
+      });
+      if (!response.ok) {
+        toast.error(t("panicError"));
+        setPanicBusy(false);
+        return;
+      }
+      setPanic(next);
+      toast.success(next ? t("panicArmed") : t("panicCleared"));
+    } catch {
+      toast.error(t("panicError"));
+    }
+    setPanicBusy(false);
+  }
 
   useEffect(() => {
     async function loadWishSummary() {
@@ -371,6 +409,19 @@ export function ModeratorAlbumShell({
             </div>
 
             <div className="px-4 py-5">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={panicBusy}
+                className={cn(
+                  "mb-2 h-11 w-full gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10",
+                  panic && "border-destructive/50 bg-destructive/20 text-destructive",
+                )}
+                onClick={() => void togglePanic()}
+              >
+                <ShieldAlert className="size-4" />
+                {panic ? t("panicClear") : t("panicArm")}
+              </Button>
               {moderationQr ? (
                 <div className="mb-5 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div>

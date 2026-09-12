@@ -1,7 +1,7 @@
 import { EventStatus } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getEventLifecycle, isEventEnded, isEventWaiting, isGuestPhotoUploadAllowed } from "@/server/events/event-ended";
+import { getEventLifecycle, getMediaPurgeAt, isEventEnded, isEventWaiting, isGuestPhotoUploadAllowed, isMediaRetentionExpired, MEDIA_RETENTION_DAYS } from "@/server/events/event-ended";
 
 describe("isEventEnded", () => {
   beforeEach(() => {
@@ -117,6 +117,33 @@ describe("isEventEnded", () => {
         status: EventStatus.ACTIVE,
         date,
         endTime: "21:30:45",
+      }),
+    ).toBe(true);
+  });
+  it("returns false before endDate even when start date has passed", () => {
+    const date = new Date(2026, 8, 7);
+    const endDate = new Date(2026, 8, 17);
+    vi.setSystemTime(new Date(2026, 8, 8, 12, 0, 0, 0));
+    expect(
+      isEventEnded({
+        status: EventStatus.ACTIVE,
+        date,
+        endDate,
+        endTime: "23:59",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true after endDate + endTime", () => {
+    const date = new Date(2026, 8, 7);
+    const endDate = new Date(2026, 8, 17);
+    vi.setSystemTime(new Date(2026, 8, 17, 23, 59, 0, 1));
+    expect(
+      isEventEnded({
+        status: EventStatus.ACTIVE,
+        date,
+        endDate,
+        endTime: "23:59",
       }),
     ).toBe(true);
   });
@@ -243,5 +270,48 @@ describe("isEventWaiting / isGuestPhotoUploadAllowed", () => {
     };
     expect(isEventWaiting(event)).toBe(false);
     expect(isGuestPhotoUploadAllowed(event)).toBe(true);
+  });
+});
+
+describe("media retention", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sets purge date MEDIA_RETENTION_DAYS after end", () => {
+    const date = new Date(2026, 8, 7);
+    const purgeAt = getMediaPurgeAt({ date, endTime: "18:00" });
+    const endAt = new Date(date);
+    endAt.setHours(18, 0, 0, 0);
+    const expected = new Date(endAt.getTime() + MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    expect(purgeAt.getTime()).toBe(expected.getTime());
+  });
+
+  it("is not expired within the retention window", () => {
+    const date = new Date(2026, 8, 7);
+    vi.setSystemTime(new Date(2026, 8, 10, 12, 0, 0, 0));
+    expect(
+      isMediaRetentionExpired({
+        status: EventStatus.COMPLETED,
+        date,
+        endTime: "18:00",
+      }),
+    ).toBe(false);
+  });
+
+  it("is expired after the retention window", () => {
+    const date = new Date(2026, 8, 7);
+    vi.setSystemTime(new Date(2026, 10, 20, 12, 0, 0, 0));
+    expect(
+      isMediaRetentionExpired({
+        status: EventStatus.ACTIVE,
+        date,
+        endTime: "18:00",
+      }),
+    ).toBe(true);
   });
 });

@@ -103,3 +103,23 @@ export function isEventWaiting(event: EventScheduleFields): boolean {
 export function isGuestPhotoUploadAllowed(event: EventScheduleFields): boolean {
   return getEventLifecycle(event) !== "waiting";
 }
+
+/** Days after event end before guest media is purged from storage. */
+export const MEDIA_RETENTION_DAYS = 30;
+
+export function getMediaPurgeAt(event: {
+  date: Date;
+  endDate?: Date | null;
+  endTime?: string | null;
+}): Date {
+  const endAt = getEventEndAt(event);
+  return new Date(endAt.getTime() + MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+}
+
+export function isMediaRetentionExpired(
+  event: EventScheduleFields,
+  now: Date = new Date(),
+): boolean {
+  if (!isEventEnded(event)) return false;
+  return now.getTime() > getMediaPurgeAt(event).getTime();
+}

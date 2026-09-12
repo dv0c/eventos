@@ -269,6 +269,8 @@ export const voiceWishService = {
       select: {
         status: true,
         date: true,
+        endDate: true,
+        startTime: true,
         endTime: true,
         settings: { select: { enableVoiceWishes: true } },
       },
@@ -296,6 +298,8 @@ export const voiceWishService = {
       select: {
         status: true,
         date: true,
+        endDate: true,
+        startTime: true,
         endTime: true,
       },
     });
@@ -387,7 +391,7 @@ export const voiceWishService = {
   async listForZip(eventId: string) {
     const event = await prisma.event.findFirst({
       where: { id: eventId, deletedAt: null },
-      select: { status: true, date: true, endTime: true },
+      select: { status: true, date: true, endDate: true, startTime: true, endTime: true },
     });
 
     if (!event || !isEventEnded(event)) {

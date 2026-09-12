@@ -34,15 +34,9 @@ export function EventHomeShare({
   const tHub = useTranslations("events.mediaHub");
   const sectionId = useId();
   const [uploadCode, setUploadCode] = useState<QrCodeItem | null>(null);
-  const waiting = lifecycle === "waiting";
-  const [isLoading, setIsLoading] = useState(!waiting);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadQrCodes = useCallback(async () => {
-    if (waiting) {
-      setUploadCode(null);
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     try {
       const response = await fetch(`/api/events/${eventId}/qr`);
@@ -55,7 +49,7 @@ export function EventHomeShare({
       toast.error(tHub("loadError"));
     }
     setIsLoading(false);
-  }, [waiting, eventId, tHub]);
+  }, [eventId, tHub]);
 
   useEffect(() => {
     void loadQrCodes();
@@ -82,24 +76,6 @@ export function EventHomeShare({
     }
   }
 
-  if (waiting) {
-    return (
-      <section id="share-with-guests" aria-labelledby={sectionId} className="dashboard-section">
-        <div className="dashboard-surface p-5 sm:p-6">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {t("lifecycleWaiting")}
-            </p>
-            <h2 id={sectionId} className="text-lg font-semibold tracking-tight text-foreground">
-              {t("shareWaitingTitle")}
-            </h2>
-            <p className="text-sm text-muted-foreground">{t("shareWaitingSubtitle")}</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section id="share-with-guests" aria-labelledby={sectionId} className="dashboard-section">
       <div className="dashboard-surface p-5 sm:p-6">
@@ -111,7 +87,11 @@ export function EventHomeShare({
             {t("shareTitle")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {lifecycle === "ended" ? t("shareEndedSubtitle") : t("shareSubtitle")}
+            {lifecycle === "ended"
+              ? t("shareEndedSubtitle")
+              : lifecycle === "waiting"
+                ? t("shareWaitingReadySubtitle")
+                : t("shareSubtitle")}
           </p>
         </div>
 

@@ -19,6 +19,7 @@ import {
   UploadWithProgressError,
   uploadWithProgress,
 } from "@/lib/upload-with-progress";
+import { captureVideoPoster } from "@/lib/video-poster";
 import { cn } from "@/lib/utils";
 
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
@@ -159,6 +160,7 @@ export function PublicUploadForm({
 
   const [file, setFile] = useState<File | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [uploadedBy, setUploadedBy] = useState(defaultUploadedBy);
   const [isUploading, setIsUploading] = useState(false);
@@ -190,6 +192,7 @@ export function PublicUploadForm({
   const clearSelection = useCallback(() => {
     setFile(null);
     setDurationMs(null);
+    setPosterFile(null);
     setPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -211,12 +214,15 @@ export function PublicUploadForm({
             return;
           }
           setDurationMs(ms);
+          const poster = await captureVideoPoster(selected);
+          setPosterFile(poster);
         } catch {
           toast.error(tAlbum("uploadVideoInvalid"));
           return;
         }
       } else {
         setDurationMs(null);
+        setPosterFile(null);
       }
 
       setFile(selected);
@@ -274,6 +280,9 @@ export function PublicUploadForm({
     }
     if (file.type.startsWith("video/") && durationMs != null) {
       formData.append("durationMs", String(durationMs));
+    }
+    if (file.type.startsWith("video/") && posterFile) {
+      formData.append("thumbnail", posterFile);
     }
 
     try {

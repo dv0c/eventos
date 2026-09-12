@@ -87,6 +87,7 @@ export function WallStage({
                 // eslint-disable-next-line jsx-a11y/media-has-caption
                 <video
                   src={item.url}
+                  poster={item.thumbnailUrl ?? undefined}
                   className="h-full max-h-full w-auto max-w-full object-contain drop-shadow-2xl"
                   autoPlay
                   muted={!soundEnabled}

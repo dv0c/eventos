@@ -63,8 +63,8 @@ export function EventSettingsForm({
   );
 
   useEffect(() => {
-    setTab(resolveTab(searchParams.get("tab"), initialTab));
-  }, [searchParams, initialTab]);
+    setTab(resolveTab(searchParams.get("tab"), "general"));
+  }, [searchParams]);
 
   const tabs = useMemo(
     () =>
@@ -82,11 +82,7 @@ export function EventSettingsForm({
   function selectTab(next: SettingsTab) {
     setTab(next);
     const url = new URL(window.location.href);
-    if (next === "general") {
-      url.searchParams.delete("tab");
-    } else {
-      url.searchParams.set("tab", next);
-    }
+    url.searchParams.set("tab", next);
     window.history.replaceState({}, "", url.toString());
   }
 

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { EventOverview } from "@/components/events/event-overview";
 import { requireAuth } from "@/server/auth/session";
 import { getEventAdminContext } from "@/server/events/event-admin";
-import { getEventLifecycle } from "@/server/events/event-ended";
+import { getEventLifecycle, getMediaPurgeAt } from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventService } from "@/server/services/event.service";
 import { mediaService } from "@/server/services/media.service";
@@ -24,6 +24,8 @@ export default async function EventOverviewPage({ params }: OverviewPageProps) {
     await revokeGuestConnectIfEnded(eventId);
     const lifecycle = getEventLifecycle(event);
     const waiting = lifecycle === "waiting";
+    const mediaPurgeAt =
+      lifecycle === "ended" ? getMediaPurgeAt(event).toISOString() : null;
     const { canEdit } = await getEventAdminContext(eventId);
     const albumToken = waiting
       ? null
@@ -41,6 +43,7 @@ export default async function EventOverviewPage({ params }: OverviewPageProps) {
         enableWall={event.settings?.enableWall ?? false}
         canEdit={canEdit}
         lifecycle={lifecycle}
+        mediaPurgeAt={mediaPurgeAt}
         stats={{
           totalMedia: stats.totalMedia,
           pendingMedia: stats.pendingMedia,

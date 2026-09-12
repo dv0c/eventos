@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { EventMediaManager } from "@/components/media/event-media-manager";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
-import { getEventLifecycle } from "@/server/events/event-ended";
+import { getEventLifecycle, getMediaPurgeAt } from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventRepository } from "@/server/repositories/event.repository";
 import { mediaService } from "@/server/services/media.service";
@@ -25,6 +25,8 @@ export default async function EventMediaPage({ params }: MediaPageProps) {
   await revokeGuestConnectIfEnded(event.id);
   const lifecycle = getEventLifecycle(event);
   const waiting = lifecycle === "waiting";
+  const mediaPurgeAt =
+    lifecycle === "ended" ? getMediaPurgeAt(event).toISOString() : null;
   const albumToken = waiting
     ? null
     : await mediaService.getUploadTokenForEvent(event.id);
@@ -36,6 +38,7 @@ export default async function EventMediaPage({ params }: MediaPageProps) {
       eventSlug={event.slug}
       albumHref={albumHref}
       lifecycle={lifecycle}
+      mediaPurgeAt={mediaPurgeAt}
     />
   );
 }

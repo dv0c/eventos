@@ -67,6 +67,7 @@ export async function GET(_request: Request, context: RouteContext) {
       uploadUrl: uploadQr?.url ?? null,
       uploadQrImageUrl,
       eventName: event.name,
+      panic: Boolean(event.mediaPanicAt),
     });
   } catch (error) {
     return handleServiceError(error);

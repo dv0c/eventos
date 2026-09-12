@@ -1,7 +1,8 @@
 "use client";
 
-import { Share2 } from "lucide-react";
+import { Download, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 
 import { EventHomeActivity } from "@/components/events/event-home-activity";
 import { EventHomeFeatures } from "@/components/events/event-home-features";
@@ -28,6 +29,7 @@ interface EventOverviewProps {
   enableWall: boolean;
   canEdit: boolean;
   lifecycle: EventLifecycle;
+  mediaPurgeAt?: string | null;
   stats: EventOverviewStatsProps;
 }
 
@@ -41,14 +43,27 @@ export function EventOverview({
   enableWall,
   canEdit,
   lifecycle,
+  mediaPurgeAt = null,
   stats,
 }: EventOverviewProps) {
   const t = useTranslations("eventWorkspace");
   const tHome = useTranslations("eventWorkspace.home");
+  const tMedia = useTranslations("eventWorkspace.media");
   const { planName } = useOrg();
   const waiting = lifecycle === "waiting";
   const ended = lifecycle === "ended";
-  const shareAvailable = !waiting;
+  const shareAvailable = true;
+
+  const retentionLabel = useMemo(() => {
+    if (!ended || !mediaPurgeAt) return null;
+    const purgeMs = new Date(mediaPurgeAt).getTime();
+    if (!Number.isFinite(purgeMs)) return null;
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((purgeMs - Date.now()) / (24 * 60 * 60 * 1000)),
+    );
+    return tMedia("retentionCountdown", { days: daysLeft });
+  }, [ended, mediaPurgeAt, tMedia]);
 
   const statusText = ended
     ? tHome("statusEnded")
@@ -99,9 +114,25 @@ export function EventOverview({
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">{statusText}</p>
+          {retentionLabel ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">{retentionLabel}</p>
+          ) : null}
         </div>
 
         <div className="hidden flex-wrap gap-2 sm:flex">
+          {ended ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9"
+              onClick={() => {
+                window.location.href = `/api/events/${eventId}/media/download`;
+              }}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {tMedia("downloadZip")}
+            </Button>
+          ) : null}
           {shareAvailable ? (
             <Button type="button" size="sm" className="h-9" onClick={scrollToShare}>
               <Share2 className="mr-1.5 h-3.5 w-3.5" />
@@ -135,6 +166,18 @@ export function EventOverview({
 
       {shareAvailable ? (
         <div className="space-y-3 sm:hidden">
+          {ended ? (
+            <Button
+              type="button"
+              className="h-10 w-full"
+              onClick={() => {
+                window.location.href = `/api/events/${eventId}/media/download`;
+              }}
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              {tMedia("downloadZip")}
+            </Button>
+          ) : null}
           <Button type="button" className="h-10 w-full" onClick={scrollToShare}>
             <Share2 className="mr-1.5 h-4 w-4" />
             {tHome("shareEvent")}
