@@ -29,6 +29,7 @@ type MediaFilter = "published" | "pending" | "hidden";
 interface MediaItem {
   id: string;
   url: string;
+  thumbnailUrl?: string | null;
   fileName: string | null;
   mimeType: string;
   status: MediaStatus;
@@ -452,8 +453,32 @@ export function EventMediaManager({
               className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm"
             >
               <div className="relative aspect-square bg-muted">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.url} alt={item.caption ?? item.fileName ?? ""} className="h-full w-full object-cover" />
+                {item.mimeType?.startsWith("video/") ? (
+                  item.thumbnailUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.thumbnailUrl}
+                      alt={item.caption ?? item.fileName ?? ""}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    // eslint-disable-next-line jsx-a11y/media-has-caption
+                    <video
+                      src={item.url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                  )
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.url}
+                    alt={item.caption ?? item.fileName ?? ""}
+                    className="h-full w-full object-cover"
+                  />
+                )}
               </div>
               <div className="flex flex-wrap gap-1 p-2">
                 {item.status === MediaStatus.PENDING ? (

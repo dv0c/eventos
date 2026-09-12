@@ -1,3 +1,5 @@
+import { isEventEnded } from "@/server/events/event-ended";
+import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { mediaService } from "@/server/services/media.service";
 import { eventRepository } from "@/server/repositories/event.repository";
 
@@ -15,11 +17,43 @@ export async function GET(request: Request, context: RouteContext) {
       let lastReactionPoll = new Date();
       let lastAnnouncementId: string | null = null;
       let wasPanic = false;
+      let ended = false;
+
+      const emitEnded = () => {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              media: [],
+              removed: [],
+              reactions: [],
+              announcement: null,
+              panic: false,
+              ended: true,
+              initial: true,
+            })}\n\n`,
+          ),
+        );
+      };
 
       const poll = async () => {
+        if (ended) return;
+
         try {
           const event = await eventRepository.findBySlugPublic(eventSlug);
-          const panic = Boolean(event?.mediaPanicAt);
+          if (!event) {
+            ended = true;
+            emitEnded();
+            return;
+          }
+
+          if (isEventEnded(event)) {
+            ended = true;
+            await revokeGuestConnectIfEnded(event.id);
+            emitEnded();
+            return;
+          }
+
+          const panic = Boolean(event.mediaPanicAt);
 
           if (panic) {
             wasPanic = true;
@@ -99,25 +133,32 @@ export async function GET(request: Request, context: RouteContext) {
       };
 
       const event = await eventRepository.findBySlugPublic(eventSlug);
-      const initialPanic = Boolean(event?.mediaPanicAt);
-      wasPanic = initialPanic;
-      const initialMedia = initialPanic
-        ? []
-        : await mediaService.getAllWallMedia(eventSlug);
+      if (!event || isEventEnded(event)) {
+        if (event) await revokeGuestConnectIfEnded(event.id);
+        ended = true;
+        emitEnded();
+      } else {
+        const initialPanic = Boolean(event.mediaPanicAt);
+        wasPanic = initialPanic;
+        const initialMedia = initialPanic
+          ? []
+          : await mediaService.getAllWallMedia(eventSlug);
 
-      // Never replay announcements on connect/refresh — only via live poll deltas.
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            media: initialMedia,
-            reactions: [],
-            initial: true,
-            panic: initialPanic,
-          })}\n\n`,
-        ),
-      );
-      lastMediaPoll = new Date();
-      lastReactionPoll = new Date();
+        // Never replay announcements on connect/refresh — only via live poll deltas.
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              media: initialMedia,
+              reactions: [],
+              initial: true,
+              panic: initialPanic,
+              ended: false,
+            })}\n\n`,
+          ),
+        );
+        lastMediaPoll = new Date();
+        lastReactionPoll = new Date();
+      }
 
       const interval = setInterval(poll, 5000);
 

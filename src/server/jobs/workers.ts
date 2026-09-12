@@ -8,7 +8,13 @@ import { messageService } from "@/server/services/message.service";
 import { privacyService } from "@/server/services/privacy.service";
 
 import { purgeExpiredEventMedia } from "./purge-expired-media";
-import { getRedisConnection, mediaRetentionQueue, QUEUE_NAMES } from "./queues";
+import { completeEndedEvents } from "./complete-ended-events";
+import {
+  eventCompletionQueue,
+  getRedisConnection,
+  mediaRetentionQueue,
+  QUEUE_NAMES,
+} from "./queues";
 
 async function handleEmailJob(job: Job<{
   deliveryId?: string;
@@ -174,6 +180,12 @@ async function handleMediaRetentionJob(_job: Job) {
   return result;
 }
 
+async function handleEventCompletionJob(_job: Job) {
+  const result = await completeEndedEvents();
+  console.log("[event-completion worker] Complete ended events", result);
+  return result;
+}
+
 export async function ensureMediaRetentionSchedule() {
   await mediaRetentionQueue.add(
     "purge-expired-media",
@@ -181,6 +193,17 @@ export async function ensureMediaRetentionSchedule() {
     {
       repeat: { every: 24 * 60 * 60 * 1000 },
       jobId: "purge-expired-media-daily",
+    },
+  );
+}
+
+export async function ensureEventCompletionSchedule() {
+  await eventCompletionQueue.add(
+    "complete-ended-events",
+    {},
+    {
+      repeat: { every: 15 * 60 * 1000 },
+      jobId: "complete-ended-events-15m",
     },
   );
 }
@@ -196,6 +219,7 @@ export function createWorkers() {
     new Worker(QUEUE_NAMES.mediaProcessing, handleMediaProcessingJob, { connection }),
     new Worker(QUEUE_NAMES.scheduledMessages, handleScheduledMessagesJob, { connection }),
     new Worker(QUEUE_NAMES.mediaRetention, handleMediaRetentionJob, { connection }),
+    new Worker(QUEUE_NAMES.eventCompletion, handleEventCompletionJob, { connection }),
   ];
 
   for (const worker of workers) {
@@ -209,6 +233,10 @@ export function createWorkers() {
 
   void ensureMediaRetentionSchedule().catch((error) => {
     console.error("[media-retention] Failed to schedule daily purge", error);
+  });
+
+  void ensureEventCompletionSchedule().catch((error) => {
+    console.error("[event-completion] Failed to schedule completion job", error);
   });
 
   return workers;

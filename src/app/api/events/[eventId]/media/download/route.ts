@@ -1,4 +1,4 @@
-import * as ArchiverModule from "archiver";
+import { ZipArchive } from "archiver";
 import { PassThrough, Readable } from "node:stream";
 
 import { apiError, handleServiceError } from "@/lib/api-response";
@@ -8,16 +8,6 @@ import { isEventEnded } from "@/server/events/event-ended";
 import { AccessError, enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
 import { voiceWishService } from "@/server/services/voice-wish.service";
-
-type ArchiverFactory = (
-  format: string,
-  options?: { zlib?: { level?: number } },
-) => import("archiver").Archiver;
-
-const archiver = (
-  (ArchiverModule as { default?: ArchiverFactory }).default ??
-  (ArchiverModule as unknown as ArchiverFactory)
-);
 
 interface RouteContext {
   params: Promise<{ eventId: string }>;
@@ -59,7 +49,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const ended = isEventEnded(event);
     const wishes = ended ? await voiceWishService.listForZip(eventId) : [];
 
-    const archive = archiver("zip", { zlib: { level: 5 } });
+    const archive = new ZipArchive({ zlib: { level: 5 } });
     const output = new PassThrough();
     archive.pipe(output);
 

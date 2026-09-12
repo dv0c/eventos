@@ -840,6 +840,7 @@ export function PublicAlbumShell({
           eventName={feed.eventName}
           guestName={guestName}
           primaryColor={primaryColor}
+          allowVideos={feed.allowVideos !== false}
           onClose={() => {
             setStoryOpen(false);
             setActiveChallenge(null);
@@ -928,7 +929,7 @@ function AlbumFeedGrid({
   const heroUrl =
     coverUrl ||
     items.find((item) => !item.mimeType?.startsWith("video/"))?.url ||
-    items[0]?.url ||
+    items.find((item) => item.thumbnailUrl)?.thumbnailUrl ||
     null;
 
   return (
@@ -984,7 +985,6 @@ function AlbumFeedGrid({
         <ul className="grid grid-cols-3 gap-1.5 p-1.5">
           {items.map((item) => {
             const isVideo = item.mimeType?.startsWith("video/");
-            const thumb = item.thumbnailUrl || item.url;
             return (
               <li key={item.id}>
                 <button
@@ -993,12 +993,32 @@ function AlbumFeedGrid({
                   className="tap-press relative aspect-square w-full overflow-hidden rounded-xl bg-white/5"
                   aria-label={item.caption || item.uploadedBy || t("albumTitle")}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={thumb}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  {isVideo ? (
+                    item.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.thumbnailUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      // eslint-disable-next-line jsx-a11y/media-has-caption
+                      <video
+                        src={item.url}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-cover"
+                      />
+                    )
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  )}
                   {isVideo ? (
                     <span className="absolute inset-0 flex items-center justify-center bg-black/25">
                       <span className="flex size-9 items-center justify-center rounded-full bg-white/90 text-neutral-950">

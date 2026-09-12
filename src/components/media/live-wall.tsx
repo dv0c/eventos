@@ -200,7 +200,14 @@ export function LiveWall({
           announcement?: WallAnnouncement | null;
           initial?: boolean;
           panic?: boolean;
+          ended?: boolean;
         };
+
+        if (data.ended) {
+          setPanic(false);
+          setMedia([]);
+          return;
+        }
 
         if (typeof data.panic === "boolean") {
           setPanic(data.panic);
@@ -291,11 +298,19 @@ export function LiveWall({
 
     const item = slideshowItems[currentIndex];
     const isVideo = item?.mimeType?.startsWith("video/");
-    const durationMs = isVideo
-      ? wallSettings.playVideoFullLength
-        ? wallSettings.videoDurationSec * 1000 * 2
-        : wallSettings.videoDurationSec * 1000
-      : item?.caption && !item.url
+
+    // Videos advance via WallStage onEnded; keep a long safety timeout only.
+    if (isVideo) {
+      const safetyMs =
+        Math.max(wallSettings.videoDurationSec, 30) * 1000 + 5_000;
+      const timer = window.setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % slideshowItems.length);
+      }, safetyMs);
+      return () => window.clearTimeout(timer);
+    }
+
+    const durationMs =
+      item?.caption && !item.url
         ? wallSettings.textDurationSec * 1000
         : wallSettings.imageDurationSec * 1000;
 
@@ -448,6 +463,10 @@ export function LiveWall({
           hideNickname={wallSettings.hideNickname || Boolean(activeAnnouncement)}
           hideCaption={wallSettings.hideCaption || Boolean(activeAnnouncement)}
           captionTheme={config?.appearance?.captionTheme ?? "dark"}
+          onVideoEnded={() => {
+            if (slideshowItems.length <= 1) return;
+            setCurrentIndex((prev) => (prev + 1) % slideshowItems.length);
+          }}
           emptyState={
             <div className="text-center">
               <p className="text-xl font-medium">{t("wallEmpty")}</p>

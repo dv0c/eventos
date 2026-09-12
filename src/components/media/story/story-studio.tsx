@@ -11,9 +11,11 @@ import {
   Redo2,
   RotateCcw,
   RotateCw,
+  SwitchCamera,
   Trash2,
   Type,
   Undo2,
+  Video,
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -35,12 +37,23 @@ import { backgroundCss, STORY_BACKGROUND_PRESETS } from "@/lib/story/backgrounds
 import { exportStoryToBlob, storyHasPublishableContent } from "@/lib/story/export";
 import { filterCss, STORY_FILTERS } from "@/lib/story/filters";
 import {
+  storyFontsClassName,
+  TEXT_COLORS,
+  TEXT_FONTS,
+} from "@/lib/story/story-fonts";
+import {
+  STORY_TEXT_LINE_HEIGHT,
+  storyTextCssHighlightStyle,
+} from "@/lib/story/text-layout";
+import {
   createEmptyStory,
   DEFAULT_ADJUSTMENTS,
   newElementId,
-  nextZIndex,
+  nextZIndexFor,
+  compareStoryElements,
   STORY_HEIGHT,
   STORY_WIDTH,
+  TEXT_LAYER_Z_BASE,
   type ImageElement,
   type StoryDocument,
   type StoryElement,
@@ -52,12 +65,14 @@ import {
   uploadWithProgress,
 } from "@/lib/upload-with-progress";
 import { cn } from "@/lib/utils";
+import { captureVideoPoster } from "@/lib/video-poster";
 
 type StudioMode =
   | "start"
   | "camera"
   | "edit"
   | "imageEdit"
+  | "videoPreview"
   | "preview"
   | "background"
   | "textEdit";
@@ -67,28 +82,19 @@ export type StoryStudioProps = {
   eventName: string;
   guestName: string;
   primaryColor?: string;
+  allowVideos?: boolean;
   onClose: () => void;
   onPublished?: () => void;
 };
 
-const TEXT_FONTS = [
-  { id: "classic", family: "system-ui, -apple-system, sans-serif", labelKey: "fontClassic" },
-  { id: "modern", family: "ui-sans-serif, Helvetica, Arial, sans-serif", labelKey: "fontModern" },
-  {
-    id: "directional",
-    family: "ui-sans-serif, 'Arial Narrow', Arial, sans-serif",
-    labelKey: "fontDirectional",
-  },
-  { id: "literature", family: "Georgia, 'Times New Roman', serif", labelKey: "fontLiterature" },
-  {
-    id: "elegant",
-    family: "Palatino, 'Palatino Linotype', 'Book Antiqua', serif",
-    labelKey: "fontElegant",
-    italicPill: true,
-  },
-] as const;
+const MAX_VIDEO_DURATION_MS = 30_000;
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+const VIDEO_ACCEPT = "video/mp4,video/webm,video/quicktime";
+const MEDIA_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
 
-const TEXT_COLORS = ["#ffffff", "#0f0f12", "#C4A574", "#f87171", "#38bdf8", "#fbbf24"];
+const HOLD_TO_RECORD_MS = 200;
+const LAYER_SCALE_MIN = 0.4;
+const LAYER_SCALE_MAX = 3;
 
 const HIGHLIGHT_CYCLE: Array<string | null> = [
   null,
@@ -96,6 +102,44 @@ const HIGHLIGHT_CYCLE: Array<string | null> = [
   "rgba(255,255,255,0.92)",
   "rgba(196,165,116,0.9)",
 ];
+
+function pickVideoRecorderMime(): string | undefined {
+  if (typeof MediaRecorder === "undefined") return undefined;
+  const candidates = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    "video/mp4",
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type));
+}
+
+function readVideoDurationMs(file: Blob): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const durationSec = video.duration;
+      URL.revokeObjectURL(url);
+      if (!Number.isFinite(durationSec) || durationSec <= 0) {
+        reject(new Error("invalid duration"));
+        return;
+      }
+      resolve(Math.round(durationSec * 1000));
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("metadata failed"));
+    };
+    video.src = url;
+  });
+}
+
+function formatElapsed(ms: number): string {
+  const totalSec = Math.min(30, Math.ceil(ms / 1000));
+  return `0:${String(totalSec).padStart(2, "0")}`;
+}
 
 function fitCoverRect(
   mediaW: number,
@@ -125,6 +169,7 @@ export function StoryStudio({
   eventName,
   guestName,
   primaryColor = "#C4A574",
+  allowVideos = true,
   onClose,
   onPublished,
 }: StoryStudioProps) {
@@ -137,9 +182,21 @@ export function StoryStudio({
   const [publishing, setPublishing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(
+    "environment",
+  );
+  const [recording, setRecording] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [pendingImage, setPendingImage] = useState<{
     src: string;
     objectUrl: boolean;
+  } | null>(null);
+  const [pendingVideo, setPendingVideo] = useState<{
+    blob: Blob;
+    url: string;
+    durationMs: number;
+    mimeType: string;
   } | null>(null);
   const [draftAdjust, setDraftAdjust] = useState(DEFAULT_ADJUSTMENTS);
   const [draftFilter, setDraftFilter] = useState<ImageElement["filter"]>("original");
@@ -156,6 +213,16 @@ export function StoryStudio({
   const stageRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const filterSwipeRef = useRef<{ x: number; y: number } | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const recordStartedAtRef = useRef(0);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shutterHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shutterPressedRef = useRef(false);
+  const holdRecordStartedRef = useRef(false);
+  const facingModeRef = useRef(facingMode);
+  facingModeRef.current = facingMode;
 
   const selected = useMemo(
     () => doc.elements.find((el) => el.id === selectedId) ?? null,
@@ -169,11 +236,54 @@ export function StoryStudio({
     return el?.type === "text" ? el : null;
   }, [doc.elements, editingTextId, selected]);
 
+  const stopRecordingTimers = useCallback(() => {
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    if (recordStopTimerRef.current) {
+      clearTimeout(recordStopTimerRef.current);
+      recordStopTimerRef.current = null;
+    }
+  }, []);
+
+  const clearPendingVideo = useCallback(() => {
+    setPendingVideo((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  }, []);
+
+  const setAudioEnabled = useCallback((enabled: boolean) => {
+    streamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = enabled;
+    });
+  }, []);
+
   const stopCamera = useCallback(() => {
+    stopRecordingTimers();
+    if (shutterHoldTimerRef.current) {
+      clearTimeout(shutterHoldTimerRef.current);
+      shutterHoldTimerRef.current = null;
+    }
+    shutterPressedRef.current = false;
+    holdRecordStartedRef.current = false;
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    mediaRecorderRef.current = null;
+    recordChunksRef.current = [];
+    setRecording(false);
+    setElapsedMs(0);
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setCameraReady(false);
-  }, []);
+  }, [stopRecordingTimers]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
@@ -189,14 +299,18 @@ export function StoryStudio({
     async function start() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
+          video: { facingMode: { ideal: facingMode } },
+          audio: allowVideos,
         });
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
+        streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = stream;
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = false;
+        });
         if (cameraVideoRef.current) {
           cameraVideoRef.current.srcObject = stream;
           await cameraVideoRef.current.play();
@@ -213,7 +327,7 @@ export function StoryStudio({
     return () => {
       cancelled = true;
     };
-  }, [mode, stopCamera]);
+  }, [mode, facingMode, allowVideos, stopCamera]);
 
   useEffect(() => {
     if (mode === "textEdit" && textInputRef.current) {
@@ -222,6 +336,38 @@ export function StoryStudio({
       textInputRef.current.setSelectionRange(len, len);
     }
   }, [mode, editingTextId]);
+
+  useEffect(() => {
+    if (mode !== "textEdit") {
+      setKeyboardInset(0);
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardInset(inset);
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    const onSelectStart = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("textarea, input, [contenteditable='true']")) return;
+      if (target?.closest("[data-story-stage]")) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("selectstart", onSelectStart);
+    return () => document.removeEventListener("selectstart", onSelectStart);
+  }, []);
 
   function updateElements(updater: (els: StoryElement[]) => StoryElement[]) {
     push({ ...doc, elements: updater(doc.elements) });
@@ -251,12 +397,28 @@ export function StoryStudio({
 
   function openImageEditor(src: string, objectUrl: boolean) {
     stopCamera();
+    clearPendingVideo();
     setPendingImage({ src, objectUrl });
     setDraftAdjust({ ...DEFAULT_ADJUSTMENTS });
     setDraftFilter("original");
     setDraftRotation(0);
     setFilterLabelFlash(0);
     setMode("imageEdit");
+  }
+
+  function openVideoPreview(blob: Blob, durationMs: number, mimeType: string) {
+    stopCamera();
+    const url = URL.createObjectURL(blob);
+    setPendingVideo((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return {
+        blob,
+        url,
+        durationMs: Math.max(1, Math.min(MAX_VIDEO_DURATION_MS, durationMs)),
+        mimeType,
+      };
+    });
+    setMode("videoPreview");
   }
 
   function cycleDraftFilter(direction: 1 | -1) {
@@ -284,8 +446,34 @@ export function StoryStudio({
     cycleDraftFilter(dx < 0 ? 1 : -1);
   }
 
-  function onPickImage(file: File | null) {
+  async function onPickMedia(file: File | null) {
     if (!file) return;
+    if (file.type.startsWith("video/")) {
+      if (!allowVideos) {
+        toast.error(t("videosDisabled"));
+        return;
+      }
+      try {
+        const durationMs = await readVideoDurationMs(file);
+        if (durationMs > MAX_VIDEO_DURATION_MS) {
+          toast.error(t("videoTooLong"));
+          return;
+        }
+        if (durationMs < 1) {
+          toast.error(t("videoInvalid"));
+          return;
+        }
+        setGalleryPreview(null);
+        openVideoPreview(file, durationMs, file.type || "video/mp4");
+      } catch {
+        toast.error(t("videoInvalid"));
+      }
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error(t("unsupportedMedia"));
+      return;
+    }
     const url = URL.createObjectURL(file);
     setGalleryPreview(url);
     openImageEditor(url, true);
@@ -321,7 +509,7 @@ export function StoryStudio({
     img.src = pendingImage.src;
   }
 
-  function captureCamera() {
+  function capturePhoto() {
     const video = cameraVideoRef.current;
     if (!video || !video.videoWidth) {
       toast.error(t("cameraNotReady"));
@@ -332,6 +520,10 @@ export function StoryStudio({
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    if (facingModeRef.current === "user") {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0);
     stopCamera();
     canvas.toBlob(
@@ -343,6 +535,121 @@ export function StoryStudio({
       "image/jpeg",
       0.92,
     );
+  }
+
+  function onShutterPointerDown(e: ReactPointerEvent) {
+    if (!cameraReady || e.button !== 0) return;
+    e.preventDefault();
+    shutterPressedRef.current = true;
+    holdRecordStartedRef.current = false;
+    if (shutterHoldTimerRef.current) clearTimeout(shutterHoldTimerRef.current);
+    if (!allowVideos) return;
+    shutterHoldTimerRef.current = setTimeout(() => {
+      shutterHoldTimerRef.current = null;
+      if (!shutterPressedRef.current) return;
+      holdRecordStartedRef.current = true;
+      void startVideoRecording();
+    }, HOLD_TO_RECORD_MS);
+  }
+
+  function onShutterPointerUp() {
+    if (shutterHoldTimerRef.current) {
+      clearTimeout(shutterHoldTimerRef.current);
+      shutterHoldTimerRef.current = null;
+    }
+    const wasPressed = shutterPressedRef.current;
+    shutterPressedRef.current = false;
+    if (!wasPressed) return;
+    if (holdRecordStartedRef.current || recording) {
+      if (recording) stopVideoRecording();
+      return;
+    }
+    capturePhoto();
+  }
+
+  function flipCamera() {
+    if (recording) return;
+    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+  }
+
+  async function startVideoRecording() {
+    if (!allowVideos) return;
+    const stream = streamRef.current;
+    if (!stream || !cameraReady) {
+      toast.error(t("cameraNotReady"));
+      return;
+    }
+    if (typeof MediaRecorder === "undefined") {
+      toast.error(t("recordingUnsupported"));
+      return;
+    }
+
+    setAudioEnabled(true);
+
+    const mimeType = pickVideoRecorderMime();
+    let recorder: MediaRecorder;
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+    } catch {
+      setAudioEnabled(false);
+      toast.error(t("recordingUnsupported"));
+      return;
+    }
+
+    recordChunksRef.current = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) recordChunksRef.current.push(event.data);
+    };
+    recorder.onstop = () => {
+      setAudioEnabled(false);
+      const type = recorder.mimeType || mimeType || "video/webm";
+      const blob = new Blob(recordChunksRef.current, { type });
+      const duration = Math.min(
+        MAX_VIDEO_DURATION_MS,
+        Date.now() - recordStartedAtRef.current,
+      );
+      mediaRecorderRef.current = null;
+      setRecording(false);
+      stopRecordingTimers();
+      holdRecordStartedRef.current = false;
+      if (blob.size < 1 || duration < 1) {
+        toast.error(t("videoInvalid"));
+        return;
+      }
+      openVideoPreview(blob, duration, type);
+    };
+
+    mediaRecorderRef.current = recorder;
+    recordStartedAtRef.current = Date.now();
+    setElapsedMs(0);
+    setRecording(true);
+    recorder.start(250);
+
+    recordTimerRef.current = setInterval(() => {
+      setElapsedMs(
+        Math.min(MAX_VIDEO_DURATION_MS, Date.now() - recordStartedAtRef.current),
+      );
+    }, 100);
+
+    recordStopTimerRef.current = setTimeout(() => {
+      stopVideoRecording();
+    }, MAX_VIDEO_DURATION_MS);
+  }
+
+  function stopVideoRecording() {
+    stopRecordingTimers();
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      setElapsedMs(
+        Math.min(MAX_VIDEO_DURATION_MS, Date.now() - recordStartedAtRef.current),
+      );
+      recorder.stop();
+    } else {
+      setAudioEnabled(false);
+      holdRecordStartedRef.current = false;
+    }
   }
 
   function beginTextEdit(el: TextElement) {
@@ -383,7 +690,7 @@ export function StoryStudio({
       height: 280,
       rotation: 0,
       scale: 1,
-      zIndex: 1,
+      zIndex: TEXT_LAYER_Z_BASE + 1,
       opacity: 1,
     };
     reset({ ...createEmptyStory(bg), elements: [el] });
@@ -409,7 +716,7 @@ export function StoryStudio({
       height: 220,
       rotation: 0,
       scale: 1,
-      zIndex: nextZIndex(doc.elements),
+      zIndex: nextZIndexFor(doc.elements, "text"),
       opacity: 1,
     };
     push({ ...doc, elements: [...doc.elements, el] });
@@ -443,6 +750,46 @@ export function StoryStudio({
   }
 
   async function publish() {
+    if (pendingVideo) {
+      setPublishing(true);
+      try {
+        const ext = pendingVideo.mimeType.includes("mp4")
+          ? "mp4"
+          : pendingVideo.mimeType.includes("quicktime")
+            ? "mov"
+            : "webm";
+        const file = new File(
+          [pendingVideo.blob],
+          `post-${Date.now()}.${ext}`,
+          { type: pendingVideo.mimeType || "video/webm" },
+        );
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("uploadedBy", guestName);
+        formData.append("caption", eventName);
+        formData.append("durationMs", String(pendingVideo.durationMs));
+        const poster = await captureVideoPoster(file);
+        if (poster) formData.append("thumbnail", poster);
+        await uploadWithProgress({
+          url: `/api/public/media/${uploadToken}`,
+          formData,
+        });
+        toast.success(t("publishSuccess"));
+        clearPendingVideo();
+        reset(createEmptyStory());
+        onPublished?.();
+        onClose();
+      } catch (error) {
+        const message =
+          error instanceof UploadWithProgressError
+            ? error.message
+            : t("publishError");
+        toast.error(message || t("publishError"));
+      }
+      setPublishing(false);
+      return;
+    }
+
     if (!storyHasPublishableContent(doc)) {
       toast.error(t("emptyStory"));
       return;
@@ -485,6 +832,11 @@ export function StoryStudio({
       setMode("start");
       return;
     }
+    if (mode === "videoPreview") {
+      clearPendingVideo();
+      setMode("start");
+      return;
+    }
     if (mode === "camera") {
       stopCamera();
       setMode("start");
@@ -511,11 +863,27 @@ export function StoryStudio({
   const isStart = mode === "start";
 
   return (
-    <div className="fixed inset-0 z-[80] bg-black text-white">
+    <div
+      className={cn(
+        "fixed inset-0 z-[80] bg-black text-white",
+        storyFontsClassName,
+      )}
+    >
       <div className="mx-auto flex h-full w-full max-w-lg flex-col md:shadow-2xl">
-        <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden bg-black">
+        <div
+          ref={stageRef}
+          data-story-stage
+          className="relative min-h-0 flex-1 overflow-hidden bg-black select-none [-webkit-touch-callout:none]"
+          style={{
+            transform:
+              mode === "textEdit" && keyboardInset > 0
+                ? `translateY(-${Math.min(keyboardInset * 0.55, 220)}px)`
+                : undefined,
+            transition: "transform 120ms ease-out",
+          }}
+        >
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 select-none"
             style={{
               background: isStart
                 ? `linear-gradient(160deg, ${primaryColor}66, #1a1423 50%, #0a0a0b)`
@@ -532,7 +900,8 @@ export function StoryStudio({
                 <video
                   ref={cameraVideoRef}
                   className={cn(
-                    "absolute inset-0 h-full w-full object-cover",
+                    "absolute inset-0 h-full w-full object-cover select-none",
+                    facingMode === "user" && "-scale-x-100",
                     !cameraReady && "opacity-0",
                   )}
                   playsInline
@@ -553,7 +922,22 @@ export function StoryStudio({
                     <p className="mt-2 text-sm text-white/70">{t("cameraDenied")}</p>
                   </div>
                 ) : null}
+                {recording ? (
+                  <div className="absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full bg-red-600/90 px-3 py-1 text-sm font-semibold tabular-nums">
+                    {formatElapsed(elapsedMs)} / 0:30
+                  </div>
+                ) : null}
               </>
+            ) : mode === "videoPreview" && pendingVideo ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video
+                src={pendingVideo.url}
+                className="absolute inset-0 h-full w-full object-contain"
+                controls
+                playsInline
+                autoPlay
+                loop
+              />
             ) : mode === "imageEdit" && pendingImage ? (
               <div
                 className="absolute inset-0 touch-pan-y"
@@ -620,43 +1004,58 @@ export function StoryStudio({
                   onCommitMove={(fromDoc, toDoc) => commit(fromDoc, toDoc)}
                   snapshotDoc={() => structuredClone(doc)}
                 />
+                {mode === "textEdit" && editingText ? (
+                  <div
+                    className="absolute z-20"
+                    style={{
+                      left: editingText.x * scale.factor,
+                      top: editingText.y * scale.factor,
+                      width: editingText.width * editingText.scale * scale.factor,
+                      minHeight:
+                        editingText.height * editingText.scale * scale.factor,
+                      transform: `rotate(${editingText.rotation}deg)`,
+                      transformOrigin: "center center",
+                    }}
+                  >
+                    <textarea
+                      ref={textInputRef}
+                      value={textDraft}
+                      onChange={(e) => setTextDraft(e.target.value)}
+                      placeholder={t("defaultText")}
+                      rows={Math.max(2, textDraft.split("\n").length)}
+                      enterKeyHint="done"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          finishTextEdit();
+                        }
+                      }}
+                      className="h-full w-full resize-none border-0 bg-transparent outline-none placeholder:text-white/35"
+                      style={{
+                        fontFamily: editingText.fontFamily,
+                        fontSize:
+                          editingText.fontSize *
+                          editingText.scale *
+                          scale.factor,
+                        fontWeight: editingText.bold ? 700 : 400,
+                        fontStyle: editingText.italic ? "italic" : "normal",
+                        color: editingText.color,
+                        textAlign: editingText.align,
+                        lineHeight: STORY_TEXT_LINE_HEIGHT,
+                        caretColor: "#38bdf8",
+                        ...storyTextCssHighlightStyle(
+                          editingText.fontSize *
+                            editingText.scale *
+                            scale.factor,
+                          editingText.highlight,
+                        ),
+                      }}
+                      aria-label={t("textPlaceholder")}
+                    />
+                  </div>
+                ) : null}
               </div>
             )}
-
-            {/* On-canvas text input (Instagram-style) */}
-            {mode === "textEdit" && editingText ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-center px-6">
-                <textarea
-                  ref={textInputRef}
-                  value={textDraft}
-                  onChange={(e) => setTextDraft(e.target.value)}
-                  placeholder={t("defaultText")}
-                  rows={4}
-                  enterKeyHint="done"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      finishTextEdit();
-                    }
-                  }}
-                  className="w-full max-w-[90%] resize-none border-0 bg-transparent outline-none placeholder:text-white/35"
-                  style={{
-                    fontFamily: editingText.fontFamily,
-                    fontSize: `clamp(1.5rem, ${editingText.fontSize * scale.factor * 0.9}px, 2.75rem)`,
-                    fontWeight: editingText.bold ? 700 : 400,
-                    fontStyle: editingText.italic ? "italic" : "normal",
-                    color: editingText.color,
-                    backgroundColor: editingText.highlight ?? "transparent",
-                    textAlign: editingText.align,
-                    lineHeight: 1.25,
-                    padding: editingText.highlight ? "0.35em 0.55em" : undefined,
-                    borderRadius: editingText.highlight ? 8 : undefined,
-                    caretColor: "#38bdf8",
-                  }}
-                  aria-label={t("textPlaceholder")}
-                />
-              </div>
-            ) : null}
           </div>
 
           {/* Top chrome */}
@@ -726,9 +1125,15 @@ export function StoryStudio({
                   icon={<Camera className="size-6" />}
                 />
                 <StartAction
-                  label={t("actionPhoto")}
+                  label={allowVideos ? t("actionLibrary") : t("actionPhoto")}
                   onClick={() => fileRef.current?.click()}
-                  icon={<ImageIcon className="size-6" />}
+                  icon={
+                    allowVideos ? (
+                      <Video className="size-6" />
+                    ) : (
+                      <ImageIcon className="size-6" />
+                    )
+                  }
                 />
                 <StartAction
                   label={t("actionText")}
@@ -773,11 +1178,20 @@ export function StoryStudio({
               className="absolute inset-x-0 bottom-0 z-20 px-4"
               style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
             >
+              {allowVideos && !recording ? (
+                <p className="mb-3 text-center text-xs font-medium tracking-wide text-white/55">
+                  {t("holdToRecord")}
+                </p>
+              ) : (
+                <div className="mb-3 h-4" aria-hidden />
+              )}
+
               <div className="mb-5 flex items-end justify-between gap-3">
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="tap-press relative size-12 overflow-hidden rounded-xl bg-white/15 ring-2 ring-white/40"
+                  disabled={recording}
+                  className="tap-press relative size-12 overflow-hidden rounded-xl bg-white/15 ring-2 ring-white/40 disabled:opacity-40"
                   aria-label={t("actionPhoto")}
                 >
                   {galleryPreview ? (
@@ -791,20 +1205,34 @@ export function StoryStudio({
                 </button>
                 <button
                   type="button"
-                  onClick={captureCamera}
+                  onPointerDown={onShutterPointerDown}
+                  onPointerUp={onShutterPointerUp}
+                  onPointerCancel={onShutterPointerUp}
+                  onContextMenu={(e) => e.preventDefault()}
                   disabled={!cameraReady}
-                  className="tap-press flex size-[4.5rem] items-center justify-center rounded-full border-[3px] border-white disabled:opacity-40"
-                  aria-label={t("capture")}
+                  className={cn(
+                    "tap-press flex size-[4.5rem] touch-none items-center justify-center rounded-full border-[3px] border-white select-none disabled:opacity-40",
+                    recording && "border-red-500",
+                  )}
+                  aria-label={recording ? t("stopRecording") : t("capture")}
                 >
-                  <span className="size-[3.6rem] rounded-full bg-white" />
+                  <span
+                    className={cn(
+                      "bg-white transition-all",
+                      recording
+                        ? "size-7 rounded-md bg-red-500"
+                        : "size-[3.6rem] rounded-full",
+                    )}
+                  />
                 </button>
                 <button
                   type="button"
-                  onClick={startTextPost}
-                  className="tap-press flex size-12 items-center justify-center rounded-full bg-white text-sm font-bold text-neutral-950"
-                  aria-label={t("actionText")}
+                  onClick={flipCamera}
+                  disabled={recording || !cameraReady}
+                  className="tap-press flex size-12 items-center justify-center rounded-full bg-white/15 text-white ring-2 ring-white/40 disabled:opacity-40"
+                  aria-label={t("flipCamera")}
                 >
-                  Aa
+                  <SwitchCamera className="size-5" />
                 </button>
               </div>
               <p className="pb-1 text-center text-sm font-semibold tracking-[0.25em]">
@@ -817,13 +1245,15 @@ export function StoryStudio({
           {mode === "textEdit" && editingText ? (
             <div
               className="absolute inset-x-0 bottom-0 z-30 bg-black/20 px-3 pt-4 backdrop-blur-xl"
-              style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+              style={{
+                paddingBottom: `max(0.75rem, calc(env(safe-area-inset-bottom) + ${keyboardInset}px))`,
+              }}
             >
               {textChromePanel === "fonts" ? (
-                <div className="mb-3 flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="mb-3 flex snap-x snap-mandatory gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {TEXT_FONTS.map((font) => {
                     const active = editingText.fontFamily === font.family;
-                    const italicPill = "italicPill" in font && font.italicPill;
+                    const italicPill = font.italicPill;
                     return (
                       <button
                         key={font.id}
@@ -832,7 +1262,7 @@ export function StoryStudio({
                           patchTextElement(editingText.id, { fontFamily: font.family })
                         }
                         className={cn(
-                          "shrink-0 px-3.5 py-2 text-[15px] tracking-tight transition",
+                          "snap-start shrink-0 px-3.5 py-2 text-[15px] tracking-tight transition",
                           active
                             ? "rounded-full bg-white text-neutral-950"
                             : "bg-transparent text-white",
@@ -848,13 +1278,13 @@ export function StoryStudio({
                   })}
                 </div>
               ) : (
-                <div className="mb-3 flex justify-center gap-3 py-1">
+                <div className="mb-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {TEXT_COLORS.map((color) => (
                     <button
                       key={color}
                       type="button"
                       className={cn(
-                        "size-9 rounded-full ring-2",
+                        "size-9 shrink-0 snap-start rounded-full ring-2",
                         editingText.color === color ? "ring-white" : "ring-white/25",
                       )}
                       style={{ backgroundColor: color }}
@@ -999,6 +1429,42 @@ export function StoryStudio({
           </div>
         ) : null}
 
+        {mode === "videoPreview" && pendingVideo ? (
+          <div
+            className="shrink-0 border-t border-white/10 bg-neutral-950 px-3 pt-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <p className="mb-3 text-center text-sm text-white/70">
+              {t("videoDuration", {
+                seconds: Math.max(1, Math.round(pendingVideo.durationMs / 1000)),
+              })}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 border-white/20 bg-transparent text-white hover:bg-white/10"
+                disabled={publishing}
+                onClick={() => {
+                  clearPendingVideo();
+                  setMode("start");
+                }}
+              >
+                {t("retake")}
+              </Button>
+              <Button
+                type="button"
+                className="h-11 flex-1 text-neutral-950"
+                style={{ backgroundColor: primaryColor }}
+                disabled={publishing}
+                onClick={() => void publish()}
+              >
+                {publishing ? t("publishing") : t("publish")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {mode === "background" ? (
           <div
             className="shrink-0 border-t border-white/10 bg-neutral-950 px-3 pt-3"
@@ -1081,12 +1547,12 @@ export function StoryStudio({
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept={allowVideos ? MEDIA_ACCEPT : IMAGE_ACCEPT}
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0] ?? null;
           e.target.value = "";
-          onPickImage(file);
+          void onPickMedia(file);
         }}
       />
     </div>
@@ -1234,63 +1700,157 @@ function StoryCanvasLayers({
   onCommitMove: (from: StoryDocument, to: StoryDocument) => void;
   snapshotDoc: () => StoryDocument;
 }) {
-  const sorted = [...doc.elements].sort((a, b) => a.zIndex - b.zIndex);
-  const dragRef = useRef<{
+  const sorted = [...doc.elements].sort(compareStoryElements);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const gestureRef = useRef<{
     id: string;
+    mode: "drag" | "pinch";
     startX: number;
     startY: number;
     origX: number;
     origY: number;
+    origScale: number;
+    startDist: number;
     fromDoc: StoryDocument;
     isText: boolean;
     moved: boolean;
+    pointers: Map<number, { x: number; y: number }>;
   } | null>(null);
+
+  function pointerDistance(
+    pointers: Map<number, { x: number; y: number }>,
+  ): number {
+    const pts = [...pointers.values()];
+    if (pts.length < 2) return 0;
+    const a = pts[0]!;
+    const b = pts[1]!;
+    return Math.hypot(b.x - a.x, b.y - a.y);
+  }
 
   function onPointerDown(e: ReactPointerEvent, el: StoryElement) {
     if (!interactive) return;
     e.stopPropagation();
+    e.preventDefault();
     onSelect(el.id);
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    dragRef.current = {
+    setActiveId(el.id);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+
+    const existing = gestureRef.current;
+    if (existing && existing.id === el.id) {
+      existing.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (existing.pointers.size >= 2) {
+        existing.mode = "pinch";
+        existing.startDist = pointerDistance(existing.pointers);
+        existing.origScale = el.scale;
+        existing.moved = true;
+      }
+      return;
+    }
+
+    const fromBase = snapshotDoc();
+    const newZ = nextZIndexFor(fromBase.elements, el.type);
+    const fromDoc: StoryDocument = {
+      ...fromBase,
+      elements: fromBase.elements.map((item) =>
+        item.id === el.id ? { ...item, zIndex: newZ } : item,
+      ),
+    };
+    onChangeElement(el.id, { zIndex: newZ });
+
+    const pointers = new Map<number, { x: number; y: number }>();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gestureRef.current = {
       id: el.id,
+      mode: "drag",
       startX: e.clientX,
       startY: e.clientY,
       origX: el.x,
       origY: el.y,
-      fromDoc: snapshotDoc(),
+      origScale: el.scale,
+      startDist: 0,
+      fromDoc,
       isText: el.type === "text",
       moved: false,
+      pointers,
     };
   }
 
   function onPointerMove(e: ReactPointerEvent) {
-    const drag = dragRef.current;
-    if (!drag || !interactive) return;
-    const dx = (e.clientX - drag.startX) / designScale;
-    const dy = (e.clientY - drag.startY) / designScale;
-    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
-    onChangeElement(drag.id, {
-      x: drag.origX + dx,
-      y: drag.origY + dy,
+    const gesture = gestureRef.current;
+    if (!gesture || !interactive) return;
+    if (!gesture.pointers.has(e.pointerId)) return;
+    gesture.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (gesture.mode === "pinch" && gesture.pointers.size >= 2) {
+      const dist = pointerDistance(gesture.pointers);
+      if (gesture.startDist > 0) {
+        const nextScale = Math.min(
+          LAYER_SCALE_MAX,
+          Math.max(
+            LAYER_SCALE_MIN,
+            gesture.origScale * (dist / gesture.startDist),
+          ),
+        );
+        gesture.moved = true;
+        onChangeElement(gesture.id, { scale: nextScale });
+      }
+      return;
+    }
+
+    const dx = (e.clientX - gesture.startX) / designScale;
+    const dy = (e.clientY - gesture.startY) / designScale;
+    if (Math.abs(dx) + Math.abs(dy) > 3) gesture.moved = true;
+    onChangeElement(gesture.id, {
+      x: gesture.origX + dx,
+      y: gesture.origY + dy,
     });
   }
 
-  function onPointerUp() {
-    const drag = dragRef.current;
-    if (!drag) return;
-    dragRef.current = null;
-    if (drag.isText && !drag.moved) {
-      onEditText(drag.id);
+  function endPointer(e: ReactPointerEvent) {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+    gesture.pointers.delete(e.pointerId);
+
+    if (gesture.pointers.size >= 2) {
+      gesture.mode = "pinch";
+      gesture.startDist = pointerDistance(gesture.pointers);
+      const el = doc.elements.find((item) => item.id === gesture.id);
+      if (el) gesture.origScale = el.scale;
       return;
     }
-    onCommitMove(drag.fromDoc, snapshotDoc());
+
+    if (gesture.pointers.size === 1) {
+      const remaining = [...gesture.pointers.values()][0]!;
+      gesture.mode = "drag";
+      gesture.startX = remaining.x;
+      gesture.startY = remaining.y;
+      const el = doc.elements.find((item) => item.id === gesture.id);
+      if (el) {
+        gesture.origX = el.x;
+        gesture.origY = el.y;
+      }
+      return;
+    }
+
+    gestureRef.current = null;
+    setActiveId(null);
+    if (gesture.isText && !gesture.moved) {
+      onEditText(gesture.id);
+      return;
+    }
+    if (gesture.moved) {
+      onCommitMove(gesture.fromDoc, snapshotDoc());
+    }
   }
 
   return (
-    <div className="absolute inset-0">
-      {sorted.map((el) => {
+    <div className="absolute inset-0 select-none [-webkit-touch-callout:none]">
+      {sorted.map((el, paintOrder) => {
         if (hideTextId && el.id === hideTextId) return null;
         const selected = el.id === selectedId;
+        const interacting = el.id === activeId;
+        const fontSizePx =
+          el.type === "text" ? el.fontSize * el.scale * designScale : 0;
         const style: CSSProperties = {
           position: "absolute",
           left: el.x * designScale,
@@ -1299,8 +1859,10 @@ function StoryCanvasLayers({
           height: el.height * el.scale * designScale,
           transform: `rotate(${el.rotation}deg)`,
           opacity: el.opacity,
-          zIndex: el.zIndex,
+          zIndex: paintOrder + 1,
           touchAction: "none",
+          userSelect: "none",
+          WebkitUserSelect: "none",
         };
 
         return (
@@ -1308,14 +1870,18 @@ function StoryCanvasLayers({
             key={el.id}
             style={style}
             className={cn(
-              "origin-center",
+              "origin-center select-none",
               interactive && "cursor-grab active:cursor-grabbing",
-              selected && interactive && "ring-2 ring-white ring-offset-2 ring-offset-transparent",
+              interacting && "outline outline-1 outline-white/80",
+              selected &&
+                interactive &&
+                !interacting &&
+                "outline outline-1 outline-white/35",
             )}
             onPointerDown={(e) => onPointerDown(e, el)}
             onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
+            onPointerUp={endPointer}
+            onPointerCancel={endPointer}
           >
             {el.type === "image" ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -1323,14 +1889,14 @@ function StoryCanvasLayers({
                 src={el.src}
                 alt=""
                 draggable={false}
-                className="h-full w-full object-cover"
+                className="pointer-events-none h-full w-full object-cover select-none"
                 style={{ filter: filterCss(el.filter, el.adjustments) }}
               />
             ) : el.type === "video" ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption
               <video
                 src={el.src}
-                className="h-full w-full object-cover"
+                className="pointer-events-none h-full w-full object-cover"
                 muted
                 playsInline
                 loop
@@ -1338,7 +1904,7 @@ function StoryCanvasLayers({
               />
             ) : el.type === "text" ? (
               <div
-                className="flex h-full w-full items-center px-2"
+                className="flex h-full w-full items-center px-1"
                 style={{
                   justifyContent:
                     el.align === "left"
@@ -1346,20 +1912,24 @@ function StoryCanvasLayers({
                       : el.align === "right"
                         ? "flex-end"
                         : "center",
-                  fontFamily: el.fontFamily,
-                  fontSize: el.fontSize * el.scale * designScale,
-                  fontWeight: el.bold ? 700 : 400,
-                  fontStyle: el.italic ? "italic" : "normal",
-                  color: el.color,
-                  backgroundColor: el.highlight ?? undefined,
-                  textAlign: el.align,
-                  whiteSpace: "pre-wrap",
-                  lineHeight: 1.25,
-                  borderRadius: el.highlight ? 8 : undefined,
-                  padding: el.highlight ? "0.25em 0.4em" : undefined,
                 }}
               >
-                {el.text}
+                <span
+                  className="max-w-full select-none"
+                  style={{
+                    fontFamily: el.fontFamily,
+                    fontSize: fontSizePx,
+                    fontWeight: el.bold ? 700 : 400,
+                    fontStyle: el.italic ? "italic" : "normal",
+                    color: el.color,
+                    textAlign: el.align,
+                    whiteSpace: "pre-wrap",
+                    lineHeight: STORY_TEXT_LINE_HEIGHT,
+                    ...storyTextCssHighlightStyle(fontSizePx, el.highlight),
+                  }}
+                >
+                  {el.text}
+                </span>
               </div>
             ) : el.type === "drawing" ? (
               <svg className="h-full w-full" viewBox={`0 0 ${STORY_WIDTH} ${STORY_HEIGHT}`}>

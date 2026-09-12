@@ -126,15 +126,15 @@ async function assertGuestPhotoUploadAllowed(event: {
   endTime?: string | null;
 }) {
   if (!isGuestPhotoUploadAllowed(event)) {
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
+      throw new MediaServiceError("Event has ended", 403, "EVENT_ENDED");
+    }
     throw new MediaServiceError(
       "Event has not started yet",
       403,
       "EVENT_NOT_STARTED",
     );
-  }
-
-  if (isEventEnded(event)) {
-    await revokeGuestConnectIfEnded(event.id);
   }
 }
 
@@ -422,6 +422,9 @@ export const mediaService = {
     return items.map((item) => ({
       ...item,
       url: storage.getPublicUrl(item.storageKey),
+      thumbnailUrl: item.thumbnailKey
+        ? storage.getPublicUrl(item.thumbnailKey)
+        : null,
     }));
   },
 
@@ -586,6 +589,10 @@ export const mediaService = {
       return [];
     }
 
+    if (isEventEnded(event)) {
+      return [];
+    }
+
     const items = await prisma.media.findMany({
       where: {
         eventId: event.id,
@@ -607,6 +614,11 @@ export const mediaService = {
     }
 
     if (event.mediaPanicAt) {
+      return [];
+    }
+
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
       return [];
     }
 
@@ -645,6 +657,10 @@ export const mediaService = {
     const event = await eventRepository.findBySlugPublic(eventSlug);
 
     if (!event?.settings?.enableWall) {
+      return [];
+    }
+
+    if (isEventEnded(event)) {
       return [];
     }
 
@@ -766,7 +782,7 @@ export const mediaService = {
     const moderation = getModerationFromSections(event.settings.sections);
     const waiting = isEventWaiting(event);
     const canUpload =
-      !waiting &&
+      isGuestPhotoUploadAllowed(event) &&
       event.settings.enableGallery &&
       moderation.albumPermission !== "view_only";
     const canView = moderation.albumPermission !== "upload_only";
@@ -799,7 +815,7 @@ export const mediaService = {
     const waiting = isEventWaiting(event);
     const panic = Boolean(event.mediaPanicAt);
     const canUpload =
-      !waiting &&
+      isGuestPhotoUploadAllowed(event) &&
       !panic &&
       event.settings.enableGallery &&
       moderation.albumPermission !== "view_only";

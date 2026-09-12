@@ -18,19 +18,21 @@ interface WallStageProps {
   hideCaption?: boolean;
   captionTheme?: "dark" | "light";
   emptyState: ReactNode;
+  onVideoEnded?: () => void;
 }
 
 export function WallStage({
   item,
   transitionMs,
   soundEnabled,
-  playVideoFullLength,
+  playVideoFullLength: _playVideoFullLength,
   customBackgroundUrl,
   hideReactions,
   hideNickname,
   hideCaption,
   captionTheme = "dark",
   emptyState,
+  onVideoEnded,
 }: WallStageProps) {
   const reducedMotion = useReducedMotion();
   const duration = reducedMotion ? 0 : transitionMs / 1000;
@@ -60,7 +62,11 @@ export function WallStage({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={item.url}
+              src={
+                item.mimeType?.startsWith("video/")
+                  ? (item.thumbnailUrl ?? item.url)
+                  : item.url
+              }
               alt=""
               className="h-full w-full scale-110 object-cover blur-3xl"
               aria-hidden
@@ -86,13 +92,15 @@ export function WallStage({
               {isVideo ? (
                 // eslint-disable-next-line jsx-a11y/media-has-caption
                 <video
+                  key={item.id}
                   src={item.url}
                   poster={item.thumbnailUrl ?? undefined}
                   className="h-full max-h-full w-auto max-w-full object-contain drop-shadow-2xl"
                   autoPlay
                   muted={!soundEnabled}
                   playsInline
-                  loop={!playVideoFullLength}
+                  loop={false}
+                  onEnded={() => onVideoEnded?.()}
                 />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element

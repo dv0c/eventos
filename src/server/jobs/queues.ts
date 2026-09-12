@@ -9,6 +9,7 @@ export const QUEUE_NAMES = {
   mediaProcessing: "media-processing",
   scheduledMessages: "scheduled-messages",
   mediaRetention: "media-retention",
+  eventCompletion: "event-completion",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -61,6 +62,7 @@ export const exportsQueue = getQueue(QUEUE_NAMES.exports);
 export const mediaProcessingQueue = getQueue(QUEUE_NAMES.mediaProcessing);
 export const scheduledMessagesQueue = getQueue(QUEUE_NAMES.scheduledMessages);
 export const mediaRetentionQueue = getQueue(QUEUE_NAMES.mediaRetention);
+export const eventCompletionQueue = getQueue(QUEUE_NAMES.eventCompletion);
 
 export const queues = {
   email: emailQueue,
@@ -70,4 +72,5 @@ export const queues = {
   mediaProcessing: mediaProcessingQueue,
   scheduledMessages: scheduledMessagesQueue,
   mediaRetention: mediaRetentionQueue,
+  eventCompletion: eventCompletionQueue,
 };

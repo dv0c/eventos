@@ -128,9 +128,39 @@ export function createEmptyStory(
   };
 }
 
+/** Text layers always stack above image/video/drawing (band starts here). */
+export const TEXT_LAYER_Z_BASE = 1_000;
+
 export function nextZIndex(elements: StoryElement[]): number {
   if (elements.length === 0) return 1;
   return Math.max(...elements.map((el) => el.zIndex)) + 1;
+}
+
+/** Next z-index within the correct band so text never ends up behind media. */
+export function nextZIndexFor(
+  elements: StoryElement[],
+  type: StoryElement["type"],
+): number {
+  const isText = type === "text";
+  const peers = elements.filter((el) =>
+    isText ? el.type === "text" : el.type !== "text",
+  );
+  if (isText) {
+    const maxPeer = peers.length
+      ? Math.max(...peers.map((el) => el.zIndex))
+      : TEXT_LAYER_Z_BASE;
+    return Math.max(maxPeer, TEXT_LAYER_Z_BASE) + 1;
+  }
+  const maxPeer = peers.length ? Math.max(...peers.map((el) => el.zIndex)) : 0;
+  return Math.min(Math.max(maxPeer + 1, 1), TEXT_LAYER_Z_BASE - 1);
+}
+
+/** Stable paint order: non-text under text, then zIndex within each band. */
+export function compareStoryElements(a: StoryElement, b: StoryElement): number {
+  const aText = a.type === "text" ? 1 : 0;
+  const bText = b.type === "text" ? 1 : 0;
+  if (aText !== bText) return aText - bText;
+  return a.zIndex - b.zIndex;
 }
 
 export function newElementId(): string {

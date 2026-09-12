@@ -20,7 +20,8 @@ export const REVOKED_GUEST_QR_TYPES: QRCodeType[] = [
 /**
  * When an event has ended: delete non-upload guest QR rows and mark status
  * COMPLETED if it was still DRAFT/PLANNING/ACTIVE.
- * Keeps mediaUploadToken and UPLOAD QR so guests can still add photos.
+ * Keeps mediaUploadToken and UPLOAD QR for album viewing; uploads are gated
+ * separately via isGuestPhotoUploadAllowed (active only).
  * Returns true if revoke ran (event is ended).
  */
 export async function revokeGuestConnectIfEnded(

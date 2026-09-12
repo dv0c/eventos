@@ -35,32 +35,67 @@ function parseClockTime(value: string | null | undefined): {
   return { hours, minutes };
 }
 
+function utcParts(date: Date): { y: number; m: number; d: number } {
+  return {
+    y: date.getUTCFullYear(),
+    m: date.getUTCMonth(),
+    d: date.getUTCDate(),
+  };
+}
+
+function atUtcClock(
+  date: Date,
+  hours: number,
+  minutes: number,
+  seconds = 0,
+  ms = 0,
+): Date {
+  const { y, m, d } = utcParts(date);
+  return new Date(Date.UTC(y, m, d, hours, minutes, seconds, ms));
+}
+
+function sameUtcDay(a: Date, b: Date): boolean {
+  const left = utcParts(a);
+  const right = utcParts(b);
+  return left.y === right.y && left.m === right.m && left.d === right.d;
+}
+
 export function getEventStartAt(event: {
   date: Date;
   startTime?: string | null;
 }): Date {
-  const start = new Date(event.date);
   const parsed = parseClockTime(event.startTime);
   if (parsed) {
-    start.setHours(parsed.hours, parsed.minutes, 0, 0);
-  } else {
-    start.setHours(0, 0, 0, 0);
+    return atUtcClock(event.date, parsed.hours, parsed.minutes);
   }
-  return start;
+  return atUtcClock(event.date, 0, 0);
 }
 
 export function getEventEndAt(event: {
   date: Date;
   endDate?: Date | null;
   endTime?: string | null;
+  startTime?: string | null;
 }): Date {
-  const end = new Date(event.endDate ?? event.date);
+  const endDay = event.endDate ?? event.date;
   const parsed = parseClockTime(event.endTime);
+  let end: Date;
   if (parsed) {
-    end.setHours(parsed.hours, parsed.minutes, 0, 0);
+    end = atUtcClock(endDay, parsed.hours, parsed.minutes);
   } else {
-    end.setHours(23, 59, 59, 999);
+    end = atUtcClock(endDay, 23, 59, 59, 999);
   }
+
+  // Overnight: end clock is earlier than start on the same calendar day → next UTC day.
+  const startParsed = parseClockTime(event.startTime);
+  if (parsed && startParsed && sameUtcDay(endDay, event.date)) {
+    const endMins = parsed.hours * 60 + parsed.minutes;
+    const startMins = startParsed.hours * 60 + startParsed.minutes;
+    if (endMins < startMins) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+  }
+
   return end;
 }
 
@@ -97,11 +132,10 @@ export function isEventWaiting(event: EventScheduleFields): boolean {
 }
 
 /**
- * Guest photo album upload is allowed once the event has started,
- * including after it has ended (same QR/token stays valid).
+ * Guest photo album upload is allowed only while the event is active.
  */
 export function isGuestPhotoUploadAllowed(event: EventScheduleFields): boolean {
-  return getEventLifecycle(event) !== "waiting";
+  return getEventLifecycle(event) === "active";
 }
 
 /** Days after event end before guest media is purged from storage. */
@@ -111,6 +145,7 @@ export function getMediaPurgeAt(event: {
   date: Date;
   endDate?: Date | null;
   endTime?: string | null;
+  startTime?: string | null;
 }): Date {
   const endAt = getEventEndAt(event);
   return new Date(endAt.getTime() + MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000);

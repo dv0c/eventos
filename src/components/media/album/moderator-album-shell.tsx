@@ -39,6 +39,7 @@ type ModTab = "inbox" | "album" | "notify" | "more";
 interface ModMediaItem {
   id: string;
   url: string;
+  thumbnailUrl?: string | null;
   mimeType: string;
   status: MediaStatus;
   caption: string | null;
@@ -579,7 +580,13 @@ function ModPost({
       <div className="relative w-full bg-black">
         {isVideo ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={item.url} className="h-auto w-full" controls playsInline />
+          <video
+            src={item.url}
+            poster={item.thumbnailUrl ?? undefined}
+            className="h-auto w-full"
+            controls
+            playsInline
+          />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img

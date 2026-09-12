@@ -21,12 +21,12 @@ type WishMode = "audio" | "video";
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
   const candidates = [
-    "audio/mp4",
-    "audio/aac",
-    "audio/mp4;codecs=mp4a.40.2",
     "audio/webm;codecs=opus",
     "audio/webm",
     "audio/ogg;codecs=opus",
+    "audio/mp4",
+    "audio/aac",
+    "audio/mp4;codecs=mp4a.40.2",
   ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type));
 }
