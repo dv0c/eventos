@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 type AlbumVideoPlayerProps = {
   src: string;
   poster?: string | null;
+  mimeType?: string | null;
   className?: string;
   videoClassName?: string;
   autoPlay?: boolean;
@@ -22,9 +23,22 @@ type AlbumVideoPlayerProps = {
   onError?: () => void;
 };
 
+function isDecodeFailure(error: unknown, video?: HTMLVideoElement | null): boolean {
+  if (error instanceof DOMException && error.name === "NotSupportedError") {
+    return true;
+  }
+  if (error instanceof Error && /notsupported|decode|format/i.test(error.message)) {
+    return true;
+  }
+  const code = video?.error?.code;
+  // MEDIA_ERR_SRC_NOT_SUPPORTED = 4, MEDIA_ERR_DECODE = 3
+  return code === 3 || code === 4;
+}
+
 export function AlbumVideoPlayer({
   src,
   poster,
+  mimeType,
   className,
   videoClassName,
   autoPlay = false,
@@ -56,7 +70,12 @@ export function AlbumVideoPlayer({
     };
     const onEnded = () => {
       setPlaying(false);
-      setProgress(1);
+      setProgress(loop ? 0 : 1);
+    };
+    const onMediaError = () => {
+      if (isDecodeFailure(null, video)) {
+        onError?.();
+      }
     };
 
     video.addEventListener("play", onPlay);
@@ -64,14 +83,16 @@ export function AlbumVideoPlayer({
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
     video.addEventListener("ended", onEnded);
+    video.addEventListener("error", onMediaError);
     return () => {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("ended", onEnded);
+      video.removeEventListener("error", onMediaError);
     };
-  }, [src, syncFromVideo]);
+  }, [src, syncFromVideo, loop, onError]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -82,10 +103,13 @@ export function AlbumVideoPlayer({
     if (!autoPlay) return;
     const video = videoRef.current;
     if (!video) return;
-    void video.play().catch(() => {
-      /* autoplay may be blocked until user taps */
+    void video.play().catch((error: unknown) => {
+      if (isDecodeFailure(error, video)) {
+        onError?.();
+      }
+      /* NotAllowedError / AbortError: wait for user tap */
     });
-  }, [autoPlay, src]);
+  }, [autoPlay, src, onError]);
 
   async function togglePlay() {
     const video = videoRef.current;
@@ -93,8 +117,10 @@ export function AlbumVideoPlayer({
     if (video.paused) {
       try {
         await video.play();
-      } catch {
-        onError?.();
+      } catch (error) {
+        if (isDecodeFailure(error, video)) {
+          onError?.();
+        }
       }
     } else {
       video.pause();
@@ -134,12 +160,13 @@ export function AlbumVideoPlayer({
     }
   }
 
+  const sourceType = mimeType?.split(";")[0]?.trim() || undefined;
+
   return (
     <div className={cn("relative w-full bg-black", className)}>
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
         ref={videoRef}
-        src={src}
         poster={poster ?? undefined}
         className={cn(
           "h-auto max-h-[min(60vh,100%)] w-full object-contain",
@@ -151,8 +178,10 @@ export function AlbumVideoPlayer({
         autoPlay={autoPlay}
         loop={loop}
         onClick={() => void togglePlay()}
-        onError={() => onError?.()}
-      />
+      >
+        {sourceType ? <source src={src} type={sourceType} /> : null}
+        <source src={src} />
+      </video>
 
       {!playing ? (
         <button

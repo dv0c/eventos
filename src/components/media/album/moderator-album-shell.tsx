@@ -583,6 +583,7 @@ function ModPost({
           <AlbumVideoPlayer
             src={item.url}
             poster={item.thumbnailUrl}
+            mimeType={item.mimeType}
             videoClassName="max-h-none h-auto w-full"
           />
         ) : (

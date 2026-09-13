@@ -6,6 +6,7 @@ import { isEventEnded, isEventWaiting } from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
+import { maybeTranscodeVideoToMp4 } from "@/server/media/transcode-video";
 import { auditService } from "@/server/services/audit.service";
 
 const ALLOWED_AUDIO_TYPES = [
@@ -105,7 +106,10 @@ function openinaryUploadMeta(mimeType: string): {
 } {
   const type = mimeType.toLowerCase();
 
-  if (type.includes("webm")) {
+  if (type.startsWith("audio/") && type.includes("webm")) {
+    return { ext: "webm", contentType: "audio/webm" };
+  }
+  if (type.startsWith("video/") && type.includes("webm")) {
     return { ext: "webm", contentType: "video/webm" };
   }
   if (
@@ -113,7 +117,7 @@ function openinaryUploadMeta(mimeType: string): {
     type.includes("m4a") ||
     type.includes("aac")
   ) {
-    return { ext: "mp4", contentType: "video/mp4" };
+    return { ext: "mp4", contentType: type.startsWith("audio/") ? "audio/mp4" : "video/mp4" };
   }
   if (type.includes("wav")) {
     return { ext: "wav", contentType: "audio/wav" };
@@ -254,17 +258,23 @@ export const voiceWishService = {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    let uploadBuffer = buffer;
+    let storedMime = mimeType || (isVideo ? "video/mp4" : "audio/mp4");
+
+    if (isVideo) {
+      const converted = await maybeTranscodeVideoToMp4(buffer, storedMime);
+      uploadBuffer = converted.buffer;
+      storedMime = converted.contentType;
+    }
+
     const wishId = nanoid(12);
-    const uploadMeta = openinaryUploadMeta(
-      mimeType || (isVideo ? "video/mp4" : "audio/mp4"),
-    );
+    const uploadMeta = openinaryUploadMeta(storedMime);
     const storageKey = `wishes/${event.slug}/${wishId}.${uploadMeta.ext}`;
-    const storedMime = mimeType || (isVideo ? "video/mp4" : "audio/mp4");
 
     const storage = getStorageProvider();
     let storedKey: string;
     try {
-      storedKey = await storage.upload(storageKey, buffer, {
+      storedKey = await storage.upload(storageKey, uploadBuffer, {
         contentType: uploadMeta.contentType,
       });
     } catch (error) {
@@ -281,7 +291,7 @@ export const voiceWishService = {
         storageKey: storedKey,
         mimeType: storedMime,
         fileName: file.name || `wish.${uploadMeta.ext}`,
-        fileSize: file.size,
+        fileSize: uploadBuffer.length,
         durationMs: duration,
         uploadedBy: name,
       },

@@ -1141,6 +1141,7 @@ function AlbumMediaDetail({
           <AlbumVideoPlayer
             src={item.url}
             poster={item.thumbnailUrl}
+            mimeType={item.mimeType}
             onError={() => {
               toast.error(t("albumVideoPlayError"));
             }}

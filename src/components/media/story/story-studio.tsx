@@ -120,13 +120,15 @@ function pickVideoRecorderMime(): string | undefined {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type));
 }
 
-/** Strip codec params; force video/mp4 when the recorder reports mp4. */
+/** Strip codec params; prefer mp4 when unknown (Safari-friendly default). */
 function normalizeVideoMime(raw: string | undefined): string {
-  const value = (raw || "video/webm").toLowerCase();
+  const value = (raw || "").toLowerCase();
   if (value.includes("mp4")) return "video/mp4";
   if (value.includes("quicktime")) return "video/quicktime";
   if (value.includes("webm")) return "video/webm";
-  return raw?.split(";")[0]?.trim() || "video/webm";
+  const base = raw?.split(";")[0]?.trim();
+  if (base?.startsWith("video/")) return base;
+  return "video/mp4";
 }
 
 function readVideoDurationMs(file: Blob): Promise<number> {
@@ -1073,6 +1075,7 @@ export function StoryStudio({
               <AlbumVideoPlayer
                 key={pendingVideo.url}
                 src={pendingVideo.url}
+                mimeType={pendingVideo.mimeType}
                 autoPlay
                 loop
                 className="absolute inset-0 h-full w-full"

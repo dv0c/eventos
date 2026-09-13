@@ -1,0 +1,4 @@
+# Railway / Nixpacks: install ffmpeg for WebM/MOV → H.264 MP4 transcode on upload.
+# See src/server/media/transcode-video.ts
+[phases.setup]
+nixPkgs = ["...", "ffmpeg"]

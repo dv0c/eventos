@@ -24,6 +24,7 @@ import { mediaProcessingQueue } from "@/server/jobs/queues";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
 import { eventRepository } from "@/server/repositories/event.repository";
+import { maybeTranscodeVideoToMp4 } from "@/server/media/transcode-video";
 
 import { auditService } from "./audit.service";
 
@@ -42,35 +43,69 @@ export class MediaServiceError extends Error {
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 const MAX_VIDEO_DURATION_MS = 30_000;
+const MAX_IMAGE_EDGE = 2048;
+const IMAGE_QUALITY = 82;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 const ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES];
 
-/** Bake EXIF orientation into pixels so delivery works even without CDN transforms. */
-async function autoOrientImageBuffer(
+function stripMimeParams(mime: string): string {
+  return mime.split(";")[0]?.trim().toLowerCase() || "";
+}
+
+function extensionForContentType(contentType: string, isVideo: boolean): string {
+  const type = stripMimeParams(contentType);
+  if (type === "image/png") return "png";
+  if (type === "image/webp") return "webp";
+  if (type === "image/gif") return "gif";
+  if (type === "image/jpeg" || type === "image/jpg") return "jpg";
+  if (type === "video/webm") return "webm";
+  if (type === "video/quicktime") return "mov";
+  if (type === "video/mp4") return "mp4";
+  return isVideo ? "mp4" : "jpg";
+}
+
+/**
+ * EXIF-orient, resize (max 2048), and compress to a single wall-quality file.
+ * GIFs are left untouched to preserve animation.
+ */
+async function normalizeImageBuffer(
   buffer: Buffer,
   contentType: string,
 ): Promise<{ buffer: Buffer; contentType: string }> {
-  if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
-    return { buffer, contentType };
+  const type = stripMimeParams(contentType);
+  if (!ALLOWED_IMAGE_TYPES.includes(type)) {
+    return { buffer, contentType: type || contentType };
+  }
+
+  if (type === "image/gif") {
+    return { buffer, contentType: "image/gif" };
   }
 
   try {
-    const oriented = await sharp(buffer).rotate().toBuffer({ resolveWithObject: true });
-    const format = oriented.info.format;
-    const nextType =
-      format === "jpeg"
-        ? "image/jpeg"
-        : format === "png"
-          ? "image/png"
-          : format === "webp"
-            ? "image/webp"
-            : format === "gif"
-              ? "image/gif"
-              : contentType;
-    return { buffer: oriented.data, contentType: nextType };
+    const meta = await sharp(buffer).metadata();
+    const pipeline = sharp(buffer)
+      .rotate()
+      .resize({
+        width: MAX_IMAGE_EDGE,
+        height: MAX_IMAGE_EDGE,
+        fit: "inside",
+        withoutEnlargement: true,
+      });
+
+    if (meta.hasAlpha) {
+      const out = await pipeline
+        .webp({ quality: IMAGE_QUALITY })
+        .toBuffer({ resolveWithObject: true });
+      return { buffer: out.data, contentType: "image/webp" };
+    }
+
+    const out = await pipeline
+      .jpeg({ quality: IMAGE_QUALITY, mozjpeg: true })
+      .toBuffer({ resolveWithObject: true });
+    return { buffer: out.data, contentType: "image/jpeg" };
   } catch {
-    return { buffer, contentType };
+    return { buffer, contentType: type || contentType };
   }
 }
 
@@ -225,10 +260,11 @@ export const mediaService = {
       throw new MediaServiceError("Gallery uploads are disabled", 403, "GALLERY_DISABLED");
     }
 
-    const isVideo = file.type.startsWith("video/");
-    const isImage = file.type.startsWith("image/");
+    const rawMime = stripMimeParams(file.type);
+    const isVideo = rawMime.startsWith("video/");
+    const isImage = rawMime.startsWith("image/");
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_TYPES.includes(rawMime)) {
       throw new MediaServiceError("Invalid file type", 400, "INVALID_FILE_TYPE");
     }
 
@@ -261,8 +297,18 @@ export const mediaService = {
     }
 
     const rawBuffer = Buffer.from(await file.arrayBuffer());
-    const { buffer, contentType } = await autoOrientImageBuffer(rawBuffer, file.type);
-    const ext = file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg");
+    let buffer: Buffer;
+    let contentType: string;
+    if (isVideo) {
+      const converted = await maybeTranscodeVideoToMp4(rawBuffer, rawMime);
+      buffer = converted.buffer;
+      contentType = converted.contentType;
+    } else {
+      const normalized = await normalizeImageBuffer(rawBuffer, rawMime);
+      buffer = normalized.buffer;
+      contentType = normalized.contentType;
+    }
+    const ext = extensionForContentType(contentType, isVideo);
     const mediaId = nanoid(12);
     const storageKey = `media/${event.slug}/${mediaId}.${ext}`;
 
@@ -270,16 +316,12 @@ export const mediaService = {
     const storedKey = await storage.upload(storageKey, buffer, { contentType });
 
     let thumbnailKey: string | null = null;
-    if (isVideo && thumbnail && ALLOWED_IMAGE_TYPES.includes(thumbnail.type)) {
-      if (thumbnail.size <= MAX_IMAGE_SIZE) {
+    if (isVideo && thumbnail) {
+      const thumbMime = stripMimeParams(thumbnail.type);
+      if (ALLOWED_IMAGE_TYPES.includes(thumbMime) && thumbnail.size <= MAX_IMAGE_SIZE) {
         const thumbRaw = Buffer.from(await thumbnail.arrayBuffer());
-        const oriented = await autoOrientImageBuffer(thumbRaw, thumbnail.type);
-        const thumbExt =
-          oriented.contentType === "image/png"
-            ? "png"
-            : oriented.contentType === "image/webp"
-              ? "webp"
-              : "jpg";
+        const oriented = await normalizeImageBuffer(thumbRaw, thumbMime);
+        const thumbExt = extensionForContentType(oriented.contentType, false);
         const thumbStorageKey = `media/${event.slug}/${mediaId}.poster.${thumbExt}`;
         thumbnailKey = await storage.upload(thumbStorageKey, oriented.buffer, {
           contentType: oriented.contentType,
@@ -314,7 +356,7 @@ export const mediaService = {
         storageKey: storedKey,
         thumbnailKey,
         mimeType: contentType,
-        fileName: file.name,
+        fileName: `${mediaId}.${ext}`,
         fileSize: buffer.length,
         caption: caption ?? null,
         challengeId: normalizedChallenge,
@@ -348,7 +390,8 @@ export const mediaService = {
       throw new MediaServiceError("Event not found", 404, "EVENT_NOT_FOUND");
     }
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    const rawMime = stripMimeParams(file.type);
+    if (!ALLOWED_IMAGE_TYPES.includes(rawMime)) {
       throw new MediaServiceError("Invalid file type", 400, "INVALID_FILE_TYPE");
     }
 
@@ -357,8 +400,8 @@ export const mediaService = {
     }
 
     const rawBuffer = Buffer.from(await file.arrayBuffer());
-    const { buffer, contentType } = await autoOrientImageBuffer(rawBuffer, file.type);
-    const ext = file.name.split(".").pop() ?? "jpg";
+    const { buffer, contentType } = await normalizeImageBuffer(rawBuffer, rawMime);
+    const ext = extensionForContentType(contentType, false);
     const mediaId = nanoid(12);
     const storageKey = `media/${event.slug}/${mediaId}.${ext}`;
 
@@ -371,7 +414,7 @@ export const mediaService = {
         uploadToken: nanoid(21),
         storageKey: storedKey,
         mimeType: contentType,
-        fileName: file.name,
+        fileName: `${mediaId}.${ext}`,
         fileSize: buffer.length,
         caption: caption ?? null,
         status: MediaStatus.APPROVED,
