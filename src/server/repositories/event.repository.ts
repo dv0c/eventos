@@ -27,6 +27,7 @@ export interface CreateEventData {
   status?: EventStatus;
   description?: string | null;
   date: Date;
+  endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
   location?: string | null;
@@ -292,5 +293,16 @@ export const eventRepository = {
       completedTasks,
       daysUntilEvent,
     };
+  },
+
+  async softDelete(organizationId: string, eventId: string): Promise<void> {
+    const existing = await prisma.event.findFirst({
+      where: eventScope(eventId, organizationId),
+    });
+    if (!existing) return;
+    await prisma.event.update({
+      where: { id: eventId },
+      data: { deletedAt: new Date() },
+    });
   },
 };

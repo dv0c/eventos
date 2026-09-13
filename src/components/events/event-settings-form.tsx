@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Gamepad2,
   MonitorPlay,
   Palette,
   Settings2,
@@ -13,6 +14,7 @@ import { useSearchParams } from "next/navigation";
 
 import { AppearanceTab } from "@/components/events/settings/appearance-tab";
 import { CollaboratorsTab } from "@/components/events/settings/collaborators-tab";
+import { GamesTab } from "@/components/events/settings/games-tab";
 import { GeneralTab } from "@/components/events/settings/general-tab";
 import { ModerationTab } from "@/components/events/settings/moderation-tab";
 import { PhotoWallTab } from "@/components/events/settings/photo-wall-tab";
@@ -24,6 +26,7 @@ type SettingsTab =
   | "appearance"
   | "photoWall"
   | "moderation"
+  | "games"
   | "collaborators";
 
 const VALID_TABS: SettingsTab[] = [
@@ -31,11 +34,13 @@ const VALID_TABS: SettingsTab[] = [
   "appearance",
   "photoWall",
   "moderation",
+  "games",
   "collaborators",
 ];
 
 interface EventSettingsFormProps {
   event: EventWithRelations;
+  orgSlug: string;
   initialTab?: SettingsTab;
 }
 
@@ -48,6 +53,7 @@ function resolveTab(value: string | null | undefined, fallback: SettingsTab): Se
 
 export function EventSettingsForm({
   event,
+  orgSlug,
   initialTab = "general",
 }: EventSettingsFormProps) {
   const t = useTranslations("eventWorkspace.settings");
@@ -57,8 +63,8 @@ export function EventSettingsForm({
   );
 
   useEffect(() => {
-    setTab(resolveTab(searchParams.get("tab"), initialTab));
-  }, [searchParams, initialTab]);
+    setTab(resolveTab(searchParams.get("tab"), "general"));
+  }, [searchParams]);
 
   const tabs = useMemo(
     () =>
@@ -67,6 +73,7 @@ export function EventSettingsForm({
         { id: "appearance" as const, label: t("tabAppearance"), icon: Palette },
         { id: "photoWall" as const, label: t("tabPhotoWall"), icon: MonitorPlay },
         { id: "moderation" as const, label: t("tabModeration"), icon: Shield },
+        { id: "games" as const, label: t("tabGames"), icon: Gamepad2 },
         { id: "collaborators" as const, label: t("tabCollaborators"), icon: UsersRound },
       ] as const,
     [t],
@@ -75,24 +82,20 @@ export function EventSettingsForm({
   function selectTab(next: SettingsTab) {
     setTab(next);
     const url = new URL(window.location.href);
-    if (next === "general") {
-      url.searchParams.delete("tab");
-    } else {
-      url.searchParams.set("tab", next);
-    }
+    url.searchParams.set("tab", next);
     window.history.replaceState({}, "", url.toString());
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
-      <header>
+    <div className="mx-auto w-full max-w-4xl space-y-8">
+      <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
           {t("title")}
         </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">{t("subtitle")}</p>
+        <p className="max-w-xl text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
-      <div className="flex flex-wrap gap-1 border-b border-border/50">
+      <div className="flex flex-wrap gap-1 border-b border-white/10">
         {tabs.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -102,9 +105,9 @@ export function EventSettingsForm({
               type="button"
               onClick={() => selectTab(item.id)}
               className={cn(
-                "inline-flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors",
+                "inline-flex items-center gap-2 rounded-t-md px-3 py-2.5 text-sm font-medium transition-colors",
                 active
-                  ? "border-b-2 border-primary text-primary"
+                  ? "border-b-2 border-primary text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -115,8 +118,8 @@ export function EventSettingsForm({
         })}
       </div>
 
-      <div className={tab === "photoWall" ? undefined : "max-w-2xl"}>
-        {tab === "general" ? <GeneralTab event={event} /> : null}
+      <div className={cn(tab === "photoWall" ? undefined : "max-w-2xl", "pt-1")}>
+        {tab === "general" ? <GeneralTab event={event} orgSlug={orgSlug} /> : null}
         {tab === "appearance" ? <AppearanceTab event={event} /> : null}
         {tab === "photoWall" ? <PhotoWallTab event={event} /> : null}
         {tab === "moderation" ? (
@@ -125,6 +128,7 @@ export function EventSettingsForm({
             onManageCollaborators={() => selectTab("collaborators")}
           />
         ) : null}
+        {tab === "games" ? <GamesTab event={event} /> : null}
         {tab === "collaborators" ? <CollaboratorsTab event={event} /> : null}
       </div>
     </div>

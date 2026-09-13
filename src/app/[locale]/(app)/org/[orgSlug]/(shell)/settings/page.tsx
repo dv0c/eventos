@@ -1,9 +1,8 @@
 import { OrgRole } from "@prisma/client";
-import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { OrgBrandingForm } from "@/components/organization/org-branding-form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { OrgPageHeader } from "@/components/organization/org-page-header";
 import { Link } from "@/i18n/navigation";
 import { orgPath } from "@/lib/org-path";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
@@ -24,80 +23,94 @@ export default async function SettingsPage({
     resolvedOrg.role === OrgRole.OWNER || resolvedOrg.role === OrgRole.ADMIN;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground">{t("subtitle")}</p>
-      </div>
+    <div className="mx-auto w-full max-w-3xl space-y-10">
+      <OrgPageHeader title={t("title")} description={t("subtitle")} />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="surface-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              {t("organization")}
-            </CardTitle>
-            <CardDescription>{t("organizationDesc")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div className="space-y-2">
-              <p>
-                <span className="text-muted-foreground">{t("orgName")}: </span>
-                {org?.name ?? "—"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">{t("mode")}: </span>
-                {org?.mode ?? "—"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">{t("plan")}: </span>
-                {org?.plan.name ?? "—"}
-              </p>
+      {canManage ? (
+        <section className="space-y-4 border-b border-white/10 pb-10">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold tracking-tight">{t("organization")}</h2>
+            <p className="text-sm text-muted-foreground">{t("organizationDesc")}</p>
+          </div>
+          <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-muted-foreground">{t("orgName")}</dt>
+              <dd className="mt-0.5 font-medium">{org?.name ?? "—"}</dd>
             </div>
-            {org ? (
-              <OrgBrandingForm
-                organizationId={org.id}
-                mode={org.mode}
-                initialName={org.name}
-                initialBrandName={org.brandName}
-                initialLogoUrl={org.logoUrl}
-                initialPrimaryColor={org.primaryColor}
-                initialSecondaryColor={org.secondaryColor}
-                canManage={canManage}
-              />
-            ) : null}
-          </CardContent>
-        </Card>
+            <div>
+              <dt className="text-muted-foreground">{t("mode")}</dt>
+              <dd className="mt-0.5 font-medium">{org?.mode ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t("plan")}</dt>
+              <dd className="mt-0.5 font-medium">{org?.plan.name ?? "—"}</dd>
+            </div>
+          </dl>
+          {org ? (
+            <OrgBrandingForm
+              organizationId={org.id}
+              mode={org.mode}
+              initialName={org.name}
+              initialBrandName={org.brandName}
+              initialLogoUrl={org.logoUrl}
+              initialPrimaryColor={org.primaryColor}
+              initialSecondaryColor={org.secondaryColor}
+              canManage={canManage}
+            />
+          ) : null}
+        </section>
+      ) : (
+        <section className="space-y-3 border-b border-white/10 pb-10">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold tracking-tight">{t("organization")}</h2>
+            <p className="text-sm text-muted-foreground">{t("organizationDesc")}</p>
+          </div>
+          <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-muted-foreground">{t("orgName")}</dt>
+              <dd className="mt-0.5 font-medium">{org?.name ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t("mode")}</dt>
+              <dd className="mt-0.5 font-medium">{org?.mode ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t("plan")}</dt>
+              <dd className="mt-0.5 font-medium">{org?.plan.name ?? "—"}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
-        <Card className="surface-elevated">
-          <CardHeader>
-            <CardTitle>{t("account")}</CardTitle>
-            <CardDescription>{t("accountDesc")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              <span className="text-muted-foreground">{t("email")}: </span>
-              {session.user.email}
-            </p>
-            <p>
-              <span className="text-muted-foreground">{t("name")}: </span>
-              {session.user.name ?? "—"}
-            </p>
-          </CardContent>
-        </Card>
+      <section className="space-y-3 border-b border-white/10 pb-10">
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold tracking-tight">{t("account")}</h2>
+          <p className="text-sm text-muted-foreground">{t("accountDesc")}</p>
+        </div>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-muted-foreground">{t("email")}</dt>
+            <dd className="mt-0.5 font-medium">{session.user.email}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">{t("name")}</dt>
+            <dd className="mt-0.5 font-medium">{session.user.name ?? "—"}</dd>
+          </div>
+        </dl>
+      </section>
 
-        <Card className="surface-elevated md:col-span-2">
-          <CardHeader>
-            <CardTitle>{t("privacy")}</CardTitle>
-            <CardDescription>{t("privacyDesc")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href={orgPath(orgSlug, "/settings/privacy")} className="text-sm font-medium text-primary hover:underline">
-              {t("privacyLink")}
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="space-y-2">
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold tracking-tight">{t("privacy")}</h2>
+          <p className="text-sm text-muted-foreground">{t("privacyDesc")}</p>
+        </div>
+        <Link
+          href={orgPath(orgSlug, "/settings/privacy")}
+          className="inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {t("privacyLink")}
+        </Link>
+      </section>
     </div>
   );
 }

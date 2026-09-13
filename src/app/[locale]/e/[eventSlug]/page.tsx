@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { EventMediaHubCards } from "@/components/events/event-media-hub-cards";
 import { EventCountdown } from "@/components/events/event-countdown";
+import { EventThemeScope } from "@/components/events/event-theme-scope";
 import { formatDate } from "@/lib/format";
 import { getEventAdminContext } from "@/server/events/event-admin";
 import { getEventLifecycle, isEventEnded } from "@/server/events/event-ended";
@@ -35,11 +36,15 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
   const { canEdit } = await getEventAdminContext(event.id);
   const callbackUrl = `/${locale}/e/${eventSlug}`;
 
-  const primaryColor = event.theme?.primaryColor ?? "#8B5CF6";
+  const primaryColor = event.theme?.primaryColor ?? "#C4A574";
   const secondaryColor = event.theme?.secondaryColor ?? "#F59E0B";
+  const accentColor = event.theme?.accentColor ?? "#E8C9A0";
 
   return (
-    <div className="min-h-screen bg-background">
+    <EventThemeScope
+      className="min-h-screen bg-background"
+      colors={{ primaryColor, secondaryColor, accentColor }}
+    >
       <section
         className="relative px-4 py-12 text-white"
         style={{
@@ -107,6 +112,6 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
           <p className="mt-2 text-muted-foreground">{event.address}</p>
         </section>
       ) : null}
-    </div>
+    </EventThemeScope>
   );
 }

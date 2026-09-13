@@ -17,6 +17,7 @@ import { WallQrPanel } from "@/components/media/wall/wall-qr-panel";
 import { WallSideStream } from "@/components/media/wall/wall-side-stream";
 import { WallStage } from "@/components/media/wall/wall-stage";
 import { useWallSound, WallToolbar } from "@/components/media/wall-toolbar";
+import { EventThemeScope } from "@/components/events/event-theme-scope";
 import { cn } from "@/lib/utils";
 import type { WallDisplaySettings } from "@/server/events/wall-settings";
 import { DEFAULT_WALL_DISPLAY_SETTINGS } from "@/server/events/wall-settings";
@@ -58,6 +59,7 @@ interface WallConfig {
   theme: {
     primaryColor: string;
     secondaryColor: string;
+    accentColor?: string;
     logoUrl?: string | null;
   };
   appearance?: {
@@ -67,6 +69,7 @@ interface WallConfig {
   uploadUrl: string | null;
   uploadQrImageUrl: string | null;
   eventName: string;
+  panic?: boolean;
 }
 
 interface LiveWallProps {
@@ -84,7 +87,7 @@ export function LiveWall({
   eventId,
   canEdit = false,
   callbackUrl,
-  primaryColor: fallbackPrimary = "#8B5CF6",
+  primaryColor: fallbackPrimary = "#C4A574",
   secondaryColor: fallbackSecondary = "#F59E0B",
   settingsHref,
 }: LiveWallProps) {
@@ -92,6 +95,7 @@ export function LiveWall({
   const [media, setMedia] = useState<WallMediaItem[]>([]);
   const [connected, setConnected] = useState(false);
   const [config, setConfig] = useState<WallConfig | null>(null);
+  const [panic, setPanic] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -167,6 +171,10 @@ export function LiveWall({
       if (response.ok) {
         const json = await response.json();
         setConfig(json.data);
+        if (typeof json.data?.panic === "boolean") {
+          setPanic(json.data.panic);
+          if (json.data.panic) setMedia([]);
+        }
       }
     } catch {
       // Config is optional for graceful degradation
@@ -187,10 +195,28 @@ export function LiveWall({
       try {
         const data = JSON.parse(event.data) as {
           media?: WallMediaItem[];
+          removed?: string[];
           reactions?: WallReactionEvent[];
+          reactionCounts?: Record<string, Record<string, number>>;
           announcement?: WallAnnouncement | null;
           initial?: boolean;
+          panic?: boolean;
+          ended?: boolean;
         };
+
+        if (data.ended) {
+          setPanic(false);
+          setMedia([]);
+          return;
+        }
+
+        if (typeof data.panic === "boolean") {
+          setPanic(data.panic);
+          if (data.panic) {
+            setMedia([]);
+            return;
+          }
+        }
 
         if (data.announcement?.id) {
           const id = data.announcement.id;
@@ -204,6 +230,11 @@ export function LiveWall({
         if (data.initial) {
           setMedia(data.media ?? []);
           return;
+        }
+
+        if (Array.isArray(data.removed) && data.removed.length > 0) {
+          const removedIds = new Set(data.removed as string[]);
+          setMedia((prev) => prev.filter((m) => !removedIds.has(m.id)));
         }
 
         if (data.media && data.media.length > 0) {
@@ -220,17 +251,23 @@ export function LiveWall({
 
         if (data.reactions && data.reactions.length > 0) {
           setReactionEvents(data.reactions);
+        }
+
+        if (data.reactionCounts) {
+          const absolute = data.reactionCounts;
           setMedia((prev) => {
             let changed = false;
             const next = prev.map((item) => {
-              const incoming = data.reactions!.filter((r) => r.mediaId === item.id);
-              if (incoming.length === 0) return item;
+              const nextCounts = absolute[item.id] ?? {};
+              const prevCounts = item.reactionCounts ?? {};
+              const prevKeys = Object.keys(prevCounts);
+              const nextKeys = Object.keys(nextCounts);
+              const same =
+                prevKeys.length === nextKeys.length &&
+                nextKeys.every((key) => prevCounts[key] === nextCounts[key]);
+              if (same) return item;
               changed = true;
-              const reactionCounts = { ...(item.reactionCounts ?? {}) };
-              for (const reaction of incoming) {
-                reactionCounts[reaction.emoji] = (reactionCounts[reaction.emoji] ?? 0) + 1;
-              }
-              return { ...item, reactionCounts };
+              return { ...item, reactionCounts: { ...nextCounts } };
             });
             return changed ? next : prev;
           });
@@ -268,11 +305,19 @@ export function LiveWall({
 
     const item = slideshowItems[currentIndex];
     const isVideo = item?.mimeType?.startsWith("video/");
-    const durationMs = isVideo
-      ? wallSettings.playVideoFullLength
-        ? wallSettings.videoDurationSec * 1000 * 2
-        : wallSettings.videoDurationSec * 1000
-      : item?.caption && !item.url
+
+    // Videos advance via WallStage onEnded; keep a long safety timeout only.
+    if (isVideo) {
+      const safetyMs =
+        Math.max(wallSettings.videoDurationSec, 30) * 1000 + 5_000;
+      const timer = window.setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % slideshowItems.length);
+      }, safetyMs);
+      return () => window.clearTimeout(timer);
+    }
+
+    const durationMs =
+      item?.caption && !item.url
         ? wallSettings.textDurationSec * 1000
         : wallSettings.imageDurationSec * 1000;
 
@@ -339,7 +384,21 @@ export function LiveWall({
   const backgroundOpacity = (wallSettings.backgroundOpacity ?? 100) / 100;
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden text-white">
+    <EventThemeScope
+      className="relative flex h-dvh flex-col overflow-hidden text-white"
+      colors={{
+        primaryColor,
+        secondaryColor,
+        accentColor: config?.theme.accentColor ?? primaryColor,
+      }}
+    >
+      {panic ? (
+        <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center gap-2 bg-black">
+          <p className="text-sm font-medium tracking-wide text-white/80">{t("wallPanic")}</p>
+          <p className="text-xs text-white/40">{t("wallPanicDesc")}</p>
+        </div>
+      ) : null}
+
       {wallSettings.backgroundUrl ? (
         <>
           <div
@@ -411,6 +470,10 @@ export function LiveWall({
           hideNickname={wallSettings.hideNickname || Boolean(activeAnnouncement)}
           hideCaption={wallSettings.hideCaption || Boolean(activeAnnouncement)}
           captionTheme={config?.appearance?.captionTheme ?? "dark"}
+          onVideoEnded={() => {
+            if (slideshowItems.length <= 1) return;
+            setCurrentIndex((prev) => (prev + 1) % slideshowItems.length);
+          }}
           emptyState={
             <div className="text-center">
               <p className="text-xl font-medium">{t("wallEmpty")}</p>
@@ -484,6 +547,6 @@ export function LiveWall({
         onOpenChange={setLoginOpen}
         callbackUrl={callbackUrl ?? `/e/${eventSlug}/wall`}
       />
-    </div>
+    </EventThemeScope>
   );
 }

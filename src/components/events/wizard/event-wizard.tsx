@@ -14,8 +14,7 @@ import {
   type WizardStepId,
 } from "@/components/events/wizard/event-type-config";
 import { DetailsStep } from "@/components/events/wizard/steps/details-step";
-import { LocationStep } from "@/components/events/wizard/steps/location-step";
-import { PeopleStep } from "@/components/events/wizard/steps/people-step";
+import { GamesStep } from "@/components/events/wizard/steps/games-step";
 import { ReviewStep } from "@/components/events/wizard/steps/review-step";
 import { ThemeStep } from "@/components/events/wizard/steps/theme-step";
 import { TypeStep } from "@/components/events/wizard/steps/type-step";
@@ -31,20 +30,22 @@ import {
   wizardSchema,
   type WizardFormData,
 } from "@/components/events/wizard/wizard-schema";
+import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
+import { getGamePresetsForType, resolveGameMode } from "@/lib/event-game-presets";
 
 export function EventWizard() {
   const t = useTranslations("wizard");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<WizardTransitionDirection>("forward");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverUploadOpen, setCoverUploadOpen] = useState(false);
   const formScrollRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
 
@@ -55,7 +56,7 @@ export function EventWizard() {
 
   const eventType = form.watch("type");
   const config = getEventTypeConfig(eventType);
-  const steps = config.steps;
+  const steps = WIZARD_STEPS;
   const currentStepId = steps[step] ?? "type";
 
   const stepLabels = useMemo(
@@ -76,6 +77,21 @@ export function EventWizard() {
     for (const field of getHiddenGuestFields(config)) {
       form.setValue(field, 0);
     }
+
+    const presets = getGamePresetsForType(eventType);
+    form.setValue(
+      "games",
+      presets.map((preset, index) => ({
+        title: preset.title,
+        description: preset.description,
+        presetKey: preset.presetKey,
+        mode: resolveGameMode(preset),
+        enabled: true,
+        sortOrder: index,
+        coverImage: preset.coverImage ?? null,
+        fields: preset.fields,
+      })),
+    );
   }, [eventType, config, form]);
 
   useEffect(() => {
@@ -96,13 +112,9 @@ export function EventWizard() {
           type: data.type,
           description: data.description || undefined,
           date: data.date,
-          startTime: data.startTime || undefined,
-          endTime: data.endTime || undefined,
-          location: data.location || undefined,
-          address: data.address || undefined,
-          hostName: data.hostName || undefined,
-          hostPhone: data.hostPhone || undefined,
-          hostEmail: data.hostEmail || undefined,
+          endDate: data.endDate,
+          startTime: data.startTime,
+          endTime: data.endTime,
           expectedGuests: data.expectedGuests,
           expectedCouples: data.expectedCouples,
           expectedChildren: data.expectedChildren,
@@ -114,6 +126,18 @@ export function EventWizard() {
             style: data.style,
             coverImageKey: data.coverImageKey,
           },
+          games: data.games
+            .filter((game) => game.enabled)
+            .map((game, index) => ({
+              title: game.title,
+              description: game.description || null,
+              presetKey: game.presetKey ?? null,
+              mode: game.mode === "collage" ? "collage" : "photo",
+              sortOrder: index,
+              enabled: true,
+              fields: game.fields,
+              coverImage: game.coverImage ?? null,
+            })),
         }),
       });
 
@@ -137,34 +161,6 @@ export function EventWizard() {
       toast.error(t("submitError"));
       submittingRef.current = false;
       setIsSubmitting(false);
-    }
-  }
-
-  async function handleCoverUpload(file: File) {
-    setIsUploadingCover(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "covers");
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        toast.error(result.error?.message ?? t("coverUploadError"));
-        return;
-      }
-
-      form.setValue("coverImageKey", result.data.key);
-      setCoverPreview(result.data.url);
-      toast.success(t("coverUploadSuccess"));
-    } catch {
-      toast.error(t("coverUploadError"));
-    } finally {
-      setIsUploadingCover(false);
     }
   }
 
@@ -220,19 +216,16 @@ export function EventWizard() {
         return <TypeStep form={form} />;
       case "details":
         return <DetailsStep form={form} />;
-      case "location":
-        return <LocationStep form={form} />;
-      case "people":
-        return <PeopleStep form={form} />;
       case "theme":
         return (
           <ThemeStep
             form={form}
             coverPreview={coverPreview}
-            isUploadingCover={isUploadingCover}
-            onCoverUpload={handleCoverUpload}
+            onOpenCoverUpload={() => setCoverUploadOpen(true)}
           />
         );
+      case "games":
+        return <GamesStep form={form} />;
       case "review":
         return <ReviewStep form={form} />;
       default:
@@ -278,7 +271,7 @@ export function EventWizard() {
             type="button"
             variant="outline"
             onClick={prevStep}
-            disabled={step === 0}
+            disabled={step === 0 || isSubmitting}
           >
             {tCommon("previous")}
           </Button>
@@ -308,6 +301,34 @@ export function EventWizard() {
       <WizardStepTransition transitionKey={currentStepId} direction={direction}>
         {renderStep()}
       </WizardStepTransition>
+
+      <MediaUploadModal
+        open={coverUploadOpen}
+        onOpenChange={setCoverUploadOpen}
+        title={t("coverImage")}
+        mode="single"
+        maxBytes={5 * 1024 * 1024}
+        upload={{
+          url: "/api/upload",
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("folder", "covers");
+            return formData;
+          },
+        }}
+        onSuccess={({ files }) => {
+          const data = (
+            files[0]?.response as { data?: { key?: string; url?: string } } | undefined
+          )?.data;
+          if (!data?.key || !data.url) {
+            toast.error(t("coverUploadError"));
+            return;
+          }
+          form.setValue("coverImageKey", data.key, { shouldDirty: true });
+          setCoverPreview(data.url);
+        }}
+      />
     </WizardShell>
   );
 }

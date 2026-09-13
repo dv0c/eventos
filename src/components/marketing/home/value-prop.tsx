@@ -1,65 +1,67 @@
 "use client";
 
-import {
-  Captions,
-  Images,
-  MonitorPlay,
-  Smartphone,
-} from "lucide-react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
-import { Reveal, SectionShell } from "./reveal";
-
-const FEATURES = [
-  { key: "media" as const, icon: Images },
-  { key: "captions" as const, icon: Captions },
-  { key: "easy" as const, icon: Smartphone },
-  { key: "wall" as const, icon: MonitorPlay },
-];
+import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
 
 export function HomeValueProp() {
   const t = useTranslations("marketing.home");
 
   return (
-    <SectionShell className="pb-20 sm:pb-28">
-      <Reveal className="mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          {t("valueTitle")}
-        </h2>
-        <p className="mt-4 text-muted-foreground sm:text-lg">{t("valueSubtitle")}</p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Button variant="gold" size="lg" className="h-11 rounded-xl px-7" asChild>
-            <Link href="/register">{t("valueCta")}</Link>
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-11 rounded-xl border-white/20 bg-black/35 px-7 backdrop-blur-sm"
-            asChild
-          >
-            <Link href="/features">{t("valueDemo")}</Link>
-          </Button>
-        </div>
-      </Reveal>
-
-      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {FEATURES.map(({ key, icon: Icon }, i) => (
-          <Reveal key={key} delay={i * 0.06}>
-            <div className="group glass-panel h-full p-5 transition-transform hover:-translate-y-1">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-accent transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-semibold">{t(`features.${key}.title`)}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {t(`features.${key}.desc`)}
-              </p>
+    <section className="bg-black/25 py-24 sm:py-32">
+      <SectionShell>
+        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
+          <Reveal className="relative order-2 lg:order-1">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-md sm:aspect-[5/4] lg:-ml-4 lg:aspect-auto lg:min-h-[420px] xl:-ml-8">
+              <Image
+                src="/marketing/demos/wall-stage.png"
+                alt=""
+                fill
+                className="object-cover transition-transform duration-700 hover:scale-[1.02]"
+                sizes="(max-width: 1024px) 100vw, 58vw"
+              />
             </div>
           </Reveal>
-        ))}
-      </div>
-    </SectionShell>
+
+          <Reveal delay={0.06} className="order-1 lg:order-2">
+            <h2
+              className={cn(
+                marketingDisplayClass,
+                "text-balance text-[clamp(2rem,3.5vw,3.25rem)] leading-[1.1]",
+              )}
+            >
+              {t("valueTitle")}
+            </h2>
+            <p className="mt-5 max-w-[36ch] text-base leading-relaxed text-white/60 sm:text-lg">
+              {t("valueSubtitle")}
+            </p>
+            <p className="mt-4 max-w-[34ch] text-base leading-relaxed text-white/45">
+              {t("features.easy.desc")}
+            </p>
+            <div className="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+              <Button
+                variant="gold"
+                size="lg"
+                className="h-11 rounded-md px-7 font-semibold shadow-none"
+                asChild
+              >
+                <Link href="/register">{t("valueCta")}</Link>
+              </Button>
+              <Link
+                href="/features"
+                className="text-[15px] font-medium text-white/65 underline-offset-4 transition-colors hover:text-white hover:underline"
+              >
+                {t("valueDemo")}
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+      </SectionShell>
+    </section>
   );
 }

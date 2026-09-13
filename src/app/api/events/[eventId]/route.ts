@@ -8,6 +8,7 @@ import { AccessError, enforceEventAccess } from "@/server/permissions/enforce";
 import { eventRepository } from "@/server/repositories/event.repository";
 import { prisma } from "@/server/db";
 import { auditService } from "@/server/services/audit.service";
+import { eventService } from "@/server/services/event.service";
 
 const updateEventSchema = z
   .object({
@@ -23,6 +24,7 @@ const updateEventSchema = z
     status: z.nativeEnum(EventStatus).optional(),
     description: z.string().nullable().optional(),
     date: z.coerce.date().optional(),
+    endDate: z.coerce.date().nullable().optional(),
     startTime: z.string().nullable().optional(),
     endTime: z.string().nullable().optional(),
     location: z.string().nullable().optional(),
@@ -40,6 +42,8 @@ const updateEventSchema = z
         primaryColor: z.string().optional(),
         secondaryColor: z.string().optional(),
         accentColor: z.string().optional(),
+        style: z.string().optional(),
+        coverImageKey: z.string().nullable().optional(),
         logoUrl: z.string().url().nullable().optional(),
         albumBackgroundUrl: z.string().url().nullable().optional(),
       })
@@ -105,6 +109,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const scheduleTouched =
       eventData.date !== undefined ||
+      eventData.endDate !== undefined ||
       eventData.startTime !== undefined ||
       eventData.endTime !== undefined;
 
@@ -112,6 +117,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       const nextSchedule = {
         status: EventStatus.ACTIVE,
         date: eventData.date ?? existing.date,
+        endDate:
+          eventData.endDate !== undefined ? eventData.endDate : existing.endDate,
         startTime:
           eventData.startTime !== undefined ? eventData.startTime : existing.startTime,
         endTime: eventData.endTime !== undefined ? eventData.endTime : existing.endTime,
@@ -127,9 +134,11 @@ export async function PATCH(request: Request, context: RouteContext) {
         where: { eventId },
         create: {
           eventId,
-          primaryColor: theme.primaryColor ?? "#8B5CF6",
+          primaryColor: theme.primaryColor ?? "#C4A574",
           secondaryColor: theme.secondaryColor ?? "#F59E0B",
-          accentColor: theme.accentColor ?? "#10B981",
+          accentColor: theme.accentColor ?? "#E8C9A0",
+          style: theme.style ?? "elegant",
+          coverImageKey: theme.coverImageKey ?? null,
           logoUrl: theme.logoUrl ?? null,
           albumBackgroundUrl: theme.albumBackgroundUrl ?? null,
         },
@@ -139,6 +148,10 @@ export async function PATCH(request: Request, context: RouteContext) {
             ? { secondaryColor: theme.secondaryColor }
             : {}),
           ...(theme.accentColor !== undefined ? { accentColor: theme.accentColor } : {}),
+          ...(theme.style !== undefined ? { style: theme.style } : {}),
+          ...(theme.coverImageKey !== undefined
+            ? { coverImageKey: theme.coverImageKey }
+            : {}),
           ...(theme.logoUrl !== undefined ? { logoUrl: theme.logoUrl } : {}),
           ...(theme.albumBackgroundUrl !== undefined
             ? { albumBackgroundUrl: theme.albumBackgroundUrl }
@@ -169,6 +182,24 @@ export async function PATCH(request: Request, context: RouteContext) {
     });
 
     return apiSuccess({ event });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return apiError(error.message, error.code, error.statusCode);
+    }
+    if (error instanceof AccessError) {
+      return apiError(error.message, error.code, error.statusCode);
+    }
+    return handleServiceError(error);
+  }
+}
+
+export async function DELETE(request: Request, context: RouteContext) {
+  const { eventId } = await context.params;
+
+  try {
+    const session = await requireAuth();
+    await eventService.deleteEvent(session.user.id, eventId, getClientIp(request));
+    return apiSuccess({ deleted: true });
   } catch (error) {
     if (error instanceof AuthError) {
       return apiError(error.message, error.code, error.statusCode);

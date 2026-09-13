@@ -1,203 +1,200 @@
-import { Suspense } from "react";
-import { CalendarDays, CheckCircle2, Plus, Sparkles } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { EventStatus } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 
 import { DashboardEmptyEvents } from "@/components/dashboard/dashboard-empty-events";
-import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
-import { DashboardFiltersSkeleton } from "@/components/dashboard/org-skeletons";
-import { Badge } from "@/components/ui/badge";
+import { EventLifecycleBadge } from "@/components/organization/event-lifecycle-badge";
+import { OrgPageHeader } from "@/components/organization/org-page-header";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { orgPath } from "@/lib/org-path";
 import { formatDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { EventTimeframe } from "@/server/repositories/event.repository";
+import { orgPath } from "@/lib/org-path";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
 import { getEventLifecycle } from "@/server/events/event-ended";
-import { clientService } from "@/server/services/client.service";
 import { eventService } from "@/server/services/event.service";
 
-function getFirstName(name?: string | null, email?: string | null): string {
-  const fromName = name?.trim().split(/\s+/)[0];
-  if (fromName) {
-    return fromName;
-  }
+function EventRow({
+  event,
+  orgSlug,
+  locale,
+  openLabel,
+}: {
+  event: {
+    id: string;
+    name: string;
+    date: Date;
+    location?: string | null;
+    client?: { name: string } | null;
+    status: EventStatus;
+    startTime?: string | null;
+    endTime?: string | null;
+    endDate?: Date | null;
+  };
+  orgSlug: string;
+  locale: string;
+  openLabel: string;
+}) {
+  const lifecycle = getEventLifecycle(event);
+  const overviewHref = orgPath(orgSlug, `/events/${event.id}/overview`);
 
-  const fromEmail = email?.split("@")[0]?.replace(/[._-]+/g, " ").trim().split(/\s+/)[0];
-  return fromEmail || "there";
-}
-
-interface StatCardProps {
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  delayMs: number;
-}
-
-function StatCard({ label, value, icon: Icon, delayMs }: StatCardProps) {
   return (
-    <div
-      className={cn(
-        "dashboard-stat-enter dashboard-surface flex items-center gap-4 p-4",
-      )}
-      style={{ animationDelay: `${delayMs}ms` }}
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-        <Icon className="h-5 w-5 text-primary" />
+    <div className="flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-0">
+      <div className="min-w-0 flex-1">
+        <Link
+          href={overviewHref}
+          className="font-medium text-foreground hover:text-primary"
+        >
+          {event.name}
+        </Link>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {formatDate(event.date, locale as "el" | "en")}
+          {event.client ? ` · ${event.client.name}` : ""}
+        </p>
       </div>
-      <div className="min-w-0">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="text-xl font-semibold tracking-tight tabular-nums">{value}</p>
-      </div>
+      <EventLifecycleBadge lifecycle={lifecycle} />
+      <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2.5" asChild>
+        <Link href={overviewHref}>{openLabel}</Link>
+      </Button>
     </div>
   );
 }
 
 export default async function DashboardPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ locale: string; orgSlug: string }>;
-  searchParams: Promise<{ clientId?: string; timeframe?: string }>;
 }) {
   const { locale, orgSlug } = await params;
-  const { clientId, timeframe } = await searchParams;
   const t = await getTranslations("dashboard");
-  const tCommon = await getTranslations("common");
   const tEvents = await getTranslations("events");
+  const tCommon = await getTranslations("common");
   const session = await requireAuth();
   const organizationId = (await getOrganizationBySlug(session.user.id, orgSlug)).id;
-  const firstName = getFirstName(session.user.name, session.user.email);
 
-  const [{ clients }, activeResult, upcomingResult, completedResult, allResult] =
-    await Promise.all([
-      clientService.listClients(session.user.id, organizationId, { pageSize: 100 }),
-      eventService.listEvents(session.user.id, {
-        organizationId,
-        clientId,
-        timeframe: "active",
-        pageSize: 5,
-      }),
-      eventService.listEvents(session.user.id, {
-        organizationId,
-        clientId,
-        timeframe: "upcoming",
-        pageSize: 5,
-      }),
-      eventService.listEvents(session.user.id, {
-        organizationId,
-        clientId,
-        timeframe: "completed",
-        pageSize: 5,
-      }),
-      eventService.listEvents(session.user.id, {
-        organizationId,
-        clientId,
-        timeframe:
-          timeframe && timeframe !== "all"
-            ? (timeframe as EventTimeframe)
-            : undefined,
-        pageSize: 5,
-      }),
-    ]);
+  const { events } = await eventService.listEvents(session.user.id, {
+    organizationId,
+    pageSize: 50,
+  });
 
-  const events = allResult.events;
-  const total = allResult.total;
+  const createHref = orgPath(orgSlug, "/events/new");
 
-  const stats = [
-    { label: t("totalEvents"), value: total, icon: CalendarDays, delayMs: 0 },
-    { label: t("activeEvents"), value: activeResult.total, icon: Sparkles, delayMs: 60 },
-    { label: t("upcomingEvents"), value: upcomingResult.total, icon: CalendarDays, delayMs: 120 },
-    {
-      label: t("completedEvents"),
-      value: completedResult.total,
-      icon: CheckCircle2,
-      delayMs: 180,
-    },
-  ] as const;
+  if (events.length === 0) {
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-8">
+        <OrgPageHeader
+          title={t("overview")}
+          description={t("subtitle")}
+          actionLabel={t("createEvent")}
+          actionHref={createHref}
+        />
+        <DashboardEmptyEvents
+          title={t("noEvents")}
+          description={t("noEventsDesc")}
+          actionLabel={t("createEvent")}
+          actionHref={createHref}
+        />
+      </div>
+    );
+  }
+
+  const attention = events.filter((e) => e.status === EventStatus.DRAFT).slice(0, 8);
+  const upcomingLive = events
+    .filter((e) => {
+      if (e.status === EventStatus.DRAFT) return false;
+      const life = getEventLifecycle(e);
+      return life === "waiting" || life === "active";
+    })
+    .slice(0, 8);
+  const attentionIds = new Set(attention.map((e) => e.id));
+  const upcomingIds = new Set(upcomingLive.map((e) => e.id));
+  const recent = events
+    .filter((e) => !attentionIds.has(e.id) && !upcomingIds.has(e.id))
+    .slice(0, 6);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            {t("title")}
-          </h1>
-          <p className="text-sm text-foreground/90">{t("welcomeWarm", { firstName })}</p>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <Button variant="gold" asChild className="h-9 w-full shrink-0 sm:w-auto">
-          <Link href={orgPath(orgSlug, "/events/new")}>
-            <Plus className="h-4 w-4" />
-            {t("createEvent")}
-          </Link>
-        </Button>
-      </header>
+    <div className="mx-auto w-full max-w-4xl space-y-8">
+      <OrgPageHeader
+        title={t("overview")}
+        description={t("subtitle")}
+        actionLabel={t("createEvent")}
+        actionHref={createHref}
+      />
 
-      <Suspense fallback={<DashboardFiltersSkeleton />}>
-        <DashboardFilters
-          clients={clients.map((c) => ({ id: c.id, name: c.name }))}
-          currentClientId={clientId}
-          currentTimeframe={timeframe}
-        />
-      </Suspense>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div>
-
-      <section className="dashboard-section">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold tracking-tight">{t("recentEvents")}</h2>
-          <Button variant="ghost" size="sm" className="text-primary hover:text-primary" asChild>
-            <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
-          </Button>
-        </div>
-
-        {events.length === 0 ? (
-          <DashboardEmptyEvents
-            title={t("noEvents")}
-            description={t("noEventsDesc")}
-            actionLabel={t("createEvent")}
-            actionHref={orgPath(orgSlug, "/events/new")}
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((event) => (
-              <Link
+      {attention.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">
+            {t("needsAttention")}
+          </h2>
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            {attention.map((event) => (
+              <EventRow
                 key={event.id}
-                href={orgPath(orgSlug, `/events/${event.id}/overview`)}
-                className="group"
-              >
-                <article className="dashboard-surface h-full p-5 transition-colors hover:border-white/20 hover:bg-black/50">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold group-hover:text-primary">{event.name}</h3>
-                    <Badge
-                      variant="secondary"
-                      className="bg-primary/10 text-primary hover:bg-primary/10"
-                    >
-                      {tEvents(`lifecycle.${getEventLifecycle(event)}`)}
-                    </Badge>
-                  </div>
-                  {event.client ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{event.client.name}</p>
-                  ) : null}
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    {formatDate(event.date, locale as "el" | "en")}
-                  </p>
-                  {event.location ? (
-                    <p className="mt-1 text-sm text-muted-foreground">{event.location}</p>
-                  ) : null}
-                </article>
-              </Link>
+                event={event}
+                orgSlug={orgSlug}
+                locale={locale}
+                openLabel={tEvents("open")}
+              />
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
+
+      {upcomingLive.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">
+              {t("upcomingLive")}
+            </h2>
+            <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" asChild>
+              <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            {upcomingLive.map((event) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                orgSlug={orgSlug}
+                locale={locale}
+                openLabel={tEvents("open")}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {recent.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">
+              {t("recentEvents")}
+            </h2>
+            <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" asChild>
+              <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            {recent.map((event) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                orgSlug={orgSlug}
+                locale={locale}
+                openLabel={tEvents("open")}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <p className="text-sm text-muted-foreground">
+        <Link
+          href={orgPath(orgSlug, "/analytics")}
+          className="underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {t("analyticsLink")}
+        </Link>
+      </p>
     </div>
   );
 }

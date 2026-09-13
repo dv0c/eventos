@@ -1,10 +1,9 @@
 "use client";
 
-import { Calendar, MapPin, Palette, Users } from "lucide-react";
+import { Calendar, Palette, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { UseFormReturn } from "react-hook-form";
 
-import { getEventTypeConfig } from "@/components/events/wizard/event-type-config";
 import type { WizardFormData } from "@/components/events/wizard/wizard-schema";
 
 interface ReviewStepProps {
@@ -15,7 +14,7 @@ export function ReviewStep({ form }: ReviewStepProps) {
   const t = useTranslations("wizard");
   const tEvents = useTranslations("events");
   const values = form.watch();
-  const config = getEventTypeConfig(values.type);
+  const enabledGames = values.games.filter((game) => game.enabled);
 
   return (
     <div className="space-y-4">
@@ -42,25 +41,14 @@ export function ReviewStep({ form }: ReviewStepProps) {
       <div className="grid gap-3 sm:grid-cols-2">
         <ReviewItem
           icon={Calendar}
-          label={tEvents("date")}
+          label={t("startDate")}
           value={[values.date, values.startTime].filter(Boolean).join(" · ") || "—"}
         />
-        {values.location ? (
-          <ReviewItem
-            icon={MapPin}
-            label={tEvents("location")}
-            value={values.location}
-            subValue={values.address}
-          />
-        ) : null}
-        {values.hostName ? (
-          <ReviewItem
-            icon={Users}
-            label={t(config.host.labelKeys.name as "hostLabels.coupleName")}
-            value={values.hostName}
-            subValue={values.hostEmail || values.hostPhone || undefined}
-          />
-        ) : null}
+        <ReviewItem
+          icon={Calendar}
+          label={t("endDate")}
+          value={[values.endDate, values.endTime].filter(Boolean).join(" · ") || "—"}
+        />
         <ReviewItem
           icon={Palette}
           label={t("steps.theme")}
@@ -70,6 +58,15 @@ export function ReviewStep({ form }: ReviewStepProps) {
               : values.style === "classic"
                 ? t("styleClassic")
                 : t("styleElegant")
+          }
+        />
+        <ReviewItem
+          icon={Sparkles}
+          label={t("steps.games")}
+          value={
+            enabledGames.length
+              ? t("gamesSelected", { count: enabledGames.length })
+              : t("gamesNone")
           }
         />
       </div>
@@ -93,19 +90,13 @@ function ReviewItem({
   subValue?: string;
 }) {
   return (
-    <div className="flex gap-3 rounded-xl border border-border/60 p-4">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <Icon className="size-4 text-primary" />
+    <div className="rounded-xl border border-border/50 p-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Icon className="size-4" />
+        {label}
       </div>
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="mt-1 text-sm font-medium">{value}</p>
-        {subValue ? (
-          <p className="mt-0.5 text-sm text-muted-foreground">{subValue}</p>
-        ) : null}
-      </div>
+      <p className="mt-1 font-medium">{value}</p>
+      {subValue ? <p className="mt-0.5 text-sm text-muted-foreground">{subValue}</p> : null}
     </div>
   );
 }

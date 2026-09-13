@@ -245,7 +245,7 @@ export function AlbumSongRequestPanel({
 
         <Button
           type="button"
-          variant="gold"
+          variant="default"
           className="h-11 w-full rounded-xl font-semibold"
           disabled={submitting}
           onClick={() => void handleSubmit()}
@@ -306,7 +306,7 @@ function QueueRow({
       className={cn(
         "flex items-center gap-3 rounded-xl border px-3 py-2.5",
         highlight
-          ? "border-amber-300/40 bg-amber-300/10"
+          ? "border-primary/40 bg-primary/10"
           : pending
             ? "border-white/10 bg-white/5"
             : "border-white/10 bg-black/30",

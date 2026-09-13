@@ -92,14 +92,6 @@ function assertGuestQrAllowedForLifecycle(
     return;
   }
 
-  if (lifecycle === "waiting") {
-    throw new QrServiceError(
-      "Guest QR codes are not available before the event starts",
-      403,
-      "EVENT_NOT_STARTED",
-    );
-  }
-
   if (lifecycle === "ended" && !isPostEndGuestQrAllowed(type)) {
     throw new QrServiceError("Event has ended", 410, "EVENT_ENDED");
   }
@@ -114,10 +106,6 @@ function qrTypesForLifecycle(
     return [type];
   }
 
-  if (lifecycle === "waiting") {
-    return ALL_QR_TYPES.filter((t) => !isGuestQrType(t));
-  }
-
   if (lifecycle === "ended") {
     return ALL_QR_TYPES.filter(
       (t) => !isGuestQrType(t) || isPostEndGuestQrAllowed(t),
@@ -130,9 +118,6 @@ function qrTypesForLifecycle(
 function listFilterForLifecycle(lifecycle: EventLifecycle): {
   type?: { notIn: QRCodeType[] } | { in: QRCodeType[] };
 } {
-  if (lifecycle === "waiting") {
-    return { type: { notIn: GUEST_QR_TYPES } };
-  }
   if (lifecycle === "ended") {
     return { type: { notIn: REVOKED_GUEST_QR_TYPES } };
   }
@@ -182,6 +167,7 @@ export const qrService = {
         slug: true,
         status: true,
         date: true,
+        endDate: true,
         startTime: true,
         endTime: true,
         organization: { select: { slug: true } },
@@ -238,6 +224,7 @@ export const qrService = {
         slug: true,
         status: true,
         date: true,
+        endDate: true,
         startTime: true,
         endTime: true,
         organization: { select: { slug: true } },
@@ -292,6 +279,7 @@ export const qrService = {
         slug: true,
         status: true,
         date: true,
+        endDate: true,
         startTime: true,
         endTime: true,
         organization: { select: { slug: true } },

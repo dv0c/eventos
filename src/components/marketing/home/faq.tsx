@@ -10,14 +10,17 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
-import { Reveal, SectionShell } from "./reveal";
+import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
 
 const FAQ_KEYS = [
   "noApp",
   "download",
   "multiDay",
   "wall",
+  "music",
+  "wishes",
   "privacy",
   "moderation",
   "photographer",
@@ -27,28 +30,46 @@ export function HomeFaq() {
   const t = useTranslations("marketing.home");
 
   return (
-    <section className="border-t border-white/10 bg-black/20 py-20 sm:py-28">
+    <section className="py-24 sm:py-32">
       <SectionShell>
-        <Reveal className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("faqTitle")}</h2>
-          <p className="mt-3 text-muted-foreground sm:text-lg">{t("faqSubtitle")}</p>
-          <Button variant="gold" className="mt-8 rounded-xl" size="lg" asChild>
-            <Link href="/register">{t("faqCta")}</Link>
-          </Button>
-        </Reveal>
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
+          <Reveal>
+            <h2
+              className={cn(
+                marketingDisplayClass,
+                "text-[clamp(2rem,3.5vw,3.25rem)] leading-[1.1]",
+              )}
+            >
+              {t("faqTitle")}
+            </h2>
+            <p className="mt-4 max-w-[32ch] text-base leading-relaxed text-white/55 sm:text-lg">
+              {t("faqSubtitle")}
+            </p>
+            <Button
+              variant="gold"
+              className="mt-8 h-11 rounded-md px-6 font-semibold shadow-none"
+              size="lg"
+              asChild
+            >
+              <Link href="/register">{t("faqCta")}</Link>
+            </Button>
+          </Reveal>
 
-        <Reveal className="mx-auto mt-12 max-w-3xl" delay={0.08}>
-          <div className="glass-panel px-4 sm:px-6">
-            <Accordion type="single" collapsible className="w-full">
+          <Reveal delay={0.06}>
+            <Accordion type="single" collapsible className="w-full border-t border-white/10">
               {FAQ_KEYS.map((key) => (
                 <AccordionItem key={key} value={key} className="border-white/10">
-                  <AccordionTrigger>{t(`faq.${key}.q`)}</AccordionTrigger>
-                  <AccordionContent>{t(`faq.${key}.a`)}</AccordionContent>
+                  <AccordionTrigger className="py-5 text-left text-base hover:no-underline">
+                    {t(`faq.${key}.q`)}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-base leading-relaxed text-white/55">
+                    {t(`faq.${key}.a`)}
+                  </AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>
-          </div>
-        </Reveal>
+          </Reveal>
+        </div>
       </SectionShell>
     </section>
   );

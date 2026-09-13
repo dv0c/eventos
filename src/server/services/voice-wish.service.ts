@@ -2,7 +2,7 @@ import { AuditAction, MediaStatus } from "@prisma/client";
 import { nanoid } from "nanoid";
 
 import { prisma } from "@/server/db";
-import { isEventEnded } from "@/server/events/event-ended";
+import { isEventEnded, isEventWaiting } from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
@@ -95,44 +95,64 @@ function isAllowedWishMedia(mimeType: string): boolean {
   return mimeType.startsWith("audio/") || mimeType.startsWith("video/");
 }
 
-function extForMime(mimeType: string, fileName?: string): string {
-  if (mimeType.includes("quicktime") || mimeType.includes("mov")) return "mov";
-  if (mimeType.startsWith("video/") && mimeType.includes("webm")) return "webm";
-  if (mimeType.startsWith("video/")) return "mp4";
-  if (mimeType.includes("webm")) return "webm";
-  if (mimeType.includes("ogg")) return "ogg";
-  if (mimeType.includes("wav")) return "wav";
-  if (mimeType.includes("mpeg") || mimeType === "audio/mp3") return "mp3";
-  if (mimeType.includes("3gpp")) return "3gp";
-  if (mimeType.includes("amr")) return "amr";
-  if (mimeType.includes("caf")) return "caf";
-  if (mimeType.includes("mp4") || mimeType.includes("m4a") || mimeType.includes("aac"))
-    return "m4a";
-  const fromName = fileName?.split(".").pop()?.toLowerCase();
-  if (fromName && fromName.length <= 4) return fromName;
-  return "m4a";
-}
+/**
+ * Openinary accepts video/mp4, video/webm, audio/wav|mpeg|ogg — not audio/mp4
+ * or audio/webm. Remap storage metadata while keeping the real MIME in Prisma.
+ */
+function openinaryUploadMeta(mimeType: string): {
+  ext: string;
+  contentType: string;
+} {
+  const type = mimeType.toLowerCase();
 
-interface EventSections {
-  mediaUploadToken?: string;
-  [key: string]: unknown;
+  if (type.includes("webm")) {
+    return { ext: "webm", contentType: "video/webm" };
+  }
+  if (
+    type.includes("mp4") ||
+    type.includes("m4a") ||
+    type.includes("aac")
+  ) {
+    return { ext: "mp4", contentType: "video/mp4" };
+  }
+  if (type.includes("wav")) {
+    return { ext: "wav", contentType: "audio/wav" };
+  }
+  if (type.includes("mpeg") || type === "audio/mp3") {
+    return { ext: "mp3", contentType: "audio/mpeg" };
+  }
+  if (type.includes("ogg")) {
+    return { ext: "ogg", contentType: "audio/ogg" };
+  }
+  if (type.includes("quicktime") || type.includes("mov")) {
+    return { ext: "mov", contentType: "video/quicktime" };
+  }
+  if (type.startsWith("video/")) {
+    return { ext: "mp4", contentType: "video/mp4" };
+  }
+
+  return { ext: "mp4", contentType: "video/mp4" };
 }
 
 async function getEventByAlbumToken(albumToken: string) {
-  const events = await prisma.event.findMany({
-    where: { deletedAt: null },
-    include: { settings: true },
+  const settings = await prisma.eventSettings.findFirst({
+    where: {
+      isPublic: true,
+      sections: {
+        path: ["mediaUploadToken"],
+        equals: albumToken,
+      },
+    },
+    include: {
+      event: true,
+    },
   });
 
-  return (
-    events.find((event) => {
-      const sections = (event.settings?.sections ?? {}) as EventSections;
-      return (
-        sections.mediaUploadToken === albumToken &&
-        event.settings?.isPublic === true
-      );
-    }) ?? null
-  );
+  if (!settings?.event || settings.event.deletedAt) {
+    return null;
+  }
+
+  return { ...settings.event, settings };
 }
 
 export const voiceWishService = {
@@ -146,6 +166,14 @@ export const voiceWishService = {
 
     if (!event?.settings) {
       throw new VoiceWishServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
+    }
+
+    if (isEventWaiting(event)) {
+      throw new VoiceWishServiceError(
+        "Event has not started yet",
+        403,
+        "EVENT_NOT_STARTED",
+      );
     }
 
     if (isEventEnded(event)) {
@@ -227,20 +255,32 @@ export const voiceWishService = {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const wishId = nanoid(12);
-    const ext = extForMime(mimeType, file.name);
-    const storageKey = `wishes/${event.slug}/${wishId}.${ext}`;
+    const uploadMeta = openinaryUploadMeta(
+      mimeType || (isVideo ? "video/mp4" : "audio/mp4"),
+    );
+    const storageKey = `wishes/${event.slug}/${wishId}.${uploadMeta.ext}`;
+    const storedMime = mimeType || (isVideo ? "video/mp4" : "audio/mp4");
 
     const storage = getStorageProvider();
-    const storedKey = await storage.upload(storageKey, buffer, {
-      contentType: mimeType || (isVideo ? "video/mp4" : "audio/mp4"),
-    });
+    let storedKey: string;
+    try {
+      storedKey = await storage.upload(storageKey, buffer, {
+        contentType: uploadMeta.contentType,
+      });
+    } catch (error) {
+      throw new VoiceWishServiceError(
+        error instanceof Error ? error.message : "Upload failed",
+        502,
+        "STORAGE_UPLOAD_FAILED",
+      );
+    }
 
     const wish = await prisma.voiceWish.create({
       data: {
         eventId: event.id,
         storageKey: storedKey,
-        mimeType: mimeType || (isVideo ? "video/mp4" : "audio/mp4"),
-        fileName: file.name || `wish.${ext}`,
+        mimeType: storedMime,
+        fileName: file.name || `wish.${uploadMeta.ext}`,
         fileSize: file.size,
         durationMs: duration,
         uploadedBy: name,
@@ -262,6 +302,7 @@ export const voiceWishService = {
       select: {
         status: true,
         date: true,
+        endDate: true,
         startTime: true,
         endTime: true,
         settings: { select: { enableVoiceWishes: true } },
@@ -290,6 +331,7 @@ export const voiceWishService = {
       select: {
         status: true,
         date: true,
+        endDate: true,
         startTime: true,
         endTime: true,
       },
@@ -382,7 +424,13 @@ export const voiceWishService = {
   async listForZip(eventId: string) {
     const event = await prisma.event.findFirst({
       where: { id: eventId, deletedAt: null },
-      select: { status: true, date: true, startTime: true, endTime: true },
+      select: {
+        status: true,
+        date: true,
+        endDate: true,
+        startTime: true,
+        endTime: true,
+      },
     });
 
     if (!event || !isEventEnded(event)) {

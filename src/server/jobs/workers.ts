@@ -7,7 +7,14 @@ import { getMessagingProvider } from "@/server/providers/messaging";
 import { messageService } from "@/server/services/message.service";
 import { privacyService } from "@/server/services/privacy.service";
 
-import { getRedisConnection, QUEUE_NAMES } from "./queues";
+import { purgeExpiredEventMedia } from "./purge-expired-media";
+import { completeEndedEvents } from "./complete-ended-events";
+import {
+  eventCompletionQueue,
+  getRedisConnection,
+  mediaRetentionQueue,
+  QUEUE_NAMES,
+} from "./queues";
 
 async function handleEmailJob(job: Job<{
   deliveryId?: string;
@@ -167,6 +174,40 @@ async function handleScheduledMessagesJob(job: Job<{ messageId?: string }>) {
   console.log("[scheduled-messages worker] Processing job", job.id, job.data);
 }
 
+async function handleMediaRetentionJob(_job: Job) {
+  const result = await purgeExpiredEventMedia();
+  console.log("[media-retention worker] Purge complete", result);
+  return result;
+}
+
+async function handleEventCompletionJob(_job: Job) {
+  const result = await completeEndedEvents();
+  console.log("[event-completion worker] Complete ended events", result);
+  return result;
+}
+
+export async function ensureMediaRetentionSchedule() {
+  await mediaRetentionQueue.add(
+    "purge-expired-media",
+    {},
+    {
+      repeat: { every: 24 * 60 * 60 * 1000 },
+      jobId: "purge-expired-media-daily",
+    },
+  );
+}
+
+export async function ensureEventCompletionSchedule() {
+  await eventCompletionQueue.add(
+    "complete-ended-events",
+    {},
+    {
+      repeat: { every: 15 * 60 * 1000 },
+      jobId: "complete-ended-events-15m",
+    },
+  );
+}
+
 export function createWorkers() {
   const connection = getRedisConnection();
 
@@ -177,6 +218,8 @@ export function createWorkers() {
     new Worker(QUEUE_NAMES.exports, handleExportsJob, { connection }),
     new Worker(QUEUE_NAMES.mediaProcessing, handleMediaProcessingJob, { connection }),
     new Worker(QUEUE_NAMES.scheduledMessages, handleScheduledMessagesJob, { connection }),
+    new Worker(QUEUE_NAMES.mediaRetention, handleMediaRetentionJob, { connection }),
+    new Worker(QUEUE_NAMES.eventCompletion, handleEventCompletionJob, { connection }),
   ];
 
   for (const worker of workers) {
@@ -187,6 +230,14 @@ export function createWorkers() {
       console.error(`[${worker.name}] Job ${job?.id} failed:`, error);
     });
   }
+
+  void ensureMediaRetentionSchedule().catch((error) => {
+    console.error("[media-retention] Failed to schedule daily purge", error);
+  });
+
+  void ensureEventCompletionSchedule().catch((error) => {
+    console.error("[event-completion] Failed to schedule completion job", error);
+  });
 
   return workers;
 }

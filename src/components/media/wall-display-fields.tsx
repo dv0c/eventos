@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PlusUpgradeBadge } from "@/components/events/settings/settings-ui";
+import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import type { WallDisplaySettings, WallQrSize } from "@/server/events/wall-settings";
@@ -27,9 +28,8 @@ export function WallDisplayFields({
   className,
 }: WallDisplayFieldsProps) {
   const t = useTranslations("events.wallCustomization");
-  const tCommon = useTranslations("common");
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [showOpacity, setShowOpacity] = useState(false);
 
   async function saveSettings(patch: Partial<WallDisplaySettings>) {
@@ -60,32 +60,6 @@ export function WallDisplayFields({
     }
 
     setIsSaving(false);
-  }
-
-  async function handleBackgroundUpload(file: File) {
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "wall-backgrounds");
-
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        toast.error(t("uploadError"));
-        setIsUploading(false);
-        return;
-      }
-
-      const uploadJson = await uploadResponse.json();
-      await saveSettings({ backgroundUrl: uploadJson.data.url as string });
-    } catch {
-      toast.error(t("uploadError"));
-    }
-    setIsUploading(false);
   }
 
   return (
@@ -194,35 +168,25 @@ export function WallDisplayFields({
             />
           ) : null}
         </div>
-        <Label className="cursor-pointer shrink-0">
-          <div
-            className={cn(
-              "relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30 text-sm text-muted-foreground",
-              isUploading && "opacity-60",
-            )}
-          >
-            {settings.backgroundUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={settings.backgroundUrl}
-                alt=""
-                className="h-full w-full object-cover"
-                style={{ opacity: (settings.backgroundOpacity ?? 100) / 100 }}
-              />
-            ) : (
-              <span>{isUploading ? tCommon("loading") : t("upload")}</span>
-            )}
-          </div>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleBackgroundUpload(file);
-            }}
-          />
-        </Label>
+        <button
+          type="button"
+          className="relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30 text-sm text-muted-foreground transition-colors hover:bg-muted/40 disabled:opacity-60"
+          disabled={isSaving}
+          onClick={() => setUploadOpen(true)}
+          aria-label={t("upload")}
+        >
+          {settings.backgroundUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={settings.backgroundUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{ opacity: (settings.backgroundOpacity ?? 100) / 100 }}
+            />
+          ) : (
+            <span>{t("upload")}</span>
+          )}
+        </button>
       </section>
 
       <section className="space-y-4">
@@ -347,6 +311,32 @@ export function WallDisplayFields({
           disabled={isSaving}
         />
       </section>
+
+      <MediaUploadModal
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        title={t("background")}
+        mode="single"
+        maxBytes={5 * 1024 * 1024}
+        upload={{
+          url: "/api/upload",
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("folder", "wall-backgrounds");
+            return formData;
+          },
+        }}
+        onSuccess={async ({ files }) => {
+          const url = (files[0]?.response as { data?: { url?: string } } | undefined)
+            ?.data?.url;
+          if (!url) {
+            toast.error(t("uploadError"));
+            return;
+          }
+          await saveSettings({ backgroundUrl: url });
+        }}
+      />
     </div>
   );
 }

@@ -1,16 +1,10 @@
-import { Settings } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 
-import { EmptyState } from "@/components/shared/empty-state";
-
-export default async function AdminSettingsPage() {
-  const t = await getTranslations("admin");
-
-  return (
-    <EmptyState
-      icon={Settings}
-      title={t("settings")}
-      description={t("settingsDesc")}
-    />
-  );
+export default async function AdminSettingsRedirect({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  redirect({ href: "/admin", locale });
 }

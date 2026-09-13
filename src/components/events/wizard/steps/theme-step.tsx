@@ -21,15 +21,13 @@ import { cn } from "@/lib/utils";
 interface ThemeStepProps {
   form: UseFormReturn<WizardFormData>;
   coverPreview: string | null;
-  isUploadingCover: boolean;
-  onCoverUpload: (file: File) => Promise<void>;
+  onOpenCoverUpload: () => void;
 }
 
 export function ThemeStep({
   form,
   coverPreview,
-  isUploadingCover,
-  onCoverUpload,
+  onOpenCoverUpload,
 }: ThemeStepProps) {
   const t = useTranslations("wizard");
   const values = form.watch();
@@ -90,22 +88,10 @@ export function ThemeStep({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="coverImage" className="text-base">
+        <Label className="text-base">{t("coverImage")}</Label>
+        <Button type="button" variant="outline" className="h-12 w-full" onClick={onOpenCoverUpload}>
           {t("coverImage")}
-        </Label>
-        <Input
-          id="coverImage"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          disabled={isUploadingCover}
-          className="h-12"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              void onCoverUpload(file);
-            }
-          }}
-        />
+        </Button>
         {coverPreview ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -147,42 +133,35 @@ export function ThemeStep({
         {showCustom ? (
           <div className="space-y-4 border-t border-border/60 px-4 py-4">
             <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="primaryColor">{t("primaryColor")}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="primaryColor"
-                    type="color"
-                    className="h-10 w-14 p-1"
-                    {...form.register("primaryColor")}
-                  />
-                  <Input {...form.register("primaryColor")} />
+              {(
+                [
+                  ["primaryColor", "primaryColor"],
+                  ["secondaryColor", "secondaryColor"],
+                  ["accentColor", "accentColor"],
+                ] as const
+              ).map(([field, labelKey]) => (
+                <div key={field} className="space-y-2">
+                  <Label htmlFor={field}>{t(labelKey)}</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id={field}
+                      type="color"
+                      value={values[field] || "#000000"}
+                      onChange={(e) =>
+                        form.setValue(field, e.target.value, { shouldDirty: true })
+                      }
+                      className="h-10 w-12 cursor-pointer rounded border border-border bg-transparent"
+                    />
+                    <Input
+                      value={values[field] || ""}
+                      onChange={(e) =>
+                        form.setValue(field, e.target.value, { shouldDirty: true })
+                      }
+                      className="h-10 font-mono text-sm"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="secondaryColor">{t("secondaryColor")}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="secondaryColor"
-                    type="color"
-                    className="h-10 w-14 p-1"
-                    {...form.register("secondaryColor")}
-                  />
-                  <Input {...form.register("secondaryColor")} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="accentColor">{t("accentColor")}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="accentColor"
-                    type="color"
-                    className="h-10 w-14 p-1"
-                    {...form.register("accentColor")}
-                  />
-                  <Input {...form.register("accentColor")} />
-                </div>
-              </div>
+              ))}
             </div>
             <div className="space-y-2">
               <Label>{t("style")}</Label>

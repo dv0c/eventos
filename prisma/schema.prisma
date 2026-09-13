@@ -471,6 +471,7 @@ model Event {
   status         EventStatus @default(DRAFT)
   description    String?     @db.Text
   date           DateTime
+  endDate        DateTime?
   startTime      String?
   endTime        String?
   location       String?
@@ -482,6 +483,7 @@ model Event {
   expectedCouples Int        @default(0)
   expectedChildren Int        @default(0)
   expectedVip    Int         @default(0)
+  mediaPanicAt   DateTime?
   deletedAt      DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -505,6 +507,7 @@ model Event {
   songRequests   SongRequest[]
   qrCodes        QRCode[]
   auditLogs      AuditLog[]
+  games          EventGame[]
 
   @@index([organizationId])
   @@index([slug])
@@ -512,6 +515,28 @@ model Event {
   @@index([date])
   @@index([createdAt])
   @@map("events")
+}
+
+model EventGame {
+  id          String   @id @default(cuid())
+  eventId     String
+  title       String
+  description String?  @db.Text
+  presetKey   String?
+  /// Guest upload interaction: photo (single) or collage (2–4 stitched)
+  mode        String   @default("photo")
+  sortOrder   Int      @default(0)
+  enabled     Boolean  @default(true)
+  fields      Json     @default("[]")
+  coverImage  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([eventId, sortOrder])
+  @@map("event_games")
 }
 
 model EventSettings {
@@ -959,6 +984,7 @@ model Media {
   eventId     String
   uploadToken String?     @unique
   storageKey  String
+  thumbnailKey String?
   mimeType    String
   fileName    String
   fileSize    Int
@@ -1023,16 +1049,19 @@ model SongRequest {
 }
 
 model MediaReaction {
-  id        String   @id @default(cuid())
-  mediaId   String
-  eventId   String
-  emoji     String
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  mediaId    String
+  eventId    String
+  emoji      String
+  reactorKey String
+  createdAt  DateTime @default(now())
 
   media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
+  @@unique([mediaId, reactorKey, emoji])
   @@index([mediaId])
+  @@index([mediaId, reactorKey])
   @@index([eventId])
   @@index([createdAt])
   @@map("media_reactions")

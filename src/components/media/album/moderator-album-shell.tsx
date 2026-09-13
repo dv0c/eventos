@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Bell,
   Music2,
+  ShieldAlert,
   Star,
   Trash2,
   X,
@@ -25,6 +26,7 @@ import {
   ModFeedListSkeleton,
   WishCountSkeleton,
 } from "@/components/media/album/album-app-skeletons";
+import { AlbumVideoPlayer } from "@/components/media/album/album-video-player";
 import { GuestNotifyForm } from "@/components/media/guest-notify-form";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -38,6 +40,7 @@ type ModTab = "inbox" | "album" | "notify" | "more";
 interface ModMediaItem {
   id: string;
   url: string;
+  thumbnailUrl?: string | null;
   mimeType: string;
   status: MediaStatus;
   caption: string | null;
@@ -79,6 +82,8 @@ export function ModeratorAlbumShell({
   } | null>(null);
   const [wishCount, setWishCount] = useState<number | null>(null);
   const [wishesUnlocked, setWishesUnlocked] = useState(false);
+  const [panic, setPanic] = useState(false);
+  const [panicBusy, setPanicBusy] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -105,6 +110,41 @@ export function ModeratorAlbumShell({
   useEffect(() => {
     void loadMedia();
   }, [loadMedia]);
+
+  useEffect(() => {
+    async function loadPanic() {
+      try {
+        const response = await fetch(`/api/events/${eventId}/panic`);
+        if (!response.ok) return;
+        const json = await response.json();
+        setPanic(Boolean(json.data?.panic));
+      } catch {
+        // optional
+      }
+    }
+    void loadPanic();
+  }, [eventId]);
+
+  async function togglePanic() {
+    const next = !panic;
+    if (next && !window.confirm(t("panicConfirm"))) return;
+    setPanicBusy(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/panic`, {
+        method: next ? "POST" : "DELETE",
+      });
+      if (!response.ok) {
+        toast.error(t("panicError"));
+        setPanicBusy(false);
+        return;
+      }
+      setPanic(next);
+      toast.success(next ? t("panicArmed") : t("panicCleared"));
+    } catch {
+      toast.error(t("panicError"));
+    }
+    setPanicBusy(false);
+  }
 
   useEffect(() => {
     async function loadWishSummary() {
@@ -360,7 +400,7 @@ export function ModeratorAlbumShell({
                     className={cn(
                       "tap-press rounded-xl border px-3 py-3 text-left text-sm transition",
                       settings.albumPermission === value
-                        ? "border-amber-300/50 bg-amber-400/10 text-white"
+                        ? "border-primary/50 bg-primary/10 text-white"
                         : "border-white/15 bg-white/5 text-white/75 active:bg-white/10",
                     )}
                   >
@@ -371,6 +411,19 @@ export function ModeratorAlbumShell({
             </div>
 
             <div className="px-4 py-5">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={panicBusy}
+                className={cn(
+                  "mb-2 h-11 w-full gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10",
+                  panic && "border-destructive/50 bg-destructive/20 text-destructive",
+                )}
+                onClick={() => void togglePanic()}
+              >
+                <ShieldAlert className="size-4" />
+                {panic ? t("panicClear") : t("panicArm")}
+              </Button>
               {moderationQr ? (
                 <div className="mb-5 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div>
@@ -525,16 +578,19 @@ function ModPost({
         </div>
       </div>
 
-      <div className="relative aspect-square w-full bg-black">
+      <div className="relative w-full bg-black">
         {isVideo ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={item.url} className="h-full w-full object-cover" controls playsInline />
+          <AlbumVideoPlayer
+            src={item.url}
+            poster={item.thumbnailUrl}
+            videoClassName="max-h-none h-auto w-full"
+          />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.url}
             alt={item.caption ?? ""}
-            className="h-full w-full object-cover"
+            className="h-auto w-full"
           />
         )}
       </div>
@@ -548,7 +604,7 @@ function ModPost({
           <>
             <Button
               type="button"
-              variant="gold"
+              variant="default"
               className="h-11 flex-1 gap-1.5"
               disabled={busy}
               onClick={onApprove}

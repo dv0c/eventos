@@ -40,7 +40,8 @@ export function DashboardFilters({
   const t = useTranslations("dashboard");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const dashboardPath = useOrgPath("/dashboard");
+  const orgPath = useOrgPath();
+  const dashboardPath = orgPath("/dashboard");
   const [open, setOpen] = useState(false);
 
   const timeframe = currentTimeframe ?? "all";

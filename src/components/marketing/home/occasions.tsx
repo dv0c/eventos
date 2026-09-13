@@ -1,89 +1,122 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
-import { Reveal, SectionShell } from "./reveal";
-
-const OCCASIONS = [
-  {
-    key: "wedding" as const,
-    src: "/marketing/demos/occasion-wedding.png",
-    href: "/features",
-  },
-  {
-    key: "party" as const,
-    src: "/marketing/demos/occasion-party.png",
-    href: "/features",
-  },
-  {
-    key: "birthday" as const,
-    src: "/marketing/demos/occasion-birthday.png",
-    href: "/features",
-  },
-  {
-    key: "conference" as const,
-    src: "/marketing/demos/occasion-conference.png",
-    href: "/features",
-  },
-  {
-    key: "corporate" as const,
-    src: "/marketing/demos/occasion-corporate.png",
-    href: "/features",
-  },
-  {
-    key: "other" as const,
-    src: "/marketing/demos/occasion-other.png",
-    href: "/register",
-  },
-] as const;
+import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
 
 export function HomeOccasions() {
   const t = useTranslations("marketing.home");
 
   return (
-    <section className="border-y border-white/10 bg-black/20 py-20 sm:py-28">
+    <section className="overflow-hidden bg-black/25 py-24 sm:py-32">
       <SectionShell>
-        <Reveal className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        <Reveal className="max-w-xl">
+          <h2
+            className={cn(
+              marketingDisplayClass,
+              "text-[clamp(2rem,3.5vw,3.25rem)] leading-[1.1]",
+            )}
+          >
             {t("occasionsTitle")}
           </h2>
-          <p className="mt-3 text-muted-foreground sm:text-lg">{t("occasionsSubtitle")}</p>
+          <p className="mt-4 max-w-[36ch] text-base leading-relaxed text-white/55 sm:text-lg">
+            {t("occasionsSubtitle")}
+          </p>
         </Reveal>
+      </SectionShell>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {OCCASIONS.map(({ key, src, href }, i) => (
-            <Reveal key={key} delay={i * 0.05}>
-              <Link
-                href={href}
-                className="group glass-panel flex h-full flex-col overflow-hidden transition-all hover:-translate-y-1 hover:border-white/20"
-              >
-                <div className="relative aspect-[16/10] w-full overflow-hidden">
-                  <Image
-                    src={src}
-                    alt=""
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col p-4 sm:p-5">
-                  <h3 className="font-semibold">{t(`occasionCards.${key}.title`)}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {t(`occasionCards.${key}.desc`)}
-                  </p>
-                  <span className="mt-auto inline-flex items-center gap-1 pt-3 text-sm font-medium text-accent">
-                    {key === "other" ? t("occasionStart") : t("occasionLearn")}
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </div>
-              </Link>
-            </Reveal>
-          ))}
+      <div className="relative mt-14 sm:mt-16">
+        <div className="mx-auto grid max-w-7xl grid-cols-12 items-end gap-3 px-4 sm:gap-4 sm:px-6 lg:gap-5 lg:px-8">
+          <Reveal className="col-span-12 sm:col-span-5 lg:col-span-4">
+            <figure className="relative aspect-[3/4] overflow-hidden rounded-md">
+              <Image
+                src="/marketing/demos/occasion-wedding.png"
+                alt=""
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 100vw, 40vw"
+              />
+              <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-16">
+                <p className="text-lg text-white">{t("occasionCards.wedding.title")}</p>
+              </figcaption>
+            </figure>
+          </Reveal>
+
+          <Reveal delay={0.05} className="col-span-6 sm:col-span-3 lg:col-span-3">
+            <figure className="relative aspect-[4/5] overflow-hidden rounded-md sm:mb-10">
+              <Image
+                src="/marketing/demos/occasion-party.png"
+                alt=""
+                fill
+                className="object-cover"
+                sizes="30vw"
+              />
+              <figcaption className="absolute inset-x-0 bottom-0 p-3">
+                <p className="text-sm text-white/90">{t("occasionCards.party.title")}</p>
+              </figcaption>
+            </figure>
+          </Reveal>
+
+          <Reveal delay={0.08} className="col-span-6 sm:col-span-4 lg:col-span-5">
+            <figure className="relative aspect-[16/11] overflow-hidden rounded-md">
+              <Image
+                src="/marketing/demos/occasion-birthday.png"
+                alt=""
+                fill
+                className="object-cover"
+                sizes="40vw"
+              />
+              <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 pt-12">
+                <p className="text-base text-white">{t("occasionCards.birthday.title")}</p>
+              </figcaption>
+            </figure>
+          </Reveal>
+
+          <Reveal delay={0.1} className="col-span-7 sm:col-span-5 lg:col-span-5">
+            <figure className="relative aspect-[16/10] overflow-hidden rounded-md">
+              <Image
+                src="/marketing/demos/occasion-corporate.png"
+                alt=""
+                fill
+                className="object-cover"
+                sizes="45vw"
+              />
+              <figcaption className="absolute inset-x-0 bottom-0 p-4">
+                <p className="text-sm text-white/90">{t("occasionCards.corporate.title")}</p>
+              </figcaption>
+            </figure>
+          </Reveal>
+
+          <Reveal delay={0.12} className="col-span-5 sm:col-span-3 lg:col-span-3">
+            <figure className="relative aspect-square overflow-hidden rounded-md sm:-mt-8">
+              <Image
+                src="/marketing/demos/occasion-conference.png"
+                alt=""
+                fill
+                className="object-cover"
+                sizes="25vw"
+              />
+              <figcaption className="absolute inset-x-0 bottom-0 p-3">
+                <p className="text-sm text-white/90">{t("occasionCards.conference.title")}</p>
+              </figcaption>
+            </figure>
+          </Reveal>
         </div>
+      </div>
+
+      <SectionShell className="mt-12 sm:mt-14">
+        <Reveal>
+          <Link
+            href="/register"
+            className="inline-flex text-[15px] font-semibold text-accent underline-offset-4 hover:underline"
+          >
+            {t("occasionStart")}
+          </Link>
+        </Reveal>
       </SectionShell>
     </section>
   );

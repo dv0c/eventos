@@ -22,6 +22,8 @@ export async function POST(request: Request, context: RouteContext) {
       durationRaw != null && String(durationRaw).trim() !== ""
         ? Number(durationRaw)
         : null;
+    const thumbnailRaw = formData.get("thumbnail");
+    const thumbnail = thumbnailRaw instanceof File ? thumbnailRaw : null;
 
     if (!(file instanceof File)) {
       return apiError("No file provided", "NO_FILE", 400);
@@ -44,6 +46,7 @@ export async function POST(request: Request, context: RouteContext) {
       uploadedBy,
       challengeId,
       durationMs,
+      thumbnail,
     );
 
     return apiSuccess(result, 201);

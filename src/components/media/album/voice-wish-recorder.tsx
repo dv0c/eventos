@@ -13,6 +13,7 @@ interface VoiceWishRecorderProps {
   albumToken: string;
   guestName: string;
   className?: string;
+  onOpenVideoStudio?: () => void;
 }
 
 type Phase = "idle" | "recording" | "preview" | "sending" | "sent";
@@ -21,12 +22,12 @@ type WishMode = "audio" | "video";
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
   const candidates = [
-    "audio/mp4",
-    "audio/aac",
-    "audio/mp4;codecs=mp4a.40.2",
     "audio/webm;codecs=opus",
     "audio/webm",
     "audio/ogg;codecs=opus",
+    "audio/mp4",
+    "audio/aac",
+    "audio/mp4;codecs=mp4a.40.2",
   ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type));
 }
@@ -127,6 +128,7 @@ export function VoiceWishRecorder({
   albumToken,
   guestName,
   className,
+  onOpenVideoStudio,
 }: VoiceWishRecorderProps) {
   const t = useTranslations("publicEvent");
   const audioInputId = useId();
@@ -343,7 +345,7 @@ export function VoiceWishRecorder({
   const remaining = Math.max(0, 30 - seconds);
 
   return (
-    <div className={cn("flex flex-col gap-5 px-4 py-6", className)}>
+    <div className={cn("flex flex-col gap-6 px-4 py-6", className)}>
       <input
         ref={audioInputRef}
         id={audioInputId}
@@ -363,22 +365,24 @@ export function VoiceWishRecorder({
         onChange={(e) => void handleFileChange(e, "video")}
       />
 
-      <div>
+      <div className="space-y-1.5">
         <h2 className="text-lg font-semibold text-white">{t("wishTitle")}</h2>
-        <p className="mt-1 text-sm text-white/55">{t("wishDesc")}</p>
+        <p className="text-sm leading-relaxed text-white/55">{t("wishDesc")}</p>
       </div>
 
       {phase === "sent" ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center">
           <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
             <Check className="size-7" />
           </div>
-          <p className="text-base font-semibold text-white">{t("wishSentTitle")}</p>
-          <p className="text-sm text-white/55">{t("wishSentDesc")}</p>
+          <div className="space-y-1">
+            <p className="text-base font-semibold text-white">{t("wishSentTitle")}</p>
+            <p className="text-sm text-white/55">{t("wishSentDesc")}</p>
+          </div>
           <Button
             type="button"
             variant="outline"
-            className="mt-2 border-white/20 bg-transparent text-white hover:bg-white/10"
+            className="mt-1 h-11 border-white/20 bg-transparent text-white hover:bg-white/10"
             onClick={resetToIdle}
           >
             {t("wishRecordAnother")}
@@ -392,9 +396,9 @@ export function VoiceWishRecorder({
                 type="button"
                 onClick={() => setMode("audio")}
                 className={cn(
-                  "rounded-xl border px-3 py-3 text-sm font-semibold transition",
+                  "rounded-xl border px-3 py-3.5 text-sm font-semibold transition",
                   mode === "audio"
-                    ? "border-amber-300/50 bg-amber-400/15 text-white"
+                    ? "border-primary bg-primary/15 text-white"
                     : "border-white/15 bg-white/5 text-white/70",
                 )}
               >
@@ -402,11 +406,14 @@ export function VoiceWishRecorder({
               </button>
               <button
                 type="button"
-                onClick={() => setMode("video")}
+                onClick={() => {
+                  setMode("video");
+                  onOpenVideoStudio?.();
+                }}
                 className={cn(
-                  "rounded-xl border px-3 py-3 text-sm font-semibold transition",
+                  "rounded-xl border px-3 py-3.5 text-sm font-semibold transition",
                   mode === "video"
-                    ? "border-amber-300/50 bg-amber-400/15 text-white"
+                    ? "border-primary bg-primary/15 text-white"
                     : "border-white/15 bg-white/5 text-white/70",
                 )}
               >
@@ -415,21 +422,23 @@ export function VoiceWishRecorder({
             </div>
           ) : null}
 
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-6 py-8">
-            <p className="tabular-nums text-3xl font-semibold tracking-tight text-white">
-              {phase === "recording"
-                ? `0:${String(remaining).padStart(2, "0")}`
-                : phase === "preview"
-                  ? `0:${String(Math.min(30, seconds)).padStart(2, "0")}`
-                  : "0:30"}
-            </p>
-            <p className="text-xs text-white/45">
-              {phase === "recording"
-                ? t("wishRecording")
-                : phase === "preview"
-                  ? t("wishPreviewHint")
-                  : t("wishMaxDuration")}
-            </p>
+          <div className="flex flex-col items-center gap-5 rounded-2xl border border-white/10 bg-white/5 px-5 py-8 sm:px-6">
+            <div className="space-y-1 text-center">
+              <p className="tabular-nums text-3xl font-semibold tracking-tight text-white">
+                {phase === "recording"
+                  ? `0:${String(remaining).padStart(2, "0")}`
+                  : phase === "preview"
+                    ? `0:${String(Math.min(30, seconds)).padStart(2, "0")}`
+                    : "0:30"}
+              </p>
+              <p className="text-xs text-white/45">
+                {phase === "recording"
+                  ? t("wishRecording")
+                  : phase === "preview"
+                    ? t("wishPreviewHint")
+                    : t("wishMaxDuration")}
+              </p>
+            </div>
 
             {previewUrl && phase === "preview" ? (
               previewIsVideo ? (
@@ -444,14 +453,14 @@ export function VoiceWishRecorder({
               )
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex w-full max-w-sm flex-col items-stretch gap-3">
               {phase === "idle" && mode === "audio" ? (
                 liveMicAvailable ? (
                   <>
                     <Button
                       type="button"
-                      variant="gold"
-                      className="h-14 gap-2 rounded-full px-8 text-base"
+                      variant="default"
+                      className="h-14 w-full gap-2 rounded-full text-base"
                       onClick={() => void startRecording()}
                     >
                       <Mic className="size-5" />
@@ -460,7 +469,7 @@ export function VoiceWishRecorder({
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-12 gap-2 border-white/20 bg-transparent text-white hover:bg-white/10"
+                      className="h-11 w-full gap-2 border-white/20 bg-transparent text-white hover:bg-white/10"
                       onClick={() => audioInputRef.current?.click()}
                     >
                       <Upload className="size-4" />
@@ -470,8 +479,8 @@ export function VoiceWishRecorder({
                 ) : (
                   <Button
                     type="button"
-                    variant="gold"
-                    className="h-14 gap-2 rounded-full px-8 text-base"
+                    variant="default"
+                    className="h-14 w-full gap-2 rounded-full text-base"
                     onClick={() => audioInputRef.current?.click()}
                   >
                     <Mic className="size-5" />
@@ -483,12 +492,12 @@ export function VoiceWishRecorder({
               {phase === "idle" && mode === "video" ? (
                 <Button
                   type="button"
-                  variant="gold"
-                  className="h-14 gap-2 rounded-full px-8 text-base"
-                  onClick={() => videoInputRef.current?.click()}
+                  variant="default"
+                  className="h-14 w-full gap-2 rounded-full text-base"
+                  onClick={() => onOpenVideoStudio?.()}
                 >
                   <Video className="size-5" />
-                  {t("wishChooseVideo")}
+                  {t("wishRecordVideo")}
                 </Button>
               ) : null}
 
@@ -496,7 +505,7 @@ export function VoiceWishRecorder({
                 <Button
                   type="button"
                   variant="destructive"
-                  className="h-14 gap-2 rounded-full px-8 text-base"
+                  className="h-14 w-full gap-2 rounded-full text-base"
                   onClick={stopRecording}
                 >
                   <Square className="size-4 fill-current" />
@@ -508,27 +517,27 @@ export function VoiceWishRecorder({
                 <>
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-12 gap-2 border-white/20 bg-transparent text-white hover:bg-white/10"
-                    onClick={resetToIdle}
-                  >
-                    <RotateCcw className="size-4" />
-                    {t("wishRedo")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="gold"
-                    className="h-12 gap-2 rounded-full px-6"
+                    variant="default"
+                    className="h-14 w-full gap-2 rounded-full text-base"
                     onClick={() => void sendWish()}
                   >
                     <Send className="size-4" />
                     {t("wishSend")}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full gap-2 border-white/20 bg-transparent text-white hover:bg-white/10"
+                    onClick={resetToIdle}
+                  >
+                    <RotateCcw className="size-4" />
+                    {t("wishRedo")}
+                  </Button>
                 </>
               ) : null}
 
               {phase === "sending" ? (
-                <p className="text-sm text-white/60">{t("wishSending")}</p>
+                <p className="py-3 text-center text-sm text-white/60">{t("wishSending")}</p>
               ) : null}
             </div>
           </div>

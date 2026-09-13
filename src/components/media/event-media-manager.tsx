@@ -6,21 +6,21 @@ import {
   Download,
   EyeOff,
   Music2,
+  ShieldAlert,
   Smartphone,
   Trash2,
   Upload,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SongRequestsPanel } from "@/components/media/song-requests-panel";
 import { VoiceWishesPanel } from "@/components/media/voice-wishes-panel";
+import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { useOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Link } from "@/i18n/navigation";
-import { uploadWithProgress } from "@/lib/upload-with-progress";
 import { cn } from "@/lib/utils";
 import type { EventLifecycle } from "@/server/events/event-ended";
 
@@ -29,6 +29,7 @@ type MediaFilter = "published" | "pending" | "hidden";
 interface MediaItem {
   id: string;
   url: string;
+  thumbnailUrl?: string | null;
   fileName: string | null;
   mimeType: string;
   status: MediaStatus;
@@ -42,6 +43,7 @@ interface EventMediaManagerProps {
   eventSlug: string;
   albumHref: string | null;
   lifecycle?: EventLifecycle;
+  mediaPurgeAt?: string | null;
 }
 
 const FREE_UPLOAD_CAP = 100;
@@ -51,21 +53,20 @@ export function EventMediaManager({
   eventSlug,
   albumHref,
   lifecycle = "active",
+  mediaPurgeAt = null,
 }: EventMediaManagerProps) {
   const t = useTranslations("eventWorkspace.media");
   const tMod = useTranslations("moderatorAlbum");
-  const orgPath = useOrgPath;
+  const orgPath = useOrgPath();
   const { planName, planSlug } = useOrg();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadCurrent, setUploadCurrent] = useState(0);
-  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [filter, setFilter] = useState<MediaFilter>("published");
   const [sortNewest, setSortNewest] = useState(true);
+  const [panic, setPanic] = useState(false);
+  const [panicBusy, setPanicBusy] = useState(false);
 
   const loadMedia = useCallback(async () => {
     setIsLoading(true);
@@ -87,6 +88,49 @@ export function EventMediaManager({
   useEffect(() => {
     void loadMedia();
   }, [loadMedia]);
+
+  useEffect(() => {
+    async function loadPanic() {
+      try {
+        const response = await fetch(`/api/events/${eventId}/panic`);
+        if (!response.ok) return;
+        const json = await response.json();
+        setPanic(Boolean(json.data?.panic));
+      } catch {
+        // optional
+      }
+    }
+    void loadPanic();
+  }, [eventId]);
+
+  async function togglePanic() {
+    const next = !panic;
+    if (next && !window.confirm(tMod("panicConfirm"))) return;
+    setPanicBusy(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/panic`, {
+        method: next ? "POST" : "DELETE",
+      });
+      if (!response.ok) {
+        toast.error(tMod("panicError"));
+        setPanicBusy(false);
+        return;
+      }
+      setPanic(next);
+      toast.success(next ? tMod("panicArmed") : tMod("panicCleared"));
+    } catch {
+      toast.error(tMod("panicError"));
+    }
+    setPanicBusy(false);
+  }
+
+  const retentionLabel = useMemo(() => {
+    if (lifecycle !== "ended" || !mediaPurgeAt) return null;
+    const purgeMs = new Date(mediaPurgeAt).getTime();
+    if (!Number.isFinite(purgeMs)) return null;
+    const daysLeft = Math.max(0, Math.ceil((purgeMs - Date.now()) / (24 * 60 * 60 * 1000)));
+    return t("retentionCountdown", { days: daysLeft });
+  }, [lifecycle, mediaPurgeAt, t]);
 
   const counts = useMemo(() => {
     const published = items.filter(
@@ -150,80 +194,6 @@ export function EventMediaManager({
     }
   }
 
-  async function handleUpload(files: FileList | null) {
-    if (!files?.length) return;
-    const list = Array.from(files);
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadCurrent(0);
-    setUploadTotal(list.length);
-
-    let uploaded = 0;
-    try {
-      for (let i = 0; i < list.length; i++) {
-        setUploadCurrent(i + 1);
-        const formData = new FormData();
-        formData.append("file", list[i]);
-        const json = await uploadWithProgress<{
-          data?: {
-            media?: {
-              id: string;
-              url: string;
-              fileName: string | null;
-              mimeType: string;
-              status: MediaStatus;
-              caption: string | null;
-              createdAt: string;
-            };
-          };
-        }>({
-          url: `/api/events/${eventId}/media`,
-          formData,
-          onProgress: (filePercent) => {
-            const overall = ((i + filePercent / 100) / list.length) * 100;
-            setUploadProgress(Math.min(100, Math.round(overall)));
-          },
-        });
-
-        const media = json?.data?.media;
-        if (!media?.id) {
-          toast.error(t("uploadError"));
-          continue;
-        }
-
-        setItems((prev) => [
-          {
-            id: media.id,
-            url: media.url,
-            fileName: media.fileName,
-            mimeType: media.mimeType,
-            status: media.status,
-            caption: media.caption,
-            createdAt: media.createdAt,
-          },
-          ...prev.filter((item) => item.id !== media.id),
-        ]);
-        uploaded += 1;
-      }
-      setUploadProgress(100);
-      if (uploaded > 0) {
-        if (filter !== "published") {
-          setFilter("published");
-        }
-        toast.success(t("uploadSuccess"));
-        await loadMedia();
-      }
-    } catch {
-      toast.error(t("uploadError"));
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
-      setUploadCurrent(0);
-      setUploadTotal(0);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
   const filters: { id: MediaFilter; label: string; count: number }[] = [
     { id: "published", label: t("published"), count: counts.published },
     { id: "pending", label: t("needApproval"), count: counts.pending },
@@ -267,15 +237,20 @@ export function EventMediaManager({
               {lifecycle === "waiting" ? t("albumWaiting") : t("albumClosed")}
             </p>
           ) : null}
+          {retentionLabel ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">{retentionLabel}</p>
+          ) : null}
+          {lifecycle === "ended" ? (
+            <p className="text-sm text-muted-foreground">{t("downloadAfterEndHint")}</p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
             size="icon"
             className="size-9"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-            aria-label={isUploading ? t("uploading") : t("uploadPhotos")}
-            title={isUploading ? t("uploading") : t("uploadPhotos")}
+            onClick={() => setUploadOpen(true)}
+            aria-label={t("uploadPhotos")}
+            title={t("uploadPhotos")}
           >
             <Upload className="size-4" />
           </Button>
@@ -310,7 +285,25 @@ export function EventMediaManager({
           <Button
             variant="outline"
             size="icon"
-            className="size-9 bg-background"
+            className={cn(
+              "size-9 bg-background",
+              panic && "border-destructive/50 text-destructive",
+            )}
+            disabled={panicBusy}
+            onClick={() => void togglePanic()}
+            aria-label={panic ? tMod("panicClear") : tMod("panicArm")}
+            title={panic ? tMod("panicClear") : tMod("panicArm")}
+          >
+            <ShieldAlert className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size={lifecycle === "ended" ? "default" : "icon"}
+            className={
+              lifecycle === "ended"
+                ? "h-9 gap-2 bg-background px-3"
+                : "size-9 bg-background"
+            }
             onClick={() => {
               window.location.href = `/api/events/${eventId}/media/download`;
             }}
@@ -318,34 +311,62 @@ export function EventMediaManager({
             title={t("downloadAll")}
           >
             <Download className="size-4" />
+            {lifecycle === "ended" ? (
+              <span className="text-sm font-medium">{t("downloadZip")}</span>
+            ) : null}
           </Button>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple
-          className="hidden"
-          onChange={(e) => void handleUpload(e.target.files)}
-        />
       </header>
 
-      {isUploading ? (
-        <div className="dashboard-surface space-y-2 p-4">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <p className="text-muted-foreground">
-              {uploadTotal > 1
-                ? t("uploadProgressCount", {
-                    current: uploadCurrent,
-                    total: uploadTotal,
-                  })
-                : t("uploadProgress", { percent: uploadProgress })}
-            </p>
-            <span className="tabular-nums font-medium text-primary">{uploadProgress}%</span>
-          </div>
-          <Progress value={uploadProgress} className="h-2.5" />
-        </div>
-      ) : null}
+      <MediaUploadModal
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        title={t("uploadPhotos")}
+        mode="multiple"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        upload={{
+          url: `/api/events/${eventId}/media`,
+          buildFormData: (file) => {
+            const formData = new FormData();
+            formData.append("file", file);
+            return formData;
+          },
+        }}
+        onSuccess={async ({ files }) => {
+          for (const entry of files) {
+            const media = (
+              entry.response as {
+                data?: {
+                  media?: {
+                    id: string;
+                    url: string;
+                    fileName: string | null;
+                    mimeType: string;
+                    status: MediaStatus;
+                    caption: string | null;
+                    createdAt: string;
+                  };
+                };
+              }
+            )?.data?.media;
+            if (!media?.id) continue;
+            setItems((prev) => [
+              {
+                id: media.id,
+                url: media.url,
+                fileName: media.fileName,
+                mimeType: media.mimeType,
+                status: media.status,
+                caption: media.caption,
+                createdAt: media.createdAt,
+              },
+              ...prev.filter((item) => item.id !== media.id),
+            ]);
+          }
+          if (filter !== "published") setFilter("published");
+          await loadMedia();
+        }}
+      />
 
       <section className="dashboard-surface flex flex-wrap items-center gap-4 p-4 sm:p-5">
         <div
@@ -432,8 +453,32 @@ export function EventMediaManager({
               className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm"
             >
               <div className="relative aspect-square bg-muted">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.url} alt={item.caption ?? item.fileName ?? ""} className="h-full w-full object-cover" />
+                {item.mimeType?.startsWith("video/") ? (
+                  item.thumbnailUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.thumbnailUrl}
+                      alt={item.caption ?? item.fileName ?? ""}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    // eslint-disable-next-line jsx-a11y/media-has-caption
+                    <video
+                      src={item.url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                  )
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.url}
+                    alt={item.caption ?? item.fileName ?? ""}
+                    className="h-full w-full object-cover"
+                  />
+                )}
               </div>
               <div className="flex flex-wrap gap-1 p-2">
                 {item.status === MediaStatus.PENDING ? (

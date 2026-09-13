@@ -34,15 +34,9 @@ export function EventHomeShare({
   const tHub = useTranslations("events.mediaHub");
   const sectionId = useId();
   const [uploadCode, setUploadCode] = useState<QrCodeItem | null>(null);
-  const waiting = lifecycle === "waiting";
-  const [isLoading, setIsLoading] = useState(!waiting);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadQrCodes = useCallback(async () => {
-    if (waiting) {
-      setUploadCode(null);
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     try {
       const response = await fetch(`/api/events/${eventId}/qr`);
@@ -55,7 +49,7 @@ export function EventHomeShare({
       toast.error(tHub("loadError"));
     }
     setIsLoading(false);
-  }, [waiting, eventId, tHub]);
+  }, [eventId, tHub]);
 
   useEffect(() => {
     void loadQrCodes();
@@ -82,36 +76,19 @@ export function EventHomeShare({
     }
   }
 
-  if (waiting) {
-    return (
-      <section id="share-with-guests" aria-labelledby={sectionId} className="dashboard-section">
-        <div className="dashboard-surface p-5 sm:p-6">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {t("lifecycleWaiting")}
-            </p>
-            <h2 id={sectionId} className="text-lg font-semibold tracking-tight text-foreground">
-              {t("shareWaitingTitle")}
-            </h2>
-            <p className="text-sm text-muted-foreground">{t("shareWaitingSubtitle")}</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section id="share-with-guests" aria-labelledby={sectionId} className="dashboard-section">
-      <div className="dashboard-surface p-5 sm:p-6">
+    <section id="share-with-guests" aria-labelledby={sectionId} className="space-y-4">
+      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5 sm:p-6">
         <div className="mb-5 space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-            {t("shareStepLabel")}
-          </p>
-          <h2 id={sectionId} className="text-lg font-semibold tracking-tight text-foreground">
+          <h2 id={sectionId} className="text-sm font-semibold tracking-tight text-foreground">
             {t("shareTitle")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {lifecycle === "ended" ? t("shareEndedSubtitle") : t("shareSubtitle")}
+            {lifecycle === "ended"
+              ? t("shareEndedSubtitle")
+              : lifecycle === "waiting"
+                ? t("shareWaitingReadySubtitle")
+                : t("shareSubtitle")}
           </p>
         </div>
 
@@ -184,9 +161,9 @@ export function EventHomeShare({
                 return (
                   <li
                     key={step.label}
-                    className="flex items-start gap-2.5 rounded-lg bg-muted/40 px-3 py-2.5"
+                    className="flex items-start gap-2.5 rounded-md border border-white/10 px-3 py-2.5"
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background text-primary shadow-sm">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-primary">
                       <Icon className="h-3.5 w-3.5" />
                     </span>
                     <div className="min-w-0 pt-0.5">

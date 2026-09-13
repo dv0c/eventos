@@ -18,8 +18,8 @@ import {
 } from "@/server/plans/default-plans";
 
 function personalOrgName(displayName: string | null | undefined, email: string): string {
-  const base = displayName?.trim() || email.split("@")[0] || "My";
-  return `${base}'s workspace`;
+  const base = displayName?.trim() || email.split("@")[0] || "My Workspace";
+  return base;
 }
 
 export const platformOrgService = {

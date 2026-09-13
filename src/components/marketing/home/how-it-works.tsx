@@ -1,128 +1,250 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
-import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 import {
-  AlbumDesktopMockup,
   AlbumPhoneMockup,
   LiveWallMockup,
   QrShareMockup,
 } from "./product-mockups";
-import { Reveal, SectionShell } from "./reveal";
+import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
+
+const STEP_KEYS = ["step1", "step2", "step3"] as const;
+
+function StepCopy({
+  index,
+  title,
+  desc,
+  showCta,
+  ctaLabel,
+}: {
+  index: number;
+  title: string;
+  desc: string;
+  showCta?: boolean;
+  ctaLabel: string;
+}) {
+  return (
+    <div>
+      <p className="text-sm text-white/40">{String(index + 1).padStart(2, "0")}</p>
+      <h3
+        className={cn(
+          marketingDisplayClass,
+          "mt-3 text-3xl leading-tight sm:text-4xl",
+        )}
+      >
+        {title}
+      </h3>
+      <p className="mt-4 max-w-[38ch] text-base leading-relaxed text-white/55 sm:text-lg">
+        {desc}
+      </p>
+      {showCta ? (
+        <Link
+          href="/register"
+          className="mt-8 inline-flex text-[15px] font-semibold text-accent underline-offset-4 transition-colors hover:underline"
+        >
+          {ctaLabel}
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function StickyVisualColumn({
+  visuals,
+  titles,
+  descs,
+  ctaLabel,
+}: {
+  visuals: ReactNode[];
+  titles: string[];
+  descs: string[];
+  ctaLabel: string;
+}) {
+  const [active, setActive] = useState(0);
+  const stepRefs = useRef<(HTMLElement | null)[]>([]);
+
+  useEffect(() => {
+    const nodes = stepRefs.current.filter(Boolean) as HTMLElement[];
+    if (nodes.length === 0) return;
+
+    const ratios = new Map<Element, number>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          ratios.set(entry.target, entry.intersectionRatio);
+        }
+        let bestIndex = 0;
+        let bestRatio = -1;
+        nodes.forEach((node, i) => {
+          const ratio = ratios.get(node) ?? 0;
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            bestIndex = i;
+          }
+        });
+        setActive((prev) => (prev === bestIndex ? prev : bestIndex));
+      },
+      {
+        root: null,
+        // Bias toward the middle of the viewport where sticky visual sits
+        rootMargin: "-30% 0px -40% 0px",
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+      },
+    );
+
+    for (const node of nodes) observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className="mt-20 grid grid-cols-2 items-start gap-12 xl:gap-16">
+      <div className="sticky top-24 self-start">
+        <div className="relative mx-auto h-[min(480px,58svh)] w-full max-w-md">
+          {visuals.map((visual, i) => (
+            <motion.div
+              key={STEP_KEYS[i]}
+              className="absolute inset-0 flex items-center justify-center"
+              initial={false}
+              animate={{ opacity: active === i ? 1 : 0 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              aria-hidden={active !== i}
+            >
+              {visual}
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-36 pb-8 pt-4 xl:space-y-44">
+        {STEP_KEYS.map((key, i) => (
+          <article
+            key={key}
+            ref={(el) => {
+              stepRefs.current[i] = el;
+            }}
+            className="min-h-[40svh]"
+          >
+            <StepCopy
+              index={i}
+              title={titles[i]}
+              desc={descs[i]}
+              showCta={i === 2}
+              ctaLabel={ctaLabel}
+            />
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StackedSteps({
+  visuals,
+  titles,
+  descs,
+  ctaLabel,
+}: {
+  visuals: ReactNode[];
+  titles: string[];
+  descs: string[];
+  ctaLabel: string;
+}) {
+  return (
+    <div className="mt-16 space-y-24 sm:mt-20 sm:space-y-28">
+      {STEP_KEYS.map((key, i) => (
+        <div key={key} className="grid items-center gap-10 md:grid-cols-2 md:gap-12">
+          <Reveal delay={0.04}>{visuals[i]}</Reveal>
+          <Reveal delay={0.08}>
+            <StepCopy
+              index={i}
+              title={titles[i]}
+              desc={descs[i]}
+              showCta={i === 2}
+              ctaLabel={ctaLabel}
+            />
+          </Reveal>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function HomeHowItWorks() {
   const t = useTranslations("marketing.home");
+  const reduce = useReducedMotion();
+
+  const visuals = [
+    <AlbumPhoneMockup key="phone" />,
+    <QrShareMockup
+      key="qr"
+      className="rounded-md border border-white/10 bg-black/25 shadow-none backdrop-blur-none"
+    />,
+    <LiveWallMockup
+      key="wall"
+      className="w-full rounded-md border-white/10 shadow-none"
+    />,
+  ];
+
+  const titles = STEP_KEYS.map((key) => t(`how.${key}.title`));
+  const descs = STEP_KEYS.map((key) => t(`how.${key}.desc`));
+  const ctaLabel = t("how.step1.cta");
 
   return (
-    <section id="how-it-works" className="border-y border-white/10 bg-black/20 py-20 sm:py-28">
+    <section id="how-it-works" className="py-24 sm:py-32">
       <SectionShell>
-        <Reveal className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("howTitle")}</h2>
-          <p className="mt-3 text-muted-foreground sm:text-lg">{t("howSubtitle")}</p>
+        <Reveal className="max-w-2xl">
+          <h2
+            className={cn(
+              marketingDisplayClass,
+              "text-[clamp(2rem,3.5vw,3.25rem)] leading-[1.1]",
+            )}
+          >
+            {t("howTitle")}
+          </h2>
+          <p className="mt-4 max-w-[40ch] text-base leading-relaxed text-white/55 sm:text-lg">
+            {t("howSubtitle")}
+          </p>
         </Reveal>
 
-        <div className="mt-16 space-y-24">
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-            <Reveal>
-              <p className="text-sm font-semibold uppercase tracking-wider text-accent">
-                {t("how.step1.label")}
-              </p>
-              <h3 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                {t("how.step1.title")}
-              </h3>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                {t("how.step1.desc")}
-              </p>
-              <Button variant="gold" className="mt-6 rounded-xl" asChild>
-                <Link href="/register">{t("how.step1.cta")}</Link>
-              </Button>
-            </Reveal>
-            <Reveal delay={0.1}>
-              <AlbumPhoneMockup />
-            </Reveal>
-          </div>
-
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-            <Reveal className="order-2 lg:order-1">
-              <QrShareMockup />
-            </Reveal>
-            <Reveal delay={0.1} className="order-1 lg:order-2">
-              <p className="text-sm font-semibold uppercase tracking-wider text-accent">
-                {t("how.step2.label")}
-              </p>
-              <h3 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                {t("how.step2.title")}
-              </h3>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                {t("how.step2.desc")}
-              </p>
-              <ul className="mt-5 space-y-2.5">
-                {(["link", "qr", "noApp"] as const).map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2.5 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                    <span>{t(`how.step2.bullets.${bullet}`)}</span>
-                  </li>
-                ))}
-              </ul>
-            </Reveal>
-          </div>
-
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-            <Reveal>
-              <p className="text-sm font-semibold uppercase tracking-wider text-accent">
-                {t("how.step3.label")}
-              </p>
-              <h3 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                {t("how.step3.title")}
-              </h3>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                {t("how.step3.desc")}
-              </p>
-              <Button
-                variant="outline"
-                className="mt-6 rounded-xl border-white/20 bg-black/35 backdrop-blur-sm"
-                asChild
-              >
-                <Link href="/features">{t("how.step3.cta")}</Link>
-              </Button>
-            </Reveal>
-            <Reveal delay={0.1}>
-              <LiveWallMockup />
-            </Reveal>
-          </div>
-
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-            <Reveal className="order-2 lg:order-1">
-              <AlbumDesktopMockup />
-            </Reveal>
-            <Reveal delay={0.1} className="order-1 lg:order-2">
-              <p className="text-sm font-semibold uppercase tracking-wider text-accent">
-                {t("how.step4.label")}
-              </p>
-              <h3 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                {t("how.step4.title")}
-              </h3>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                {t("how.step4.desc")}
-              </p>
-              <ul className="mt-5 space-y-2.5">
-                {(["album", "download"] as const).map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2.5 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                    <span>{t(`how.step4.bullets.${bullet}`)}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button variant="gold" className="mt-6 rounded-xl" asChild>
-                <Link href="/register">{t("how.step4.cta")}</Link>
-              </Button>
-            </Reveal>
-          </div>
-        </div>
+        {reduce ? (
+          <StackedSteps
+            visuals={visuals}
+            titles={titles}
+            descs={descs}
+            ctaLabel={ctaLabel}
+          />
+        ) : (
+          <>
+            <div className="lg:hidden">
+              <StackedSteps
+                visuals={visuals}
+                titles={titles}
+                descs={descs}
+                ctaLabel={ctaLabel}
+              />
+            </div>
+            <div className="hidden lg:block">
+              <StickyVisualColumn
+                visuals={visuals}
+                titles={titles}
+                descs={descs}
+                ctaLabel={ctaLabel}
+              />
+            </div>
+          </>
+        )}
       </SectionShell>
     </section>
   );

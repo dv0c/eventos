@@ -5,9 +5,12 @@ import {
   getEventEndAt,
   getEventLifecycle,
   getEventStartAt,
+  getMediaPurgeAt,
   isEventEnded,
   isEventWaiting,
   isGuestPhotoUploadAllowed,
+  isMediaRetentionExpired,
+  MEDIA_RETENTION_DAYS,
   zonedWallTimeToUtc,
 } from "@/server/events/event-ended";
 
@@ -165,7 +168,37 @@ describe("isEventEnded", () => {
     ).toBe(true);
   });
 
-  it("rolls overnight endTime to the next calendar day when after startTime", () => {
+  it("returns false before endDate even when start date has passed", () => {
+    const date = utcDate(2026, 8, 7);
+    const endDate = utcDate(2026, 8, 17);
+    // Sep 8 noon UTC — still before Sep 17 end
+    vi.setSystemTime(new Date("2026-09-08T12:00:00.000Z"));
+    expect(
+      isEventEnded({
+        status: EventStatus.ACTIVE,
+        date,
+        endDate,
+        endTime: "23:59",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true after endDate + Athens endTime", () => {
+    const date = utcDate(2026, 8, 7);
+    const endDate = utcDate(2026, 8, 17);
+    // 23:59 Athens on Sep 17 = 20:59 UTC
+    vi.setSystemTime(new Date("2026-09-17T20:59:00.001Z"));
+    expect(
+      isEventEnded({
+        status: EventStatus.ACTIVE,
+        date,
+        endDate,
+        endTime: "23:59",
+      }),
+    ).toBe(true);
+  });
+
+  it("rolls overnight endTime to the next calendar day when endDate is unset", () => {
     const date = utcDate(2026, 8, 7);
     const end = getEventEndAt({
       date,
@@ -194,6 +227,19 @@ describe("isEventEnded", () => {
         endTime: "02:00",
       }),
     ).toBe(true);
+  });
+
+  it("does not overnight-roll when endDate is explicitly set", () => {
+    const date = utcDate(2026, 8, 7);
+    const endDate = utcDate(2026, 8, 7);
+    const end = getEventEndAt({
+      date,
+      endDate,
+      startTime: "20:00",
+      endTime: "02:00",
+    });
+    // Uses endDate day as-is: 02:00 Athens Sep 7 = 23:00 UTC Sep 6
+    expect(end.toISOString()).toBe("2026-09-06T23:00:00.000Z");
   });
 });
 
@@ -274,7 +320,7 @@ describe("getEventLifecycle", () => {
   });
 });
 
-describe("isEventWaiting / isGuestPhotoUploadAllowed", () => {
+describe("guest photo upload gate", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -323,6 +369,51 @@ describe("isEventWaiting / isGuestPhotoUploadAllowed", () => {
   });
 });
 
+describe("media retention", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sets purge date MEDIA_RETENTION_DAYS after Athens end", () => {
+    const date = utcDate(2026, 8, 7);
+    const purgeAt = getMediaPurgeAt({ date, endTime: "18:00" });
+    // 18:00 Athens = 15:00 UTC
+    const endAt = new Date("2026-09-07T15:00:00.000Z");
+    const expected = new Date(
+      endAt.getTime() + MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    expect(purgeAt.getTime()).toBe(expected.getTime());
+  });
+
+  it("is not expired within the retention window", () => {
+    const date = utcDate(2026, 8, 7);
+    vi.setSystemTime(new Date("2026-09-10T12:00:00.000Z"));
+    expect(
+      isMediaRetentionExpired({
+        status: EventStatus.COMPLETED,
+        date,
+        endTime: "18:00",
+      }),
+    ).toBe(false);
+  });
+
+  it("is expired after the retention window", () => {
+    const date = utcDate(2026, 8, 7);
+    vi.setSystemTime(new Date("2026-11-20T12:00:00.000Z"));
+    expect(
+      isMediaRetentionExpired({
+        status: EventStatus.ACTIVE,
+        date,
+        endTime: "18:00",
+      }),
+    ).toBe(true);
+  });
+});
+
 describe("getEventStartAt / getEventEndAt", () => {
   it("builds Athens start from UTC-midnight calendar date", () => {
     const start = getEventStartAt({
@@ -338,5 +429,14 @@ describe("getEventStartAt / getEventEndAt", () => {
       endTime: "23:00",
     });
     expect(end.toISOString()).toBe("2026-09-07T20:00:00.000Z");
+  });
+
+  it("uses endDate calendar day for Athens end", () => {
+    const end = getEventEndAt({
+      date: utcDate(2026, 8, 7),
+      endDate: utcDate(2026, 8, 17),
+      endTime: "18:00",
+    });
+    expect(end.toISOString()).toBe("2026-09-17T15:00:00.000Z");
   });
 });

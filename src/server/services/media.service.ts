@@ -93,49 +93,56 @@ interface EventSections {
 }
 
 async function getEventByUploadToken(uploadToken: string) {
-  const events = await prisma.event.findMany({
-    where: { deletedAt: null },
+  const settings = await prisma.eventSettings.findFirst({
+    where: {
+      sections: {
+        path: ["mediaUploadToken"],
+        equals: uploadToken,
+      },
+    },
     include: {
-      settings: true,
-      theme: true,
-      organization: { select: { logoUrl: true } },
+      event: {
+        include: {
+          theme: true,
+          organization: { select: { logoUrl: true } },
+        },
+      },
     },
   });
 
-  return events.find((event) => {
-    const sections = (event.settings?.sections ?? {}) as EventSections;
-    return sections.mediaUploadToken === uploadToken;
-  });
+  if (!settings?.event || settings.event.deletedAt) {
+    return null;
+  }
+
+  return { ...settings.event, settings };
 }
 
 async function assertGuestPhotoUploadAllowed(event: {
   id: string;
   status: EventStatus;
   date: Date;
+  endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
 }) {
   if (!isGuestPhotoUploadAllowed(event)) {
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
+      throw new MediaServiceError("Event has ended", 403, "EVENT_ENDED");
+    }
     throw new MediaServiceError(
       "Event has not started yet",
       403,
       "EVENT_NOT_STARTED",
     );
   }
-
-  if (isEventEnded(event)) {
-    await revokeGuestConnectIfEnded(event.id);
-  }
 }
 
+/** Ensures an album upload token exists. Does not require the event to have started. */
 async function ensureUploadToken(eventId: string): Promise<string> {
   const event = await prisma.event.findFirst({
     where: { id: eventId, deletedAt: null },
     select: {
-      status: true,
-      date: true,
-      startTime: true,
-      endTime: true,
       settings: true,
     },
   });
@@ -143,8 +150,6 @@ async function ensureUploadToken(eventId: string): Promise<string> {
   if (!event?.settings) {
     throw new MediaServiceError("Event settings not found", 404, "SETTINGS_NOT_FOUND");
   }
-
-  await assertGuestPhotoUploadAllowed({ id: eventId, ...event });
 
   const sections = (event.settings.sections ?? {}) as EventSections;
 
@@ -206,6 +211,7 @@ export const mediaService = {
     uploadedBy?: string,
     challengeId?: string | null,
     durationMs?: number | null,
+    thumbnail?: File | null,
   ) {
     const event = await getEventByUploadToken(uploadToken);
 
@@ -263,17 +269,50 @@ export const mediaService = {
     const storage = getStorageProvider();
     const storedKey = await storage.upload(storageKey, buffer, { contentType });
 
+    let thumbnailKey: string | null = null;
+    if (isVideo && thumbnail && ALLOWED_IMAGE_TYPES.includes(thumbnail.type)) {
+      if (thumbnail.size <= MAX_IMAGE_SIZE) {
+        const thumbRaw = Buffer.from(await thumbnail.arrayBuffer());
+        const oriented = await autoOrientImageBuffer(thumbRaw, thumbnail.type);
+        const thumbExt =
+          oriented.contentType === "image/png"
+            ? "png"
+            : oriented.contentType === "image/webp"
+              ? "webp"
+              : "jpg";
+        const thumbStorageKey = `media/${event.slug}/${mediaId}.poster.${thumbExt}`;
+        thumbnailKey = await storage.upload(thumbStorageKey, oriented.buffer, {
+          contentType: oriented.contentType,
+        });
+      }
+    }
+
     const requireManualApproval = event.settings?.requireManualApproval ?? false;
-    const normalizedChallenge =
-      challengeId && isAlbumChallengeId(challengeId.trim())
-        ? challengeId.trim()
-        : null;
+    const rawChallenge = challengeId?.trim() || null;
+    let normalizedChallenge: string | null = null;
+    if (rawChallenge) {
+      const enabledGames = await prisma.eventGame.findMany({
+        where: { eventId: event.id, enabled: true },
+        select: { id: true, presetKey: true },
+      });
+      if (enabledGames.length > 0) {
+        const matched = enabledGames.find(
+          (game) => game.id === rawChallenge || game.presetKey === rawChallenge,
+        );
+        if (matched) {
+          normalizedChallenge = matched.presetKey ?? matched.id;
+        }
+      } else if (isAlbumChallengeId(rawChallenge)) {
+        normalizedChallenge = rawChallenge;
+      }
+    }
 
     const media = await prisma.media.create({
       data: {
         eventId: event.id,
         uploadToken: nanoid(21),
         storageKey: storedKey,
+        thumbnailKey,
         mimeType: contentType,
         fileName: file.name,
         fileSize: buffer.length,
@@ -383,6 +422,9 @@ export const mediaService = {
     return items.map((item) => ({
       ...item,
       url: storage.getPublicUrl(item.storageKey),
+      thumbnailUrl: item.thumbnailKey
+        ? storage.getPublicUrl(item.thumbnailKey)
+        : null,
     }));
   },
 
@@ -471,6 +513,13 @@ export const mediaService = {
     } catch {
       // Storage miss or transient failure — still remove DB row so the UI stays consistent.
     }
+    if (media.thumbnailKey) {
+      try {
+        await storage.delete(media.thumbnailKey);
+      } catch {
+        // ignore
+      }
+    }
 
     await prisma.media.delete({ where: { id: mediaId } });
 
@@ -490,6 +539,10 @@ export const mediaService = {
     const event = await eventRepository.findBySlugPublic(eventSlug);
 
     if (!event?.settings?.enableWall) {
+      return [];
+    }
+
+    if (event.mediaPanicAt) {
       return [];
     }
 
@@ -518,6 +571,9 @@ export const mediaService = {
     return items.map((item) => ({
       id: item.id,
       url: storage.getPublicUrl(item.storageKey),
+      thumbnailUrl: item.thumbnailKey
+        ? storage.getPublicUrl(item.thumbnailKey)
+        : null,
       caption: item.caption,
       uploadedBy: item.uploadedBy,
       isFeatured: item.isFeatured,
@@ -527,10 +583,42 @@ export const mediaService = {
     }));
   },
 
+  async getWallRemovedMediaIds(eventSlug: string, since: Date): Promise<string[]> {
+    const event = await eventRepository.findBySlugPublic(eventSlug);
+    if (!event?.settings?.enableWall) {
+      return [];
+    }
+
+    if (isEventEnded(event)) {
+      return [];
+    }
+
+    const items = await prisma.media.findMany({
+      where: {
+        eventId: event.id,
+        status: MediaStatus.REJECTED,
+        updatedAt: { gt: since },
+      },
+      select: { id: true },
+      take: 100,
+    });
+
+    return items.map((item) => item.id);
+  },
+
   async getAllWallMedia(eventSlug: string) {
     const event = await eventRepository.findBySlugPublic(eventSlug);
 
     if (!event?.settings?.enableWall) {
+      return [];
+    }
+
+    if (event.mediaPanicAt) {
+      return [];
+    }
+
+    if (isEventEnded(event)) {
+      await revokeGuestConnectIfEnded(event.id);
       return [];
     }
 
@@ -553,6 +641,9 @@ export const mediaService = {
     return items.map((item) => ({
       id: item.id,
       url: storage.getPublicUrl(item.storageKey),
+      thumbnailUrl: item.thumbnailKey
+        ? storage.getPublicUrl(item.thumbnailKey)
+        : null,
       caption: item.caption,
       uploadedBy: item.uploadedBy,
       isFeatured: item.isFeatured,
@@ -566,7 +657,11 @@ export const mediaService = {
     const event = await eventRepository.findBySlugPublic(eventSlug);
 
     if (!event?.settings?.enableWall) {
-      return [];
+      return { events: [], countsByMedia: {} as Record<string, Record<string, number>>, latestCreatedAt: null as Date | null };
+    }
+
+    if (isEventEnded(event)) {
+      return { events: [], countsByMedia: {} as Record<string, Record<string, number>>, latestCreatedAt: null as Date | null };
     }
 
     const items = await prisma.mediaReaction.findMany({
@@ -578,18 +673,82 @@ export const mediaService = {
       take: 50,
     });
 
-    return items.map((item) => ({
-      type: "reaction" as const,
-      id: item.id,
-      mediaId: item.mediaId,
-      emoji: item.emoji,
-      createdAt: item.createdAt.toISOString(),
-    }));
+    const mediaIds = [...new Set(items.map((item) => item.mediaId))];
+    const countsByMedia: Record<string, Record<string, number>> = {};
+
+    if (mediaIds.length > 0) {
+      const grouped = await prisma.mediaReaction.groupBy({
+        by: ["mediaId", "emoji"],
+        where: {
+          eventId: event.id,
+          mediaId: { in: mediaIds },
+        },
+        _count: { _all: true },
+      });
+
+      for (const row of grouped) {
+        if (!countsByMedia[row.mediaId]) {
+          countsByMedia[row.mediaId] = {};
+        }
+        countsByMedia[row.mediaId]![row.emoji] = row._count._all;
+      }
+
+      // Ensure touched media include zeroed known emojis when all reactions removed
+      for (const mediaId of mediaIds) {
+        if (!countsByMedia[mediaId]) {
+          countsByMedia[mediaId] = {};
+        }
+      }
+    }
+
+    return {
+      events: items.map((item) => ({
+        type: "reaction" as const,
+        id: item.id,
+        mediaId: item.mediaId,
+        emoji: item.emoji,
+        createdAt: item.createdAt.toISOString(),
+      })),
+      countsByMedia,
+      latestCreatedAt: items.length > 0 ? items[items.length - 1]!.createdAt : null,
+    };
   },
 
-  async addAlbumReaction(albumToken: string, mediaId: string, emoji: string) {
+  async getWallReactionCountMap(eventSlug: string) {
+    const event = await eventRepository.findBySlugPublic(eventSlug);
+    if (!event?.settings?.enableWall || isEventEnded(event)) {
+      return {} as Record<string, Record<string, number>>;
+    }
+
+    const grouped = await prisma.mediaReaction.groupBy({
+      by: ["mediaId", "emoji"],
+      where: { eventId: event.id },
+      _count: { _all: true },
+    });
+
+    const countsByMedia: Record<string, Record<string, number>> = {};
+    for (const row of grouped) {
+      if (!countsByMedia[row.mediaId]) {
+        countsByMedia[row.mediaId] = {};
+      }
+      countsByMedia[row.mediaId]![row.emoji] = row._count._all;
+    }
+    return countsByMedia;
+  },
+
+  async addAlbumReaction(
+    albumToken: string,
+    mediaId: string,
+    emoji: string,
+    reactorKey: string,
+  ) {
     if (!WALL_REACTION_EMOJIS.includes(emoji as (typeof WALL_REACTION_EMOJIS)[number])) {
       throw new MediaServiceError("Invalid reaction emoji", 400, "INVALID_EMOJI");
+    }
+
+    const key = reactorKey.trim();
+    if (!key || key.length > 128) {
+      throw new MediaServiceError("Invalid reactor", 400, "INVALID_REACTOR");
     }
 
     const event = await getEventByUploadToken(albumToken);
@@ -597,8 +756,6 @@ export const mediaService = {
     if (!event?.settings || event.settings.isPublic !== true) {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
-
-    await assertGuestPhotoUploadAllowed(event);
 
     const moderation = getModerationFromSections(event.settings.sections);
     const wall = getWallSettingsFromSections(event.settings.sections);
@@ -623,11 +780,30 @@ export const mediaService = {
       throw new MediaServiceError("Media not found", 404, "MEDIA_NOT_FOUND");
     }
 
+    const existing = await prisma.mediaReaction.findUnique({
+      where: {
+        mediaId_reactorKey_emoji: { mediaId, reactorKey: key, emoji },
+      },
+    });
+
+    if (existing) {
+      await prisma.mediaReaction.delete({ where: { id: existing.id } });
+      return {
+        type: "reaction" as const,
+        id: existing.id,
+        mediaId,
+        emoji,
+        createdAt: existing.createdAt.toISOString(),
+        removed: true as const,
+      };
+    }
+
     const reaction = await prisma.mediaReaction.create({
       data: {
         mediaId,
         eventId: event.id,
         emoji,
+        reactorKey: key,
       },
     });
 
@@ -647,7 +823,7 @@ export const mediaService = {
       throw new MediaServiceError("Event not found", 404, "EVENT_NOT_FOUND");
     }
     const token = await ensureUploadToken(event.id);
-    return this.addAlbumReaction(token, mediaId, emoji);
+    return this.addAlbumReaction(token, mediaId, emoji, `legacy-${eventSlug}`);
   },
 
   async getAlbumAccessByToken(albumToken: string) {
@@ -657,16 +833,13 @@ export const mediaService = {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
-    await assertGuestPhotoUploadAllowed(event);
-
     const moderation = getModerationFromSections(event.settings.sections);
-
-    if (moderation.albumPermission === "upload_only") {
-      throw new MediaServiceError("Album viewing is disabled", 404, "ALBUM_VIEW_DISABLED");
-    }
-
+    const waiting = isEventWaiting(event);
     const canUpload =
-      event.settings.enableGallery && moderation.albumPermission !== "view_only";
+      isGuestPhotoUploadAllowed(event) &&
+      event.settings.enableGallery &&
+      moderation.albumPermission !== "view_only";
+    const canView = moderation.albumPermission !== "upload_only";
 
     return {
       albumToken,
@@ -675,6 +848,9 @@ export const mediaService = {
       eventName: event.name,
       uploadToken: canUpload ? albumToken : null,
       canUpload,
+      canView,
+      albumPermission: moderation.albumPermission,
+      waiting,
     };
   },
 
@@ -685,36 +861,96 @@ export const mediaService = {
       throw new MediaServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
-    await assertGuestPhotoUploadAllowed(event);
-
     const moderation = getModerationFromSections(event.settings.sections);
     const wall = getWallSettingsFromSections(event.settings.sections);
     const appearance = getAppearanceFromSections(event.settings.sections);
 
-    if (moderation.albumPermission === "upload_only") {
-      throw new MediaServiceError("Album viewing is disabled", 404, "ALBUM_VIEW_DISABLED");
+    const uploadOnly = moderation.albumPermission === "upload_only";
+    const waiting = isEventWaiting(event);
+    const panic = Boolean(event.mediaPanicAt);
+    const canUpload =
+      isGuestPhotoUploadAllowed(event) &&
+      !panic &&
+      event.settings.enableGallery &&
+      moderation.albumPermission !== "view_only";
+
+    // Upload-only: allow a minimal payload so the guest upload shell can load
+    // without exposing the gallery feed.
+    if (uploadOnly) {
+      return {
+        eventName: event.name,
+        canUpload,
+        waiting,
+        enableVoiceWishes: false,
+        enableSongRequests: false,
+        reactionsEnabled: false,
+        disableGuestDownload: true,
+        uploadToken: canUpload ? albumToken : null,
+        takenNames: [] as string[],
+        allowPhotos: moderation.allowPhotos,
+        allowVideos: moderation.allowVideos,
+        appearance: {
+          displayLanguage: appearance.displayLanguage,
+          welcomeScreenEnabled: appearance.welcomeScreenEnabled,
+          welcomeScreenTitle: appearance.welcomeScreenTitle,
+          welcomeScreenMessage: appearance.welcomeScreenMessage,
+          removeBranding: appearance.removeBranding,
+          captionTheme: appearance.captionTheme,
+        },
+        theme: {
+          primaryColor: event.theme?.primaryColor ?? "#C4A574",
+          secondaryColor: event.theme?.secondaryColor ?? "#F59E0B",
+          accentColor: event.theme?.accentColor ?? "#E8C9A0",
+          logoUrl: event.theme?.logoUrl ?? null,
+          albumBackgroundUrl: null as string | null,
+          coverImageUrl: null as string | null,
+        },
+        branding: {
+          watermarkUrl: event.organization?.logoUrl ?? null,
+        },
+        games: [] as Array<{
+          id: string;
+          title: string;
+          description: string | null;
+          presetKey: string | null;
+          mode: "photo" | "collage";
+          coverImage: string | null;
+          fields: unknown;
+        }>,
+        items: [] as Array<{
+          id: string;
+          url: string;
+          thumbnailUrl: string | null;
+          caption: string | null;
+          uploadedBy: string | null;
+          mimeType: string;
+          challengeId: string | null;
+          createdAt: string;
+          reactionCounts: Record<string, number>;
+        }>,
+        uploadOnly: true as const,
+      };
     }
 
     const reactionsEnabled = !moderation.disableLikes && !wall.hideLikes;
-    const canUpload =
-      event.settings.enableGallery && moderation.albumPermission !== "view_only";
-
     const storage = getStorageProvider();
 
-    const [items, takenNameRows] = await Promise.all([
-      prisma.media.findMany({
-        where: {
-          eventId: event.id,
-          status: { in: [MediaStatus.APPROVED, MediaStatus.FEATURED] },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 100,
-        include: {
-          reactions: {
-            select: { emoji: true },
-          },
-        },
-      }),
+    const [items, takenNameRows, games] = await Promise.all([
+      panic
+        ? Promise.resolve([])
+        : prisma.media.findMany({
+            where: {
+              eventId: event.id,
+              status: { in: [MediaStatus.APPROVED, MediaStatus.FEATURED] },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 100,
+            include: {
+              reactions: {
+                select: { emoji: true },
+              },
+            },
+          }),
       prisma.media.findMany({
         where: {
           eventId: event.id,
@@ -724,15 +960,25 @@ export const mediaService = {
         select: { uploadedBy: true },
         distinct: ["uploadedBy"],
       }),
+      prisma.eventGame.findMany({
+        where: { eventId: event.id, enabled: true },
+        orderBy: { sortOrder: "asc" },
+      }),
     ]);
 
     const takenNames = takenNameRows
       .map((row) => row.uploadedBy?.trim())
       .filter((name): name is string => Boolean(name));
 
+    const coverImageUrl = event.theme?.coverImageKey
+      ? storage.getPublicUrl(event.theme.coverImageKey)
+      : null;
+
     return {
       eventName: event.name,
       canUpload,
+      waiting,
+      panic,
       enableVoiceWishes: event.settings.enableVoiceWishes ?? true,
       enableSongRequests: event.settings.enableSongRequests ?? true,
       reactionsEnabled,
@@ -750,16 +996,32 @@ export const mediaService = {
         captionTheme: appearance.captionTheme,
       },
       theme: {
-        primaryColor: event.theme?.primaryColor ?? "#8B5CF6",
+        primaryColor: event.theme?.primaryColor ?? "#C4A574",
+        secondaryColor: event.theme?.secondaryColor ?? "#F59E0B",
+        accentColor: event.theme?.accentColor ?? "#E8C9A0",
         logoUrl: event.theme?.logoUrl ?? null,
-        albumBackgroundUrl: event.theme?.albumBackgroundUrl ?? null,
+        albumBackgroundUrl: event.theme?.albumBackgroundUrl ?? coverImageUrl,
+        coverImageUrl,
       },
       branding: {
         watermarkUrl: event.organization?.logoUrl ?? null,
       },
+      games: games.map((game) => ({
+        id: game.id,
+        title: game.title,
+        description: game.description,
+        presetKey: game.presetKey,
+        mode:
+          game.mode === "collage" || game.presetKey === "collage" ? ("collage" as const) : ("photo" as const),
+        coverImage: game.coverImage,
+        fields: game.fields,
+      })),
       items: items.map((item) => ({
         id: item.id,
         url: storage.getPublicUrl(item.storageKey),
+        thumbnailUrl: item.thumbnailKey
+          ? storage.getPublicUrl(item.thumbnailKey)
+          : null,
         caption: item.caption,
         uploadedBy: item.uploadedBy,
         mimeType: item.mimeType,

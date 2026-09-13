@@ -19,6 +19,7 @@ import {
   UploadWithProgressError,
   uploadWithProgress,
 } from "@/lib/upload-with-progress";
+import { captureVideoPoster } from "@/lib/video-poster";
 import { cn } from "@/lib/utils";
 
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
@@ -32,7 +33,10 @@ interface PublicUploadFormProps {
   hideNameField?: boolean;
   onUploaded?: () => void;
   glass?: boolean;
-  challengeId?: AlbumChallengeId | null;
+  challengeId?: string | null;
+  challengeMode?: "photo" | "collage" | null;
+  challengeTitle?: string | null;
+  challengeCoverImage?: string | null;
   onClearChallenge?: () => void;
   /** Mobile-native layout used inside the album shell */
   native?: boolean;
@@ -134,6 +138,9 @@ export function PublicUploadForm({
   onUploaded,
   glass = false,
   challengeId = null,
+  challengeMode = null,
+  challengeTitle = null,
+  challengeCoverImage = null,
   onClearChallenge,
   native = false,
   allowPhotos = true,
@@ -153,6 +160,7 @@ export function PublicUploadForm({
 
   const [file, setFile] = useState<File | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [uploadedBy, setUploadedBy] = useState(defaultUploadedBy);
   const [isUploading, setIsUploading] = useState(false);
@@ -160,10 +168,17 @@ export function PublicUploadForm({
   const [preview, setPreview] = useState<string | null>(null);
   const [buildingCollage, setBuildingCollage] = useState(false);
 
-  const isCollageChallenge = challengeId === "collage";
+  const isCollageChallenge =
+    challengeMode === "collage" || challengeId === "collage";
   const challengeMeta = ALBUM_CHALLENGES.find((c) => c.id === challengeId);
+  const challengeImage =
+    challengeCoverImage || challengeMeta?.image || null;
+  const resolvedChallengeTitle =
+    challengeTitle ||
+    (challengeId && isAlbumChallengeId(challengeId)
+      ? tAlbum(`albumChallenge.${challengeId}.title`)
+      : null);
   const isVideoPreview = Boolean(file?.type.startsWith("video/"));
-
   useEffect(() => {
     setUploadedBy(defaultUploadedBy);
   }, [defaultUploadedBy]);
@@ -177,6 +192,7 @@ export function PublicUploadForm({
   const clearSelection = useCallback(() => {
     setFile(null);
     setDurationMs(null);
+    setPosterFile(null);
     setPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -198,12 +214,15 @@ export function PublicUploadForm({
             return;
           }
           setDurationMs(ms);
+          const poster = await captureVideoPoster(selected);
+          setPosterFile(poster);
         } catch {
           toast.error(tAlbum("uploadVideoInvalid"));
           return;
         }
       } else {
         setDurationMs(null);
+        setPosterFile(null);
       }
 
       setFile(selected);
@@ -256,11 +275,14 @@ export function PublicUploadForm({
     formData.append("file", file);
     if (caption) formData.append("caption", caption);
     if (uploadedBy) formData.append("uploadedBy", uploadedBy);
-    if (challengeId && isAlbumChallengeId(challengeId)) {
+    if (challengeId) {
       formData.append("challengeId", challengeId);
     }
     if (file.type.startsWith("video/") && durationMs != null) {
       formData.append("durationMs", String(durationMs));
+    }
+    if (file.type.startsWith("video/") && posterFile) {
+      formData.append("thumbnail", posterFile);
     }
 
     try {
@@ -330,26 +352,28 @@ export function PublicUploadForm({
         />
 
         <div className="flex-1 overflow-y-auto overscroll-none" data-app-scroll>
-          {challengeId && challengeMeta ? (
+          {challengeId ? (
             <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-              <span
-                className="relative size-9 shrink-0 overflow-hidden rounded-xl bg-black"
-                aria-hidden
-              >
-                <Image
-                  src={challengeMeta.image}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="36px"
-                />
-              </span>
+              {challengeImage ? (
+                <span
+                  className="relative size-9 shrink-0 overflow-hidden rounded-xl bg-black"
+                  aria-hidden
+                >
+                  <Image
+                    src={challengeImage}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="36px"
+                  />
+                </span>
+              ) : null}
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium uppercase tracking-wide text-white/50">
                   {tAlbum("albumChallengeChip")}
                 </p>
                 <p className="truncate text-sm font-semibold text-white">
-                  {tAlbum(`albumChallenge.${challengeId}.title`)}
+                  {resolvedChallengeTitle ?? challengeId}
                 </p>
               </div>
               {onClearChallenge ? (
@@ -503,7 +527,7 @@ export function PublicUploadForm({
           <div className="border-t border-white/10 bg-black/60 px-4 py-3 backdrop-blur-xl">
             <Button
               type="submit"
-              variant="gold"
+              variant="default"
               className="h-12 w-full text-base"
               disabled={!file || isUploading}
             >
@@ -626,7 +650,7 @@ export function PublicUploadForm({
 
         <Button
           type="submit"
-          variant="gold"
+          variant="default"
           className="w-full"
           disabled={!file || isUploading}
         >

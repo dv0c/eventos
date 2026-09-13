@@ -3,17 +3,15 @@ import { EventType } from "@prisma/client";
 export type WizardStepId =
   | "type"
   | "details"
-  | "location"
-  | "people"
   | "theme"
+  | "games"
   | "review";
 
 export const WIZARD_STEPS: WizardStepId[] = [
   "type",
   "details",
-  "location",
-  "people",
   "theme",
+  "games",
   "review",
 ];
 
@@ -288,6 +286,14 @@ export interface ThemePreset {
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
+  {
+    id: "eventos-default",
+    nameKey: "presets.eventosDefault",
+    primaryColor: "#C4A574",
+    secondaryColor: "#F59E0B",
+    accentColor: "#E8C9A0",
+    style: "classic",
+  },
   {
     id: "elegant-purple",
     nameKey: "presets.elegantPurple",
