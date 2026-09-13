@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { apiError, apiSuccess, getClientIp, handleServiceError } from "@/lib/api-response";
 import { AuthError, requireAuth } from "@/server/auth/session";
+import { getEventLifecycle } from "@/server/events/event-ended";
 import { AccessError, enforceEventAccess } from "@/server/permissions/enforce";
 import { eventRepository } from "@/server/repositories/event.repository";
 import { prisma } from "@/server/db";
@@ -101,6 +102,25 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const { theme, ...eventData } = parsed.data;
+
+    const scheduleTouched =
+      eventData.date !== undefined ||
+      eventData.startTime !== undefined ||
+      eventData.endTime !== undefined;
+
+    if (scheduleTouched && existing.status === EventStatus.COMPLETED) {
+      const nextSchedule = {
+        status: EventStatus.ACTIVE,
+        date: eventData.date ?? existing.date,
+        startTime:
+          eventData.startTime !== undefined ? eventData.startTime : existing.startTime,
+        endTime: eventData.endTime !== undefined ? eventData.endTime : existing.endTime,
+      };
+      const lifecycle = getEventLifecycle(nextSchedule);
+      if (lifecycle !== "ended") {
+        eventData.status = EventStatus.ACTIVE;
+      }
+    }
 
     if (theme) {
       await prisma.eventTheme.upsert({

@@ -45,6 +45,7 @@ export async function GET(_request: Request, context: RouteContext) {
         slug: true,
         status: true,
         date: true,
+        startTime: true,
         endTime: true,
       },
     });

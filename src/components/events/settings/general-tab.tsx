@@ -1,7 +1,6 @@
 "use client";
 
 import { EventType } from "@prisma/client";
-import { format } from "date-fns";
 import {
   Cake,
   CircleHelp,
@@ -11,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +18,7 @@ import { PlusUpgradeBadge } from "@/components/events/settings/settings-ui";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
+import { TimePicker } from "@/components/ui/time-picker";
 import { cn } from "@/lib/utils";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
 
@@ -39,14 +40,29 @@ function suggestSlug(name: string) {
     .slice(0, 48);
 }
 
+function calendarDateString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/** Normalize DB clock strings (e.g. "9:00", "17:00:00") to HH:mm for TimePicker. */
+function normalizeClock(value: string | null | undefined): string {
+  if (!value?.trim()) return "";
+  const match = /^(\d{1,2}):(\d{2})/.exec(value.trim());
+  if (!match) return "";
+  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+}
+
 export function GeneralTab({ event }: { event: EventWithRelations }) {
   const t = useTranslations("eventWorkspace.settings");
   const tCommon = useTranslations("common");
   const tWizard = useTranslations("wizard");
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState(event.name);
   const [slug, setSlug] = useState(event.slug);
-  const [date, setDate] = useState(format(event.date, "yyyy-MM-dd"));
+  const [date, setDate] = useState(calendarDateString(event.date));
+  const [startTime, setStartTime] = useState(normalizeClock(event.startTime));
+  const [endTime, setEndTime] = useState(normalizeClock(event.endTime));
   const [type, setType] = useState<EventType>(event.type);
 
   async function patchEvent(body: Record<string, unknown>, successToast = true) {
@@ -63,6 +79,7 @@ export function GeneralTab({ event }: { event: EventWithRelations }) {
         return false;
       }
       if (successToast) toast.success(tCommon("save"));
+      router.refresh();
       setIsLoading(false);
       return true;
     } catch {
@@ -74,7 +91,14 @@ export function GeneralTab({ event }: { event: EventWithRelations }) {
 
   async function saveAll(e: React.FormEvent) {
     e.preventDefault();
-    await patchEvent({ name, slug, date, type });
+    await patchEvent({
+      name,
+      slug,
+      date,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      type,
+    });
   }
 
   async function saveSlug() {
@@ -103,11 +127,40 @@ export function GeneralTab({ event }: { event: EventWithRelations }) {
           value={date}
           onChange={(value) => {
             setDate(value);
-            if (value) void patchEvent({ date: value }, false);
+            if (value) void patchEvent({ date: value });
           }}
           placeholder={tWizard("pickDate")}
           clearLabel={tCommon("clear")}
         />
+        <p className="mt-4 text-sm text-muted-foreground">{t("eventTimesDesc")}</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 sm:max-w-lg">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t("eventStartTime")}</p>
+            <TimePicker
+              value={startTime}
+              onChange={(value) => {
+                const next = normalizeClock(value);
+                setStartTime(next);
+                void patchEvent({ startTime: next || null });
+              }}
+              placeholder={tWizard("pickTime")}
+              clearLabel={tCommon("clear")}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t("eventEndTime")}</p>
+            <TimePicker
+              value={endTime}
+              onChange={(value) => {
+                const next = normalizeClock(value);
+                setEndTime(next);
+                void patchEvent({ endTime: next || null });
+              }}
+              placeholder={tWizard("pickTime")}
+              clearLabel={tCommon("clear")}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="border-b border-border/50 py-5">

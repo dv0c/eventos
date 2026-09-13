@@ -2,6 +2,9 @@ import { EventStatus } from "@prisma/client";
 
 export type EventLifecycle = "waiting" | "active" | "ended";
 
+/** Wall-clock timezone for event start/end times (product default: Greece). */
+export const EVENT_TIME_ZONE = "Europe/Athens";
+
 /**
  * Parse "HH:mm" or "HH:mm:ss" into hours/minutes. Returns null if invalid.
  */
@@ -27,32 +30,143 @@ function parseClockTime(value: string | null | undefined): {
   return { hours, minutes };
 }
 
+function clockToMinutes(value: string | null | undefined): number | null {
+  const parsed = parseClockTime(value);
+  if (!parsed) return null;
+  return parsed.hours * 60 + parsed.minutes;
+}
+
+/**
+ * Calendar Y/M/D from a date stored as UTC midnight for a "yyyy-MM-dd" string.
+ */
+function getCalendarYmd(date: Date): { year: number; monthIndex: number; day: number } {
+  return {
+    year: date.getUTCFullYear(),
+    monthIndex: date.getUTCMonth(),
+    day: date.getUTCDate(),
+  };
+}
+
+function readZoneParts(utcMs: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcMs));
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: get("hour"),
+    minute: get("minute"),
+    second: get("second"),
+  };
+}
+
+/**
+ * Convert a wall-clock date/time in `timeZone` to a UTC Date.
+ */
+export function zonedWallTimeToUtc(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second = 0,
+  millisecond = 0,
+  timeZone: string = EVENT_TIME_ZONE,
+): Date {
+  let utcMs = Date.UTC(year, monthIndex, day, hour, minute, second, millisecond);
+
+  for (let i = 0; i < 4; i++) {
+    const parts = readZoneParts(utcMs, timeZone);
+    const asIfUtc = Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+      millisecond,
+    );
+    const wanted = Date.UTC(year, monthIndex, day, hour, minute, second, millisecond);
+    const delta = wanted - asIfUtc;
+    if (delta === 0) break;
+    utcMs += delta;
+  }
+
+  return new Date(utcMs);
+}
+
+function addCalendarDays(
+  year: number,
+  monthIndex: number,
+  day: number,
+  deltaDays: number,
+): { year: number; monthIndex: number; day: number } {
+  const next = new Date(Date.UTC(year, monthIndex, day + deltaDays));
+  return {
+    year: next.getUTCFullYear(),
+    monthIndex: next.getUTCMonth(),
+    day: next.getUTCDate(),
+  };
+}
+
 export function getEventStartAt(event: {
   date: Date;
   startTime?: string | null;
 }): Date {
-  const start = new Date(event.date);
+  const { year, monthIndex, day } = getCalendarYmd(event.date);
   const parsed = parseClockTime(event.startTime);
   if (parsed) {
-    start.setHours(parsed.hours, parsed.minutes, 0, 0);
-  } else {
-    start.setHours(0, 0, 0, 0);
+    return zonedWallTimeToUtc(
+      year,
+      monthIndex,
+      day,
+      parsed.hours,
+      parsed.minutes,
+      0,
+      0,
+    );
   }
-  return start;
+  return zonedWallTimeToUtc(year, monthIndex, day, 0, 0, 0, 0);
 }
 
 export function getEventEndAt(event: {
   date: Date;
+  startTime?: string | null;
   endTime?: string | null;
 }): Date {
-  const end = new Date(event.date);
+  let { year, monthIndex, day } = getCalendarYmd(event.date);
   const parsed = parseClockTime(event.endTime);
+
   if (parsed) {
-    end.setHours(parsed.hours, parsed.minutes, 0, 0);
-  } else {
-    end.setHours(23, 59, 59, 999);
+    const startMinutes = clockToMinutes(event.startTime);
+    const endMinutes = parsed.hours * 60 + parsed.minutes;
+    if (startMinutes !== null && endMinutes <= startMinutes) {
+      ({ year, monthIndex, day } = addCalendarDays(year, monthIndex, day, 1));
+    }
+    return zonedWallTimeToUtc(
+      year,
+      monthIndex,
+      day,
+      parsed.hours,
+      parsed.minutes,
+      0,
+      0,
+    );
   }
-  return end;
+
+  return zonedWallTimeToUtc(year, monthIndex, day, 23, 59, 59, 999);
 }
 
 /**
@@ -62,6 +176,7 @@ export function getEventEndAt(event: {
 export function isEventEnded(event: {
   status: EventStatus;
   date: Date;
+  startTime?: string | null;
   endTime?: string | null;
 }): boolean {
   if (
