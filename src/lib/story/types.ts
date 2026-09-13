@@ -1,6 +1,8 @@
 /** Logical story canvas design space (9:16). */
 export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
+/** Square collage canvas (Instagram-style feed posts). */
+export const COLLAGE_SIZE = 1080;
 export const STORY_DOC_VERSION = 1;
 
 export type StoryElementType =
@@ -51,6 +53,11 @@ export type ImageElement = StoryElementBase & {
   crop?: { x: number; y: number; width: number; height: number };
   adjustments: ImageAdjustments;
   filter: StoryFilterId;
+  /** When true, frame is fixed (collage cell); panX/panY reposition media inside. */
+  locked?: boolean;
+  /** Pan of cover-fitted media inside the element box (design px). */
+  panX?: number;
+  panY?: number;
 };
 
 export type VideoElement = StoryElementBase & {
@@ -102,8 +109,8 @@ export type StoryElement =
 
 export type StoryDocument = {
   version: typeof STORY_DOC_VERSION;
-  width: typeof STORY_WIDTH;
-  height: typeof STORY_HEIGHT;
+  width: number;
+  height: number;
   background: StoryBackground;
   elements: StoryElement[];
 };
@@ -118,11 +125,12 @@ export const DEFAULT_ADJUSTMENTS: ImageAdjustments = {
 
 export function createEmptyStory(
   background: StoryBackground = { kind: "solid", color: "#0f0f12" },
+  size?: { width: number; height: number },
 ): StoryDocument {
   return {
     version: STORY_DOC_VERSION,
-    width: STORY_WIDTH,
-    height: STORY_HEIGHT,
+    width: size?.width ?? STORY_WIDTH,
+    height: size?.height ?? STORY_HEIGHT,
     background,
     elements: [],
   };

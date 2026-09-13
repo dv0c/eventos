@@ -1,28 +1,60 @@
 "use client";
 
 import { Star, Trash2, Upload } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
 
-import { useOptionalOrg } from "@/components/providers/org-provider";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "@/i18n/navigation";
-import { orgPath } from "@/lib/org-path";
 import { cn } from "@/lib/utils";
+
+export function useEventPremiumUpgrade(eventId: string, orgSlug: string) {
+  const locale = useLocale();
+  const t = useTranslations("eventWorkspace.settings");
+  const [busy, setBusy] = useState(false);
+
+  async function startUpgrade() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/purchase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug, locale }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        toast.error(json.error?.message ?? t("upgradeFailed"));
+        return;
+      }
+      if (json.data?.url) {
+        window.location.href = json.data.url as string;
+        return;
+      }
+      toast.error(t("upgradeFailed"));
+    } catch {
+      toast.error(t("upgradeFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return { startUpgrade, upgradeBusy: busy };
+}
 
 export function PlusUpgradeBadge({
   variant = "plus",
   className,
-  upgradeHref,
+  onUpgrade,
+  disabled,
 }: {
   variant?: "plus" | "pro";
   className?: string;
-  upgradeHref?: string;
+  onUpgrade?: () => void;
+  disabled?: boolean;
 }) {
   const t = useTranslations("eventWorkspace.settings");
-  const org = useOptionalOrg();
-  const billingHref =
-    upgradeHref ?? (org ? orgPath(org.orgSlug, "/billing") : "/pricing");
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
@@ -30,12 +62,16 @@ export function PlusUpgradeBadge({
         <Star className="h-2.5 w-2.5 fill-current" />
         {variant === "pro" ? t("proBadge") : t("plusBadge")}
       </Badge>
-      <Link
-        href={billingHref}
-        className="text-xs font-medium text-primary underline"
-      >
-        {t("upgrade")}
-      </Link>
+      {onUpgrade ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onUpgrade}
+          className="text-xs font-medium text-primary underline disabled:opacity-50"
+        >
+          {t("upgradeEvent")}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -44,15 +80,23 @@ export function SettingsRow({
   title,
   description,
   badge,
+  isPremium = true,
+  onUpgrade,
+  upgradeBusy,
   children,
   className,
 }: {
   title: ReactNode;
   description?: ReactNode;
   badge?: "plus" | "pro";
+  isPremium?: boolean;
+  onUpgrade?: () => void;
+  upgradeBusy?: boolean;
   children: ReactNode;
   className?: string;
 }) {
+  const showBadge = Boolean(badge) && !isPremium;
+
   return (
     <div
       className={cn(
@@ -63,13 +107,26 @@ export function SettingsRow({
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          {badge ? <PlusUpgradeBadge variant={badge} /> : null}
+          {showBadge ? (
+            <PlusUpgradeBadge
+              variant={badge}
+              onUpgrade={onUpgrade}
+              disabled={upgradeBusy}
+            />
+          ) : null}
         </div>
         {description ? (
           <div className="text-sm text-muted-foreground">{description}</div>
         ) : null}
       </div>
-      <div className="shrink-0 sm:pt-0.5">{children}</div>
+      <div
+        className={cn(
+          "shrink-0 sm:pt-0.5",
+          showBadge && "pointer-events-none opacity-50",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

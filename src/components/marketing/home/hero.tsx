@@ -20,6 +20,8 @@ const OCCASION_KEYS = [
   "baptism",
 ] as const;
 
+const TRUST_KEYS = ["trust1", "trust2", "trust3"] as const;
+
 export function HomeHero() {
   const t = useTranslations("marketing.home");
   const reduce = useReducedMotion();
@@ -36,7 +38,7 @@ export function HomeHero() {
   const occasion = t(`occasions.${OCCASION_KEYS[index]}`);
 
   return (
-    <SectionShell className="overflow-x-clip pb-16 pt-10 sm:pb-20 sm:pt-14 md:pb-28 md:pt-16">
+    <SectionShell className="overflow-x-clip pb-16 pt-10 sm:pb-20 sm:pt-14 md:pb-24 md:pt-16">
       <div className="grid items-center gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] md:gap-12 lg:gap-16">
         <Reveal className="text-left">
           <p className="mb-5 text-sm font-medium tracking-[0.04em] text-white/50">
@@ -46,7 +48,7 @@ export function HomeHero() {
           <h1
             className={cn(
               marketingDisplayClass,
-              "text-balance text-[clamp(2.4rem,5vw,4.5rem)] leading-[1.05] text-foreground",
+              "text-balance text-[clamp(2.4rem,5vw,4.25rem)] leading-[1.05] text-foreground",
             )}
           >
             {t("heroLead")}{" "}
@@ -66,7 +68,7 @@ export function HomeHero() {
             </span>
           </h1>
 
-          <p className="mt-6 max-w-[36ch] text-pretty text-base leading-relaxed text-white/60 sm:text-lg">
+          <p className="mt-6 max-w-[42ch] text-pretty text-base leading-relaxed text-white/62 sm:text-lg">
             {t("heroSubtitle")}
           </p>
 
@@ -86,7 +88,16 @@ export function HomeHero() {
               {t("heroSecondaryCta")}
             </a>
           </div>
-          <p className="mt-4 text-sm text-white/40">{t("heroMicro")}</p>
+
+          <ul className="mt-10 grid max-w-lg gap-3 border-t border-white/10 pt-8 sm:grid-cols-3 sm:gap-4">
+            {TRUST_KEYS.map((key) => (
+              <li key={key} className="text-sm leading-snug text-white/50">
+                <span className="mb-1.5 block h-px w-6 bg-accent/70" aria-hidden />
+                {t(key)}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-5 text-sm text-white/35">{t("heroMicro")}</p>
         </Reveal>
 
         <Reveal delay={0.08} className="relative pb-8 sm:pb-10 md:pb-6">

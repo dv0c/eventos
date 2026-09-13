@@ -1,6 +1,7 @@
 import { getStripeClient } from "@/lib/stripe";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { billingService } from "@/server/services/billing.service";
+import { eventPurchaseService } from "@/server/services/event-purchase.service";
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -27,6 +28,13 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        if (session.mode === "payment" && session.metadata?.purpose === "event_premium") {
+          await eventPurchaseService.fulfillCheckoutSession(session);
+        }
+        break;
+      }
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const subscription = await billingService.syncSubscriptionFromStripe(

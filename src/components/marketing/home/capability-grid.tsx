@@ -5,124 +5,105 @@ import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
-import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
+import {
+  Reveal,
+  SectionIntro,
+  SectionShell,
+  marketingDisplayClass,
+} from "./reveal";
 
-const QUIET = ["qr", "moderation", "private", "download"] as const;
+const FEATURE_KEYS = [
+  "album",
+  "wall",
+  "music",
+  "wishes",
+  "qr",
+  "moderation",
+  "private",
+  "download",
+] as const;
 
 export function HomeCapabilities() {
   const t = useTranslations("marketing.home");
 
   return (
-    <section className="py-24 sm:py-32">
+    <section className="border-y border-white/8 bg-black/20 py-24 sm:py-28">
       <SectionShell>
-        <Reveal className="max-w-2xl">
-          <h2
-            className={cn(
-              marketingDisplayClass,
-              "text-[clamp(2rem,3.5vw,3.25rem)] leading-[1.1]",
-            )}
-          >
-            {t("capsTitle")}
-          </h2>
-          <p className="mt-4 max-w-[40ch] text-base leading-relaxed text-white/55 sm:text-lg">
-            {t("capsSubtitle")}
-          </p>
+        <Reveal>
+          <SectionIntro
+            eyebrow={t("capsEyebrow")}
+            title={t("capsTitle")}
+            description={t("capsSubtitle")}
+          />
         </Reveal>
 
-        <div className="mt-16 space-y-20">
+        <div className="mt-14 grid gap-8 lg:grid-cols-2 lg:gap-10">
           <Reveal>
-            <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
-              <div className="relative aspect-[16/11] overflow-hidden rounded-md">
+            <div className="overflow-hidden rounded-md border border-white/10 bg-black/25">
+              <div className="relative aspect-[16/10]">
                 <Image
                   src="/marketing/demos/album-hero.png"
-                  alt=""
+                  alt={t("caps.album.title")}
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </div>
-              <div>
-                <h3
-                  className={cn(
-                    marketingDisplayClass,
-                    "text-3xl sm:text-4xl",
-                  )}
-                >
+              <div className="border-t border-white/10 p-6 sm:p-7">
+                <h3 className={cn(marketingDisplayClass, "text-2xl sm:text-3xl")}>
                   {t("caps.album.title")}
                 </h3>
-                <p className="mt-4 max-w-[34ch] text-base leading-relaxed text-white/55 sm:text-lg">
+                <p className="mt-3 max-w-[40ch] text-sm leading-relaxed text-white/55 sm:text-base">
                   {t("caps.album.desc")}
                 </p>
               </div>
             </div>
           </Reveal>
-
-          <Reveal>
-            <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
-              <div className="order-2 lg:order-1">
-                <h3
-                  className={cn(
-                    marketingDisplayClass,
-                    "text-3xl sm:text-4xl",
-                  )}
-                >
-                  {t("caps.wall.title")}
-                </h3>
-                <p className="mt-4 max-w-[34ch] text-base leading-relaxed text-white/55 sm:text-lg">
-                  {t("caps.wall.desc")}
-                </p>
-              </div>
-              <div className="relative order-1 aspect-[16/11] overflow-hidden rounded-md lg:order-2">
+          <Reveal delay={0.05}>
+            <div className="overflow-hidden rounded-md border border-white/10 bg-black/25">
+              <div className="relative aspect-[16/10]">
                 <Image
                   src="/marketing/demos/wall-stage.png"
-                  alt=""
+                  alt={t("caps.wall.title")}
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </div>
-            </div>
-          </Reveal>
-
-          <Reveal>
-            <div className="grid gap-10 border-t border-white/10 pt-12 md:grid-cols-2">
-              <div>
-                <h3
-                  className={cn(
-                    marketingDisplayClass,
-                    "text-2xl sm:text-3xl",
-                  )}
-                >
-                  {t("caps.music.title")}
+              <div className="border-t border-white/10 p-6 sm:p-7">
+                <h3 className={cn(marketingDisplayClass, "text-2xl sm:text-3xl")}>
+                  {t("caps.wall.title")}
                 </h3>
-                <p className="mt-3 max-w-[36ch] text-base leading-relaxed text-white/55">
-                  {t("caps.music.desc")}
-                </p>
-              </div>
-              <div>
-                <h3
-                  className={cn(
-                    marketingDisplayClass,
-                    "text-2xl sm:text-3xl",
-                  )}
-                >
-                  {t("caps.wishes.title")}
-                </h3>
-                <p className="mt-3 max-w-[36ch] text-base leading-relaxed text-white/55">
-                  {t("caps.wishes.desc")}
+                <p className="mt-3 max-w-[40ch] text-sm leading-relaxed text-white/55 sm:text-base">
+                  {t("caps.wall.desc")}
                 </p>
               </div>
             </div>
-          </Reveal>
-
-          <Reveal>
-            <ul className="flex flex-wrap gap-x-8 gap-y-3 border-t border-white/10 pt-10 text-sm text-white/45 sm:gap-x-12 sm:text-[15px]">
-              {QUIET.map((key) => (
-                <li key={key}>{t(`caps.${key}.title`)}</li>
-              ))}
-            </ul>
           </Reveal>
         </div>
+
+        <Reveal className="mt-12">
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURE_KEYS.map((key) => (
+              <li
+                key={key}
+                className="rounded-md border border-white/10 bg-white/[0.02] p-5"
+              >
+                <h3 className="text-[15px] font-semibold text-foreground">
+                  {t(`caps.${key}.title`)}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/48">
+                  {t(`caps.${key}.desc`)}
+                </p>
+                {key === "music" || key === "wishes" ? (
+                  <p className="mt-3 text-xs leading-relaxed text-white/32">
+                    {t(`caps.${key}.note`)}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Reveal>
       </SectionShell>
     </section>
   );

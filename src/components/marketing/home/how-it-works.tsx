@@ -1,13 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import type { ReactNode } from "react";
 
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -17,41 +11,108 @@ import {
   LiveWallMockup,
   QrShareMockup,
 } from "./product-mockups";
-import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
+import {
+  Reveal,
+  SectionIntro,
+  SectionShell,
+  marketingDisplayClass,
+} from "./reveal";
 
 const STEP_KEYS = ["step1", "step2", "step3"] as const;
 
 function StepCopy({
-  index,
+  stepKey,
   title,
   desc,
   showCta,
   ctaLabel,
+  t,
 }: {
-  index: number;
+  stepKey: (typeof STEP_KEYS)[number];
   title: string;
   desc: string;
   showCta?: boolean;
   ctaLabel: string;
+  t: ReturnType<typeof useTranslations>;
 }) {
+  const chipKeys =
+    stepKey === "step1"
+      ? (["theme", "date", "privacy"] as const)
+      : stepKey === "step3"
+        ? (["cast", "live", "approve"] as const)
+        : null;
+  const bulletKeys =
+    stepKey === "step2" ? (["link", "qr", "noApp"] as const) : null;
+
   return (
-    <div>
-      <p className="text-sm text-white/40">{String(index + 1).padStart(2, "0")}</p>
+    <div className="flex min-w-0 flex-1 flex-col justify-center">
+      <p className="text-sm font-medium tracking-[0.08em] text-white/40">
+        {t(`how.${stepKey}.label`)}
+      </p>
       <h3
         className={cn(
           marketingDisplayClass,
-          "mt-3 text-3xl leading-tight sm:text-4xl",
+          "mt-2 text-[clamp(1.5rem,2.2vw,2rem)] leading-tight",
         )}
       >
         {title}
       </h3>
-      <p className="mt-4 max-w-[38ch] text-base leading-relaxed text-white/55 sm:text-lg">
+      <p className="mt-3 max-w-[40ch] text-[15px] leading-relaxed text-white/55 sm:text-base">
         {desc}
       </p>
+
+      {chipKeys ? (
+        <ul className="mt-5 flex flex-wrap gap-2">
+          {chipKeys.map((chip) => (
+            <li
+              key={chip}
+              className="rounded-md border border-white/12 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/58"
+            >
+              {t(`how.${stepKey}.chips.${chip}`)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {bulletKeys ? (
+        <ul className="mt-5 space-y-2">
+          {bulletKeys.map((bullet) => (
+            <li
+              key={bullet}
+              className="flex gap-2.5 text-sm leading-relaxed text-white/52"
+            >
+              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-accent" />
+              {t(`how.${stepKey}.bullets.${bullet}`)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {stepKey !== "step1" ? (
+        <dl className="mt-6 grid gap-4 border-t border-white/10 pt-5 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs font-medium tracking-[0.06em] text-white/35">
+              {t("how.guestsSee")}
+            </dt>
+            <dd className="mt-1.5 text-sm leading-snug text-white/65">
+              {t(`how.${stepKey}.guests`)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium tracking-[0.06em] text-white/35">
+              {t("how.hostsControl")}
+            </dt>
+            <dd className="mt-1.5 text-sm leading-snug text-white/65">
+              {t(`how.${stepKey}.hosts`)}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+
       {showCta ? (
         <Link
           href="/register"
-          className="mt-8 inline-flex text-[15px] font-semibold text-accent underline-offset-4 transition-colors hover:underline"
+          className="mt-6 inline-flex text-[15px] font-semibold text-accent underline-offset-4 transition-colors hover:underline"
         >
           {ctaLabel}
         </Link>
@@ -60,130 +121,16 @@ function StepCopy({
   );
 }
 
-function StickyVisualColumn({
-  visuals,
-  titles,
-  descs,
-  ctaLabel,
-}: {
-  visuals: ReactNode[];
-  titles: string[];
-  descs: string[];
-  ctaLabel: string;
-}) {
-  const [active, setActive] = useState(0);
-  const stepRefs = useRef<(HTMLElement | null)[]>([]);
-
-  useEffect(() => {
-    const nodes = stepRefs.current.filter(Boolean) as HTMLElement[];
-    if (nodes.length === 0) return;
-
-    const ratios = new Map<Element, number>();
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          ratios.set(entry.target, entry.intersectionRatio);
-        }
-        let bestIndex = 0;
-        let bestRatio = -1;
-        nodes.forEach((node, i) => {
-          const ratio = ratios.get(node) ?? 0;
-          if (ratio > bestRatio) {
-            bestRatio = ratio;
-            bestIndex = i;
-          }
-        });
-        setActive((prev) => (prev === bestIndex ? prev : bestIndex));
-      },
-      {
-        root: null,
-        // Bias toward the middle of the viewport where sticky visual sits
-        rootMargin: "-30% 0px -40% 0px",
-        threshold: [0, 0.25, 0.5, 0.75, 1],
-      },
-    );
-
-    for (const node of nodes) observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
+function StepVisual({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-20 grid grid-cols-2 items-start gap-12 xl:gap-16">
-      <div className="sticky top-24 self-start">
-        <div className="relative mx-auto h-[min(480px,58svh)] w-full max-w-md">
-          {visuals.map((visual, i) => (
-            <motion.div
-              key={STEP_KEYS[i]}
-              className="absolute inset-0 flex items-center justify-center"
-              initial={false}
-              animate={{ opacity: active === i ? 1 : 0 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              aria-hidden={active !== i}
-            >
-              {visual}
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-36 pb-8 pt-4 xl:space-y-44">
-        {STEP_KEYS.map((key, i) => (
-          <article
-            key={key}
-            ref={(el) => {
-              stepRefs.current[i] = el;
-            }}
-            className="min-h-[40svh]"
-          >
-            <StepCopy
-              index={i}
-              title={titles[i]}
-              desc={descs[i]}
-              showCta={i === 2}
-              ctaLabel={ctaLabel}
-            />
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StackedSteps({
-  visuals,
-  titles,
-  descs,
-  ctaLabel,
-}: {
-  visuals: ReactNode[];
-  titles: string[];
-  descs: string[];
-  ctaLabel: string;
-}) {
-  return (
-    <div className="mt-16 space-y-24 sm:mt-20 sm:space-y-28">
-      {STEP_KEYS.map((key, i) => (
-        <div key={key} className="grid items-center gap-10 md:grid-cols-2 md:gap-12">
-          <Reveal delay={0.04}>{visuals[i]}</Reveal>
-          <Reveal delay={0.08}>
-            <StepCopy
-              index={i}
-              title={titles[i]}
-              desc={descs[i]}
-              showCta={i === 2}
-              ctaLabel={ctaLabel}
-            />
-          </Reveal>
-        </div>
-      ))}
+    <div className="flex min-h-[220px] items-center justify-center rounded-md border border-white/10 bg-black/30 p-4 sm:min-h-[260px] sm:p-6">
+      {children}
     </div>
   );
 }
 
 export function HomeHowItWorks() {
   const t = useTranslations("marketing.home");
-  const reduce = useReducedMotion();
 
   const visuals = [
     <AlbumPhoneMockup key="phone" />,
@@ -193,58 +140,64 @@ export function HomeHowItWorks() {
     />,
     <LiveWallMockup
       key="wall"
-      className="w-full rounded-md border-white/10 shadow-none"
+      className="w-full max-w-md rounded-md border-white/10 shadow-none"
     />,
   ];
 
-  const titles = STEP_KEYS.map((key) => t(`how.${key}.title`));
-  const descs = STEP_KEYS.map((key) => t(`how.${key}.desc`));
-  const ctaLabel = t("how.step1.cta");
+  const ctaLabel = t("how.step3.cta");
 
   return (
-    <section id="how-it-works" className="py-24 sm:py-32">
+    <section
+      id="how-it-works"
+      className="scroll-mt-20 border-y border-white/8 bg-black/20 py-20 sm:py-24"
+    >
       <SectionShell>
-        <Reveal className="max-w-2xl">
-          <h2
-            className={cn(
-              marketingDisplayClass,
-              "text-[clamp(2rem,3.5vw,3.25rem)] leading-[1.1]",
-            )}
-          >
-            {t("howTitle")}
-          </h2>
-          <p className="mt-4 max-w-[40ch] text-base leading-relaxed text-white/55 sm:text-lg">
-            {t("howSubtitle")}
-          </p>
+        <Reveal>
+          <SectionIntro
+            eyebrow={t("howEyebrow")}
+            title={t("howTitle")}
+            description={t("howSubtitle")}
+          />
         </Reveal>
 
-        {reduce ? (
-          <StackedSteps
-            visuals={visuals}
-            titles={titles}
-            descs={descs}
-            ctaLabel={ctaLabel}
-          />
-        ) : (
-          <>
-            <div className="lg:hidden">
-              <StackedSteps
-                visuals={visuals}
-                titles={titles}
-                descs={descs}
-                ctaLabel={ctaLabel}
-              />
-            </div>
-            <div className="hidden lg:block">
-              <StickyVisualColumn
-                visuals={visuals}
-                titles={titles}
-                descs={descs}
-                ctaLabel={ctaLabel}
-              />
-            </div>
-          </>
-        )}
+        <div className="mt-12 space-y-5 sm:mt-14 sm:space-y-6">
+          {STEP_KEYS.map((key, i) => {
+            const flip = i % 2 === 1;
+            return (
+              <Reveal key={key} delay={i * 0.04}>
+                <article
+                  className={cn(
+                    "grid items-stretch gap-6 rounded-md border border-white/10 bg-white/[0.02] p-5 sm:gap-8 sm:p-7 lg:grid-cols-2 lg:gap-10 lg:p-8",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "order-2 lg:order-1",
+                      flip && "lg:order-2",
+                    )}
+                  >
+                    <StepCopy
+                      stepKey={key}
+                      title={t(`how.${key}.title`)}
+                      desc={t(`how.${key}.desc`)}
+                      showCta={i === 2}
+                      ctaLabel={ctaLabel}
+                      t={t}
+                    />
+                  </div>
+                  <div
+                    className={cn(
+                      "order-1 lg:order-2",
+                      flip && "lg:order-1",
+                    )}
+                  >
+                    <StepVisual>{visuals[i]}</StepVisual>
+                  </div>
+                </article>
+              </Reveal>
+            );
+          })}
+        </div>
       </SectionShell>
     </section>
   );

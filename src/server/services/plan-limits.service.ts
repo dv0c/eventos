@@ -1,5 +1,9 @@
 import { OrgRole } from "@prisma/client";
 
+import {
+  FreeQuotaExceededError,
+  getFreeEventQuotaState,
+} from "@/server/events/event-entitlement";
 import { prisma } from "@/server/db";
 
 export interface PlanLimits {
@@ -34,7 +38,7 @@ export class PlanLimitError extends Error {
 }
 
 const DEFAULT_LIMITS: PlanLimits = {
-  maxEvents: 1,
+  maxEvents: 3,
   maxOrgs: 1,
   maxGuests: 50,
   maxStorage: 500,
@@ -189,11 +193,21 @@ export const planLimitsService = {
   },
 
   /**
-   * Free-tier users cannot multiply the 1-event quota by creating more orgs:
-   * event counts are summed across all free orgs the user owns.
-   * Paid orgs keep per-org maxEvents.
+   * Users get FREE_EVENT_QUOTA free events across all orgs they own.
+   * Further creates require purchasing a Premium event (separate checkout path).
    */
   async assertEventCreateAllowed(
+    userId: string,
+    _organizationId: string,
+  ): Promise<void> {
+    const state = await getFreeEventQuotaState(userId);
+    if (!state.canCreateFree) {
+      throw new FreeQuotaExceededError();
+    }
+  },
+
+  /** @deprecated Use event-entitlement free quota; kept for billing overview display. */
+  async assertEventCreateAllowedLegacyOrgPlan(
     userId: string,
     organizationId: string,
   ): Promise<void> {

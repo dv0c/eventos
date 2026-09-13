@@ -36,6 +36,10 @@ export async function revokeGuestConnectIfEnded(
       endDate: true,
       startTime: true,
       endTime: true,
+      liveStartedAt: true,
+      pausedAt: true,
+      stoppedAt: true,
+      lockedAt: true,
     },
   });
 

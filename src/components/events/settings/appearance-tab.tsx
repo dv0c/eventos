@@ -13,6 +13,7 @@ import {
   DashedUploadBox,
   SegmentedControl,
   SettingsRow,
+  useEventPremiumUpgrade,
 } from "@/components/events/settings/settings-ui";
 import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { Button } from "@/components/ui/button";
@@ -39,11 +40,20 @@ import type {
   AppearanceSettings,
 } from "@/server/events/wall-settings";
 import { getAppearanceFromSections } from "@/server/events/wall-settings";
+import { isEventPremium } from "@/lib/event-premium";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
 
-export function AppearanceTab({ event }: { event: EventWithRelations }) {
+export function AppearanceTab({
+  event,
+  orgSlug,
+}: {
+  event: EventWithRelations;
+  orgSlug: string;
+}) {
   const t = useTranslations("eventWorkspace.settings");
   const tCommon = useTranslations("common");
+  const premium = isEventPremium(event);
+  const { startUpgrade, upgradeBusy } = useEventPremiumUpgrade(event.id, orgSlug);
   const [isSaving, setIsSaving] = useState(false);
   const [logoUrl, setLogoUrl] = useState(event.theme?.logoUrl ?? null);
   const [albumBackgroundUrl, setAlbumBackgroundUrl] = useState(
@@ -216,10 +226,13 @@ export function AppearanceTab({ event }: { event: EventWithRelations }) {
         title={t("removeBranding")}
         description={t("removeBrandingDesc")}
         badge="pro"
+        isPremium={premium}
+        onUpgrade={startUpgrade}
+        upgradeBusy={upgradeBusy}
       >
         <Switch
           checked={appearance.removeBranding}
-          disabled={isSaving}
+          disabled={isSaving || !premium}
           onCheckedChange={(checked) => void patchAppearance({ removeBranding: checked })}
         />
       </SettingsRow>

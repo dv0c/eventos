@@ -170,6 +170,10 @@ export const qrService = {
         endDate: true,
         startTime: true,
         endTime: true,
+        liveStartedAt: true,
+        pausedAt: true,
+        stoppedAt: true,
+        lockedAt: true,
         organization: { select: { slug: true } },
       },
     });
@@ -227,6 +231,10 @@ export const qrService = {
         endDate: true,
         startTime: true,
         endTime: true,
+        liveStartedAt: true,
+        pausedAt: true,
+        stoppedAt: true,
+        lockedAt: true,
         organization: { select: { slug: true } },
       },
     });
@@ -282,6 +290,10 @@ export const qrService = {
         endDate: true,
         startTime: true,
         endTime: true,
+        liveStartedAt: true,
+        pausedAt: true,
+        stoppedAt: true,
+        lockedAt: true,
         organization: { select: { slug: true } },
       },
     });

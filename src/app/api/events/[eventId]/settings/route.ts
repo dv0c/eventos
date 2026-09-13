@@ -5,6 +5,12 @@ import { apiError, apiSuccess, getClientIp, handleServiceError } from "@/lib/api
 import { AuthError, requireAuth } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import {
+  assertPremiumSettingsAllowed,
+  collectPremiumSettingsTouches,
+  isEventPremium,
+  PremiumRequiredError,
+} from "@/server/events/event-entitlement";
+import {
   getAppearanceFromSections,
   getModerationFromSections,
   mergeSectionsAppearance,
@@ -75,11 +81,15 @@ export async function GET(_request: Request, context: RouteContext) {
     const session = await requireAuth();
     await enforceEventAccess(session.user.id, eventId, "event:read");
 
-    const settings = await prisma.eventSettings.findUnique({
-      where: { eventId },
-    });
+    const [settings, event] = await Promise.all([
+      prisma.eventSettings.findUnique({ where: { eventId } }),
+      prisma.event.findFirst({
+        where: { id: eventId, deletedAt: null },
+        select: { tier: true },
+      }),
+    ]);
 
-    if (!settings) {
+    if (!settings || !event) {
       return apiError("Event settings not found", "SETTINGS_NOT_FOUND", 404);
     }
 
@@ -89,6 +99,8 @@ export async function GET(_request: Request, context: RouteContext) {
         appearance: getAppearanceFromSections(settings.sections),
         moderation: getModerationFromSections(settings.sections),
       },
+      tier: event.tier,
+      isPremium: isEventPremium(event),
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -123,6 +135,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     const existing = await eventRepository.findById(access.organizationId, eventId);
     if (!existing) {
       return apiError("Event not found", "EVENT_NOT_FOUND", 404);
+    }
+
+    const touches = collectPremiumSettingsTouches(parsed.data);
+    try {
+      assertPremiumSettingsAllowed(existing, touches);
+    } catch (error) {
+      if (error instanceof PremiumRequiredError) {
+        return apiError(error.message, error.code, error.statusCode);
+      }
+      throw error;
     }
 
     const currentSettings = await prisma.eventSettings.findUnique({

@@ -190,6 +190,23 @@ enum Locale {
   en
 }
 
+enum EventTier {
+  FREE
+  PREMIUM
+}
+
+enum EventPurchaseStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+}
+
+enum EventPurchasePurpose {
+  UPGRADE
+  CREATE
+}
+
 // ─── Auth.js Models ──────────────────────────────────────────────────────────
 
 model User {
@@ -218,6 +235,7 @@ model User {
   auditLogs             AuditLog[]
   passwordResetTokens   PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  eventPurchases        EventPurchase[]
 
   @@index([email])
   @@index([createdAt])
@@ -341,6 +359,7 @@ model Organization {
   clients           Client[]
   eventTemplates    EventTemplate[]
   auditLogs         AuditLog[]
+  eventPurchases    EventPurchase[]
 
   @@index([slug])
   @@index([planId])
@@ -484,6 +503,12 @@ model Event {
   expectedChildren Int        @default(0)
   expectedVip    Int         @default(0)
   mediaPanicAt   DateTime?
+  liveStartedAt  DateTime?
+  pausedAt       DateTime?
+  stoppedAt      DateTime?
+  lockedAt       DateTime?
+  tier           EventTier  @default(FREE)
+  premiumUnlockedAt DateTime?
   deletedAt      DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -508,13 +533,45 @@ model Event {
   qrCodes        QRCode[]
   auditLogs      AuditLog[]
   games          EventGame[]
+  purchases      EventPurchase[]
 
   @@index([organizationId])
   @@index([slug])
   @@index([status])
   @@index([date])
+  @@index([liveStartedAt])
+  @@index([stoppedAt])
+  @@index([lockedAt])
+  @@index([tier])
   @@index([createdAt])
   @@map("events")
+}
+
+model EventPurchase {
+  id               String               @id @default(cuid())
+  eventId          String?
+  organizationId   String
+  userId           String
+  purpose          EventPurchasePurpose
+  status           EventPurchaseStatus  @default(PENDING)
+  amountCents      Int
+  currency         String               @default("eur")
+  stripeSessionId  String?              @unique
+  stripePaymentIntentId String?
+  createPayload    Json?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  paidAt           DateTime?
+
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([eventId])
+  @@index([status])
+  @@map("event_purchases")
 }
 
 model EventGame {

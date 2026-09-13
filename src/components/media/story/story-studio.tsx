@@ -7,6 +7,7 @@ import {
   Camera,
   Check,
   ImageIcon,
+  LayoutGrid,
   Palette,
   Redo2,
   RotateCcw,
@@ -24,6 +25,7 @@ import {
   useMemo,
   useRef,
   useState,
+  Fragment,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -34,6 +36,17 @@ import { toast } from "sonner";
 import { AlbumVideoPlayer } from "@/components/media/album/album-video-player";
 import { Button } from "@/components/ui/button";
 import { backgroundCss, STORY_BACKGROUND_PRESETS } from "@/lib/story/backgrounds";
+import {
+  COLLAGE_BG,
+  COLLAGE_LAYOUTS,
+  DEFAULT_COLLAGE_LAYOUT_ID,
+  clampImagePan,
+  coverMediaSize,
+  emptyCollageSlots,
+  fitCoverInSlot,
+  getCollageLayout,
+  type CollageLayoutId,
+} from "@/lib/story/collage-layouts";
 import { exportStoryToBlob, storyHasPublishableContent } from "@/lib/story/export";
 import { filterCss, STORY_FILTERS } from "@/lib/story/filters";
 import {
@@ -47,6 +60,7 @@ import {
   storyTextCssHighlightStyle,
 } from "@/lib/story/text-layout";
 import {
+  COLLAGE_SIZE,
   createEmptyStory,
   DEFAULT_ADJUSTMENTS,
   newElementId,
@@ -70,6 +84,7 @@ import { captureVideoPoster } from "@/lib/video-poster";
 
 type StudioMode =
   | "start"
+  | "collage"
   | "camera"
   | "edit"
   | "imageEdit"
@@ -87,6 +102,10 @@ export type StoryStudioProps = {
   /** Sealed wish video recorder — skips start screen, posts to wishes API. */
   purpose?: "post" | "wish";
   albumToken?: string;
+  /** Tag media with an album game / challenge when publishing. */
+  challengeId?: string | null;
+  /** Open directly into collage (e.g. Games → collage). */
+  initialEntry?: "start" | "collage";
   onClose: () => void;
   onPublished?: () => void;
 };
@@ -95,7 +114,7 @@ const MAX_VIDEO_DURATION_MS = 30_000;
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 const VIDEO_ACCEPT = "video/mp4,video/webm,video/quicktime";
 const MEDIA_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
-const STORY_TEXT_MAX_WIDTH = STORY_WIDTH * 0.84;
+const STORY_TEXT_MAX_WIDTH_RATIO = 0.84;
 
 const HOLD_TO_RECORD_MS = 200;
 const LAYER_SCALE_MIN = 0.4;
@@ -194,16 +213,21 @@ export function StoryStudio({
   allowVideos = true,
   purpose = "post",
   albumToken,
+  challengeId = null,
+  initialEntry = "start",
   onClose,
   onPublished,
 }: StoryStudioProps) {
   const t = useTranslations("storyStudio");
   const isWish = purpose === "wish";
+  const enterCollage = !isWish && initialEntry === "collage";
   const videosAllowed = isWish ? true : allowVideos;
   const history = useStoryHistory();
   const { doc, push, replace, commit, undo, redo, reset, canUndo, canRedo } = history;
 
-  const [mode, setMode] = useState<StudioMode>(isWish ? "camera" : "start");
+  const [mode, setMode] = useState<StudioMode>(
+    isWish ? "camera" : enterCollage ? "collage" : "start",
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -232,6 +256,14 @@ export function StoryStudio({
   const [galleryPreview, setGalleryPreview] = useState<string | null>(null);
   const [textChromePanel, setTextChromePanel] = useState<"fonts" | "color">("fonts");
   const [filterLabelFlash, setFilterLabelFlash] = useState(0);
+  const [collageLayoutId, setCollageLayoutId] = useState<CollageLayoutId | null>(
+    enterCollage ? DEFAULT_COLLAGE_LAYOUT_ID : null,
+  );
+  const [collageSlots, setCollageSlots] = useState<Array<ImageElement | null>>(
+    () => (enterCollage ? emptyCollageSlots(DEFAULT_COLLAGE_LAYOUT_ID) : []),
+  );
+  const [activeSlotIndex, setActiveSlotIndex] = useState(0);
+  const textMaxWidth = doc.width * STORY_TEXT_MAX_WIDTH_RATIO;
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
@@ -261,6 +293,51 @@ export function StoryStudio({
     const el = doc.elements.find((e) => e.id === id);
     return el?.type === "text" ? el : null;
   }, [doc.elements, editingTextId, selected]);
+
+  const collageLayout = collageLayoutId ? getCollageLayout(collageLayoutId) : null;
+  const collageFilling = collageLayoutId != null;
+  const collageFilledCount = collageSlots.filter(Boolean).length;
+  const collageHasPhotos = collageFilledCount > 0;
+
+  const clearCollageSession = useCallback(() => {
+    setCollageSlots((prev) => {
+      for (const slot of prev) {
+        if (slot?.objectUrl) URL.revokeObjectURL(slot.src);
+      }
+      return [];
+    });
+    setCollageLayoutId(null);
+    setActiveSlotIndex(0);
+  }, []);
+
+  function beginCollage(layoutId: CollageLayoutId = DEFAULT_COLLAGE_LAYOUT_ID) {
+    for (const slot of collageSlots) {
+      if (slot?.objectUrl) URL.revokeObjectURL(slot.src);
+    }
+    setCollageLayoutId(layoutId);
+    setCollageSlots(emptyCollageSlots(layoutId));
+    setActiveSlotIndex(0);
+    setMode("collage");
+  }
+
+  function selectCollageLayout(layoutId: CollageLayoutId) {
+    if (collageLayoutId === layoutId) return;
+    if (collageHasPhotos) {
+      const ok = window.confirm(t("discardConfirm"));
+      if (!ok) return;
+      for (const slot of collageSlots) {
+        if (slot?.objectUrl) URL.revokeObjectURL(slot.src);
+      }
+    }
+    setCollageLayoutId(layoutId);
+    setCollageSlots(emptyCollageSlots(layoutId));
+    setActiveSlotIndex(0);
+  }
+
+  function openCollageSlot(index: number) {
+    setActiveSlotIndex(index);
+    setMode("camera");
+  }
 
   const stopRecordingTimers = useCallback(() => {
     if (recordTimerRef.current) {
@@ -423,7 +500,7 @@ export function StoryStudio({
         ];
         const needsRemeasure = layoutKeys.some((key) => key in patch);
         if (!needsRemeasure) return next;
-        return fitStoryTextBox(next, STORY_TEXT_MAX_WIDTH);
+        return fitStoryTextBox(next, textMaxWidth);
       }),
     });
   }
@@ -437,7 +514,7 @@ export function StoryStudio({
       ...doc,
       elements: doc.elements.map((el) => {
         if (el.id !== id || el.type !== "text") return el;
-        return fitStoryTextBox({ ...el, text }, STORY_TEXT_MAX_WIDTH);
+        return fitStoryTextBox({ ...el, text }, textMaxWidth);
       }),
     });
   }
@@ -501,6 +578,10 @@ export function StoryStudio({
   async function onPickMedia(file: File | null) {
     if (!file) return;
     if (file.type.startsWith("video/")) {
+      if (collageFilling) {
+        toast.error(t("unsupportedMedia"));
+        return;
+      }
       if (!allowVideos) {
         toast.error(t("videosDisabled"));
         return;
@@ -535,6 +616,56 @@ export function StoryStudio({
     if (!pendingImage) return;
     const img = new Image();
     img.onload = () => {
+      if (collageLayoutId && collageLayout) {
+        const slotRect = collageLayout.slots[activeSlotIndex];
+        if (!slotRect) return;
+        const placed = fitCoverInSlot(img.naturalWidth, img.naturalHeight, slotRect);
+        const el: ImageElement = {
+          id: newElementId(),
+          type: "image",
+          src: pendingImage.src,
+          objectUrl: pendingImage.objectUrl,
+          adjustments: { ...draftAdjust },
+          filter: draftFilter,
+          ...placed,
+          rotation: draftRotation,
+          scale: 1,
+          zIndex: activeSlotIndex + 1,
+          opacity: 1,
+          locked: true,
+          panX: 0,
+          panY: 0,
+        };
+        const nextSlots = [...collageSlots];
+        const prev = nextSlots[activeSlotIndex];
+        if (prev?.objectUrl && prev.src !== el.src) {
+          URL.revokeObjectURL(prev.src);
+        }
+        nextSlots[activeSlotIndex] = el;
+        setCollageSlots(nextSlots);
+        setPendingImage(null);
+
+        const nextEmpty = nextSlots.findIndex((s) => s == null);
+        if (nextEmpty === -1) {
+          const nextDoc = createEmptyStory(
+            { kind: "solid", color: COLLAGE_BG },
+            { width: COLLAGE_SIZE, height: COLLAGE_SIZE },
+          );
+          nextDoc.elements = nextSlots.filter((s): s is ImageElement => s != null);
+          reset(nextDoc);
+          setCollageLayoutId(null);
+          setCollageSlots([]);
+          setActiveSlotIndex(0);
+          setSelectedId(null);
+          setEditingTextId(null);
+          setMode("edit");
+        } else {
+          setActiveSlotIndex(nextEmpty);
+          setMode("camera");
+        }
+        return;
+      }
+
       const rect = fitCoverRect(img.naturalWidth, img.naturalHeight);
       const nextDoc = createEmptyStory({ kind: "solid", color: "#0f0f12" });
       nextDoc.elements = [
@@ -605,6 +736,9 @@ export function StoryStudio({
       }
       return;
     }
+
+    // Collage: photo only
+    if (collageFilling) return;
 
     if (!videosAllowed) return;
     shutterHoldTimerRef.current = setTimeout(() => {
@@ -737,7 +871,7 @@ export function StoryStudio({
         elements: doc.elements.map((el) => {
           if (el.id !== id || el.type !== "text") return el;
           if (el.text === text) return el;
-          return fitStoryTextBox({ ...el, text }, STORY_TEXT_MAX_WIDTH);
+          return fitStoryTextBox({ ...el, text }, textMaxWidth);
         }),
       });
     }
@@ -752,6 +886,7 @@ export function StoryStudio({
       STORY_BACKGROUND_PRESETS.find((p) => p.id === "dusk")?.background ??
       ({ kind: "gradient", from: "#1a1423", to: "#4a3728", angle: 160 } as const);
     const id = newElementId();
+    const maxW = STORY_WIDTH * STORY_TEXT_MAX_WIDTH_RATIO;
     const base: TextElement = {
       id,
       type: "text",
@@ -763,22 +898,23 @@ export function StoryStudio({
       bold: true,
       italic: false,
       highlight: null,
-      x: (STORY_WIDTH - STORY_TEXT_MAX_WIDTH) / 2,
+      x: (STORY_WIDTH - maxW) / 2,
       y: STORY_HEIGHT * 0.35,
-      width: STORY_TEXT_MAX_WIDTH,
+      width: maxW,
       height: 0,
       rotation: 0,
       scale: 1,
       zIndex: TEXT_LAYER_Z_BASE + 1,
       opacity: 1,
     };
-    const el = fitStoryTextBox(base, STORY_TEXT_MAX_WIDTH);
+    const el = fitStoryTextBox(base, maxW);
     reset({ ...createEmptyStory(bg), elements: [el] });
     beginTextEdit(el);
   }
 
   function addTextLayer() {
     const id = newElementId();
+    const maxW = textMaxWidth;
     const base: TextElement = {
       id,
       type: "text",
@@ -790,16 +926,16 @@ export function StoryStudio({
       bold: true,
       italic: false,
       highlight: null,
-      x: (STORY_WIDTH - STORY_TEXT_MAX_WIDTH) / 2,
-      y: STORY_HEIGHT * 0.38,
-      width: STORY_TEXT_MAX_WIDTH,
+      x: (doc.width - maxW) / 2,
+      y: doc.height * 0.38,
+      width: maxW,
       height: 0,
       rotation: 0,
       scale: 1,
       zIndex: nextZIndexFor(doc.elements, "text"),
       opacity: 1,
     };
-    const el = fitStoryTextBox(base, STORY_TEXT_MAX_WIDTH);
+    const el = fitStoryTextBox(base, maxW);
     push({ ...doc, elements: [...doc.elements, el] });
     beginTextEdit(el);
   }
@@ -873,6 +1009,7 @@ export function StoryStudio({
             return;
           }
           formData.append("caption", eventName);
+          if (challengeId) formData.append("challengeId", challengeId);
           const poster = await captureVideoPoster(file);
           if (poster) formData.append("thumbnail", poster);
           await uploadWithProgress({
@@ -922,6 +1059,7 @@ export function StoryStudio({
       formData.append("file", file);
       formData.append("uploadedBy", guestName);
       formData.append("caption", eventName);
+      if (challengeId) formData.append("challengeId", challengeId);
       await uploadWithProgress({
         url: `/api/public/media/${uploadToken}`,
         formData,
@@ -954,7 +1092,12 @@ export function StoryStudio({
       return;
     }
     if (mode === "imageEdit") {
+      if (pendingImage?.objectUrl) URL.revokeObjectURL(pendingImage.src);
       setPendingImage(null);
+      if (collageFilling) {
+        setMode("collage");
+        return;
+      }
       setMode("start");
       return;
     }
@@ -965,6 +1108,23 @@ export function StoryStudio({
     }
     if (mode === "camera") {
       stopCamera();
+      if (collageFilling) {
+        setMode("collage");
+        return;
+      }
+      setMode("start");
+      return;
+    }
+    if (mode === "collage") {
+      if (collageHasPhotos) {
+        const leave = window.confirm(t("discardConfirm"));
+        if (!leave) return;
+      }
+      clearCollageSession();
+      if (enterCollage) {
+        onClose();
+        return;
+      }
       setMode("start");
       return;
     }
@@ -978,13 +1138,17 @@ export function StoryStudio({
         if (!leave) return;
       }
       reset(createEmptyStory());
+      if (enterCollage) {
+        onClose();
+        return;
+      }
       setMode("start");
       return;
     }
     onClose();
   }
 
-  const scale = useFullBleedScale(stageRef);
+  const scale = useFullBleedScale(stageRef, doc.width, doc.height);
   const showComposeChrome = mode === "edit" || mode === "preview";
   const isStart = mode === "start";
 
@@ -1014,7 +1178,9 @@ export function StoryStudio({
             style={{
               background: isStart
                 ? `linear-gradient(160deg, ${primaryColor}66, #1a1423 50%, #0a0a0b)`
-                : backgroundCss(doc.background),
+                : mode === "collage" || (mode === "camera" && collageFilling)
+                  ? COLLAGE_BG
+                  : backgroundCss(doc.background),
             }}
             onPointerDown={() => {
               if (mode === "edit") {
@@ -1025,7 +1191,98 @@ export function StoryStudio({
               }
             }}
           >
-            {mode === "camera" ? (
+            {mode === "camera" && collageLayout ? (
+              <>
+                <div
+                  className="absolute inset-x-0 top-0 flex items-center justify-center px-3"
+                  style={{
+                    top: "max(3.5rem, calc(env(safe-area-inset-top) + 2.75rem))",
+                    bottom: "10.5rem",
+                  }}
+                >
+                  <div
+                    className="relative h-full max-h-full w-full overflow-hidden"
+                    style={{
+                      aspectRatio: "1 / 1",
+                      maxWidth: "100%",
+                      background: COLLAGE_BG,
+                      marginInline: "auto",
+                    }}
+                  >
+                  {collageLayout.slots.map((slot, index) => {
+                    const filled = collageSlots[index];
+                    const isActive = index === activeSlotIndex;
+                    if (isActive) return null;
+                    return (
+                      <button
+                        key={`cam-slot-${index}`}
+                        type="button"
+                        className="absolute overflow-hidden ring-1 ring-inset ring-white/20"
+                        style={{
+                          left: `${(slot.x / COLLAGE_SIZE) * 100}%`,
+                          top: `${(slot.y / COLLAGE_SIZE) * 100}%`,
+                          width: `${(slot.width / COLLAGE_SIZE) * 100}%`,
+                          height: `${(slot.height / COLLAGE_SIZE) * 100}%`,
+                        }}
+                        onClick={() => setActiveSlotIndex(index)}
+                      >
+                        {filled ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={filled.src}
+                            alt=""
+                            draggable={false}
+                            className="pointer-events-none h-full w-full object-cover select-none"
+                            style={{
+                              filter: filterCss(filled.filter, filled.adjustments),
+                              transform: `rotate(${filled.rotation}deg) scale(1.01)`,
+                            }}
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center bg-white/[0.04]">
+                            <Camera className="size-7 text-white/40" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {(() => {
+                    const slot = collageLayout.slots[activeSlotIndex];
+                    if (!slot) return null;
+                    return (
+                      <div
+                        className="absolute overflow-hidden ring-2 ring-inset ring-white"
+                        style={{
+                          left: `${(slot.x / COLLAGE_SIZE) * 100}%`,
+                          top: `${(slot.y / COLLAGE_SIZE) * 100}%`,
+                          width: `${(slot.width / COLLAGE_SIZE) * 100}%`,
+                          height: `${(slot.height / COLLAGE_SIZE) * 100}%`,
+                        }}
+                      >
+                        <video
+                          ref={cameraVideoRef}
+                          className={cn(
+                            "h-full w-full object-cover select-none",
+                            facingMode === "user" && "-scale-x-100",
+                            !cameraReady && "opacity-0",
+                          )}
+                          playsInline
+                          muted
+                          autoPlay
+                        />
+                      </div>
+                    );
+                  })()}
+                  </div>
+                </div>
+                {cameraError ? (
+                  <div className="absolute inset-x-0 top-1/3 z-10 px-8 text-center">
+                    <p className="text-base font-medium">{t("cameraDeniedTitle")}</p>
+                    <p className="mt-2 text-sm text-white/70">{t("cameraDenied")}</p>
+                  </div>
+                ) : null}
+              </>
+            ) : mode === "camera" ? (
               <>
                 <video
                   ref={cameraVideoRef}
@@ -1071,6 +1328,64 @@ export function StoryStudio({
                   </div>
                 ) : null}
               </>
+            ) : mode === "collage" && collageLayout ? (
+              <div
+                className="absolute inset-x-0 top-0 flex items-center justify-center px-3"
+                style={{
+                  top: "max(3.5rem, calc(env(safe-area-inset-top) + 2.75rem))",
+                  bottom: "13.5rem",
+                }}
+              >
+                <div
+                  className="relative h-full max-h-full w-full overflow-hidden"
+                  style={{
+                    aspectRatio: "1 / 1",
+                    maxWidth: "100%",
+                    background: COLLAGE_BG,
+                    marginInline: "auto",
+                  }}
+                >
+                  {collageLayout.slots.map((slot, index) => {
+                    const filled = collageSlots[index];
+                    const left = `${(slot.x / COLLAGE_SIZE) * 100}%`;
+                    const top = `${(slot.y / COLLAGE_SIZE) * 100}%`;
+                    const width = `${(slot.width / COLLAGE_SIZE) * 100}%`;
+                    const height = `${(slot.height / COLLAGE_SIZE) * 100}%`;
+                    return (
+                      <button
+                        key={`fill-slot-${index}`}
+                        type="button"
+                        className={cn(
+                          "absolute overflow-hidden",
+                          index === activeSlotIndex
+                            ? "ring-2 ring-white ring-inset"
+                            : "ring-1 ring-inset ring-white/20",
+                        )}
+                        style={{ left, top, width, height }}
+                        onClick={() => openCollageSlot(index)}
+                      >
+                        {filled ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={filled.src}
+                            alt=""
+                            draggable={false}
+                            className="pointer-events-none h-full w-full object-cover select-none"
+                            style={{
+                              filter: filterCss(filled.filter, filled.adjustments),
+                              transform: `rotate(${filled.rotation}deg) scale(1.01)`,
+                            }}
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center bg-white/[0.04]">
+                            <Camera className="size-7 text-white/40" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ) : mode === "videoPreview" && pendingVideo ? (
               <AlbumVideoPlayer
                 key={pendingVideo.url}
@@ -1302,6 +1617,12 @@ export function StoryStudio({
                     onClick={startTextPost}
                     icon={<Type className="size-6" />}
                   />
+                  <StartAction
+                    label={t("actionCollage")}
+                    description={t("actionCollageDesc")}
+                    onClick={() => beginCollage()}
+                    icon={<LayoutGrid className="size-6" />}
+                  />
                 </div>
               </div>
             </div>
@@ -1338,9 +1659,16 @@ export function StoryStudio({
               className="absolute inset-x-0 bottom-0 z-20 px-4"
               style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
             >
-              {videosAllowed && !recording ? (
+              {videosAllowed && !recording && !collageFilling ? (
                 <p className="mb-3 text-center text-xs font-medium tracking-wide text-white/55">
                   {isWish ? t("wishTapToRecord") : t("holdToRecord")}
+                </p>
+              ) : collageFilling ? (
+                <p className="mb-3 text-center text-xs font-medium tracking-wide text-white/55">
+                  {t("collageSlotProgress", {
+                    filled: collageFilledCount,
+                    total: collageLayout?.slots.length ?? 0,
+                  })}
                 </p>
               ) : (
                 <div className="mb-3 h-4" aria-hidden />
@@ -1400,7 +1728,69 @@ export function StoryStudio({
                 </button>
               </div>
               <p className="pb-1 text-center text-sm font-semibold tracking-[0.25em]">
-                {isWish ? t("modeWish") : t("modePost")}
+                {isWish ? t("modeWish") : collageFilling ? t("modeCollage") : t("modePost")}
+              </p>
+            </div>
+          ) : null}
+
+          {/* Collage layout chrome */}
+          {mode === "collage" && collageLayout ? (
+            <div
+              className="absolute inset-x-0 bottom-0 z-30 border-t border-white/10 bg-neutral-950/95 px-3 pt-3 backdrop-blur-xl"
+              style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+            >
+              <p className="mb-2.5 text-center text-xs font-medium tracking-wide text-white/60">
+                {collageHasPhotos ? t("collageFillHint") : t("collagePickLayout")}
+              </p>
+              <div className="mb-3 flex justify-center gap-2">
+                {COLLAGE_LAYOUTS.map((layout) => {
+                  const active = layout.id === collageLayoutId;
+                  return (
+                    <button
+                      key={layout.id}
+                      type="button"
+                      onClick={() => selectCollageLayout(layout.id)}
+                      className={cn(
+                        "flex w-[4.5rem] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-1.5 py-2.5 transition",
+                        active
+                          ? "bg-white text-neutral-950 shadow-lg"
+                          : "bg-white/10 text-white ring-1 ring-white/10",
+                      )}
+                      aria-label={t(layout.labelKey)}
+                      aria-pressed={active}
+                    >
+                      <CollageLayoutThumb layoutId={layout.id} active={active} />
+                      <span className="text-[10px] font-semibold tracking-wide">
+                        {t(layout.labelKey)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mb-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openCollageSlot(activeSlotIndex)}
+                  className="tap-press flex-1 rounded-full bg-white py-3 text-sm font-semibold text-neutral-950"
+                >
+                  {t("actionCamera")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="tap-press flex-1 rounded-full bg-white/12 py-3 text-sm font-semibold text-white ring-1 ring-white/20"
+                >
+                  {t("actionLibrary")}
+                </button>
+              </div>
+              <p className="pb-0.5 text-center text-[11px] font-medium text-white/45">
+                {t("collageSlotProgress", {
+                  filled: collageFilledCount,
+                  total: collageLayout.slots.length,
+                })}
+              </p>
+              <p className="pb-1 text-center text-sm font-semibold tracking-[0.25em]">
+                {t("modeCollage")}
               </p>
             </div>
           ) : null}
@@ -1716,7 +2106,7 @@ export function StoryStudio({
       <input
         ref={fileRef}
         type="file"
-        accept={allowVideos ? MEDIA_ACCEPT : IMAGE_ACCEPT}
+        accept={collageFilling || !allowVideos ? IMAGE_ACCEPT : MEDIA_ACCEPT}
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0] ?? null;
@@ -1725,6 +2115,47 @@ export function StoryStudio({
         }}
       />
     </div>
+  );
+}
+
+function CollageLayoutThumb({
+  layoutId,
+  active,
+}: {
+  layoutId: CollageLayoutId;
+  active: boolean;
+}) {
+  const layout = getCollageLayout(layoutId);
+  const cellFill = active ? "#262626" : "rgba(255,255,255,0.22)";
+  const cellStroke = active ? "#0a0a0a" : "rgba(255,255,255,0.55)";
+  return (
+    <svg
+      viewBox={`0 0 ${COLLAGE_SIZE} ${COLLAGE_SIZE}`}
+      className="size-10"
+      aria-hidden
+    >
+      <rect
+        x={0}
+        y={0}
+        width={COLLAGE_SIZE}
+        height={COLLAGE_SIZE}
+        fill={active ? "#f5f5f5" : "#141414"}
+        rx={64}
+      />
+      {layout.slots.map((slot, i) => (
+        <rect
+          key={i}
+          x={slot.x}
+          y={slot.y}
+          width={slot.width}
+          height={slot.height}
+          fill={cellFill}
+          stroke={cellStroke}
+          strokeWidth={28}
+          rx={36}
+        />
+      ))}
+    </svg>
   );
 }
 
@@ -1782,10 +2213,14 @@ function ChromeIconButton({
   );
 }
 
-function useFullBleedScale(stageRef: RefObject<HTMLDivElement | null>) {
+function useFullBleedScale(
+  stageRef: RefObject<HTMLDivElement | null>,
+  designWidth: number = STORY_WIDTH,
+  designHeight: number = STORY_HEIGHT,
+) {
   const [scale, setScale] = useState({
-    width: STORY_WIDTH,
-    height: STORY_HEIGHT,
+    width: designWidth,
+    height: designHeight,
     factor: 1,
   });
 
@@ -1794,10 +2229,13 @@ function useFullBleedScale(stageRef: RefObject<HTMLDivElement | null>) {
     if (!el) return;
     const measure = () => {
       const rect = el.getBoundingClientRect();
-      const factor = Math.min(rect.width / STORY_WIDTH, rect.height / STORY_HEIGHT);
+      const factor = Math.min(
+        rect.width / designWidth,
+        rect.height / designHeight,
+      );
       setScale({
-        width: STORY_WIDTH * factor,
-        height: STORY_HEIGHT * factor,
+        width: designWidth * factor,
+        height: designHeight * factor,
         factor,
       });
     };
@@ -1805,7 +2243,7 @@ function useFullBleedScale(stageRef: RefObject<HTMLDivElement | null>) {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [stageRef]);
+  }, [stageRef, designWidth, designHeight]);
 
   return scale;
 }
@@ -1894,14 +2332,20 @@ function StoryCanvasLayers({
 
   type GestureState = {
     id: string;
-    mode: "drag" | "pinch";
+    mode: "drag" | "pinch" | "pan";
     startX: number;
     startY: number;
     origX: number;
     origY: number;
+    origPanX: number;
+    origPanY: number;
     origScale: number;
     origW: number;
     origH: number;
+    mediaW: number;
+    mediaH: number;
+    boxW: number;
+    boxH: number;
     startDist: number;
     startMidX: number;
     startMidY: number;
@@ -1914,6 +2358,16 @@ function StoryCanvasLayers({
   };
 
   const gestureRef = useRef<GestureState | null>(null);
+  const naturalSizeRef = useRef<Map<string, { w: number; h: number }>>(new Map());
+  const [, bumpNatural] = useState(0);
+
+  function rememberNaturalSize(src: string, w: number, h: number) {
+    if (w <= 0 || h <= 0) return;
+    const prev = naturalSizeRef.current.get(src);
+    if (prev && prev.w === w && prev.h === h) return;
+    naturalSizeRef.current.set(src, { w, h });
+    bumpNatural((n) => n + 1);
+  }
 
   function pointerDistance(
     pointers: Map<number, { x: number; y: number }>,
@@ -1944,7 +2398,24 @@ function StoryCanvasLayers({
     };
   }
 
+  function applyPanDelta(gesture: GestureState, clientX: number, clientY: number) {
+    const scale = designScaleRef.current || 1;
+    const dx = (clientX - gesture.startX) / scale;
+    const dy = (clientY - gesture.startY) / scale;
+    if (Math.abs(dx) + Math.abs(dy) > 3) gesture.moved = true;
+    const next = clampImagePan(
+      gesture.origPanX + dx,
+      gesture.origPanY + dy,
+      gesture.mediaW,
+      gesture.mediaH,
+      gesture.boxW,
+      gesture.boxH,
+    );
+    onChangeRef.current(gesture.id, { panX: next.panX, panY: next.panY });
+  }
+
   function snapshotPinch(gesture: GestureState, el: StoryElement) {
+    if (gesture.mode === "pan") return;
     gesture.mode = "pinch";
     gesture.startDist = pointerDistance(gesture.pointers);
     gesture.origScale = el.scale;
@@ -1992,10 +2463,15 @@ function StoryCanvasLayers({
     e.stopPropagation();
     e.preventDefault();
 
+    onSelect(el.id);
+
+    const isPanTarget = el.type === "image" && el.locked;
+
     const existing = gestureRef.current;
 
-    // Second finger landed on another layer — fold into active pinch
+    // Second finger: ignore for pan; fold into pinch for free layers
     if (existing && existing.id !== el.id) {
+      if (existing.mode === "pan") return;
       if (!existing.pointers.has(e.pointerId)) {
         existing.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         const activeEl = docRef.current.elements.find(
@@ -2008,11 +2484,11 @@ function StoryCanvasLayers({
       return;
     }
 
-    onSelect(el.id);
     setActiveId(el.id);
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
 
     if (existing && existing.id === el.id) {
+      if (existing.mode === "pan") return;
       existing.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (existing.pointers.size >= 2) {
         snapshotPinch(existing, el);
@@ -2021,27 +2497,52 @@ function StoryCanvasLayers({
     }
 
     const fromBase = snapshotRef.current();
-    const newZ = nextZIndexFor(fromBase.elements, el.type);
-    const fromDoc: StoryDocument = {
-      ...fromBase,
-      elements: fromBase.elements.map((item) =>
-        item.id === el.id ? { ...item, zIndex: newZ } : item,
-      ),
-    };
-    onChangeRef.current(el.id, { zIndex: newZ });
+    const fromDoc: StoryDocument = isPanTarget
+      ? fromBase
+      : {
+          ...fromBase,
+          elements: fromBase.elements.map((item) =>
+            item.id === el.id
+              ? { ...item, zIndex: nextZIndexFor(fromBase.elements, el.type) }
+              : item,
+          ),
+        };
+    if (!isPanTarget) {
+      const newZ = nextZIndexFor(fromBase.elements, el.type);
+      onChangeRef.current(el.id, { zIndex: newZ });
+    }
+
+    const boxW = el.width * el.scale;
+    const boxH = el.height * el.scale;
+    let mediaW = boxW;
+    let mediaH = boxH;
+    if (el.type === "image") {
+      const cached = naturalSizeRef.current.get(el.src);
+      if (cached) {
+        const cover = coverMediaSize(cached.w, cached.h, boxW, boxH);
+        mediaW = cover.width;
+        mediaH = cover.height;
+      }
+    }
 
     const pointers = new Map<number, { x: number; y: number }>();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     gestureRef.current = {
       id: el.id,
-      mode: "drag",
+      mode: isPanTarget ? "pan" : "drag",
       startX: e.clientX,
       startY: e.clientY,
       origX: el.x,
       origY: el.y,
+      origPanX: el.type === "image" ? (el.panX ?? 0) : 0,
+      origPanY: el.type === "image" ? (el.panY ?? 0) : 0,
       origScale: el.scale,
-      origW: el.width * el.scale,
-      origH: el.height * el.scale,
+      origW: boxW,
+      origH: boxH,
+      mediaW,
+      mediaH,
+      boxW,
+      boxH,
       startDist: 0,
       startMidX: 0,
       startMidY: 0,
@@ -2065,6 +2566,11 @@ function StoryCanvasLayers({
       return;
     }
 
+    if (gesture.mode === "pan") {
+      applyPanDelta(gesture, e.clientX, e.clientY);
+      return;
+    }
+
     const scale = designScaleRef.current || 1;
     const dx = (e.clientX - gesture.startX) / scale;
     const dy = (e.clientY - gesture.startY) / scale;
@@ -2081,13 +2587,13 @@ function StoryCanvasLayers({
     if (!gesture.pointers.has(e.pointerId)) return;
     gesture.pointers.delete(e.pointerId);
 
-    if (gesture.pointers.size >= 2) {
+    if (gesture.mode !== "pan" && gesture.pointers.size >= 2) {
       const el = docRef.current.elements.find((item) => item.id === gesture.id);
       if (el) snapshotPinch(gesture, el);
       return;
     }
 
-    if (gesture.pointers.size === 1) {
+    if (gesture.mode !== "pan" && gesture.pointers.size === 1) {
       const remaining = [...gesture.pointers.values()][0]!;
       gesture.mode = "drag";
       gesture.startX = remaining.x;
@@ -2118,6 +2624,7 @@ function StoryCanvasLayers({
     function onDocPointerDown(e: PointerEvent) {
       const gesture = gestureRef.current;
       if (!gesture) return;
+      if (gesture.mode === "pan") return;
       if (gesture.pointers.has(e.pointerId)) return;
       const stage = layerStageRef.current;
       if (!stage) return;
@@ -2144,6 +2651,11 @@ function StoryCanvasLayers({
 
       if (gesture.mode === "pinch" && gesture.pointers.size >= 2) {
         applyPinch(gesture);
+        return;
+      }
+
+      if (gesture.mode === "pan" && gesture.pointers.size === 1) {
+        applyPanDelta(gesture, e.clientX, e.clientY);
         return;
       }
 
@@ -2218,99 +2730,182 @@ function StoryCanvasLayers({
         const interacting = el.id === activeId;
         const fontSizePx =
           el.type === "text" ? el.fontSize * el.scale * designScale : 0;
+        const locked = el.type === "image" && el.locked;
+        const boxW = el.width * el.scale;
+        const boxH = el.height * el.scale;
+        const panX = el.type === "image" ? (el.panX ?? 0) : 0;
+        const panY = el.type === "image" ? (el.panY ?? 0) : 0;
+        const natural =
+          el.type === "image" ? naturalSizeRef.current.get(el.src) : null;
+        const cover = natural
+          ? coverMediaSize(natural.w, natural.h, boxW, boxH)
+          : { width: boxW, height: boxH };
+        const mediaLeft = (boxW - cover.width) / 2 + panX;
+        const mediaTop = (boxH - cover.height) / 2 + panY;
+        const showPanGhost = locked && interacting;
+
         const style: CSSProperties = {
           position: "absolute",
           left: el.x * designScale,
           top: el.y * designScale,
-          width: el.width * el.scale * designScale,
-          height: el.height * el.scale * designScale,
-          transform: `rotate(${el.rotation}deg)`,
+          width: boxW * designScale,
+          height: boxH * designScale,
+          transform: locked ? undefined : `rotate(${el.rotation}deg)`,
           opacity: el.opacity,
           zIndex: paintOrder + 1,
           touchAction: "none",
           userSelect: "none",
           WebkitUserSelect: "none",
+          overflow: el.type === "image" || el.type === "video" ? "hidden" : undefined,
         };
 
         return (
-          <div
-            key={el.id}
-            style={style}
-            className={cn(
-              "origin-center select-none",
-              interactive && "cursor-grab active:cursor-grabbing",
-              interacting && "outline outline-1 outline-white/80",
-              selected &&
-                interactive &&
-                !interacting &&
-                "outline outline-1 outline-white/35",
-            )}
-            onPointerDown={(e) => onPointerDown(e, el)}
-            onPointerMove={onPointerMove}
-            onPointerUp={endPointer}
-            onPointerCancel={endPointer}
-          >
-            {el.type === "image" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={el.src}
-                alt=""
-                draggable={false}
-                className="pointer-events-none h-full w-full object-cover select-none"
-                style={{ filter: filterCss(el.filter, el.adjustments) }}
-              />
-            ) : el.type === "video" ? (
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video
-                src={el.src}
-                className="pointer-events-none h-full w-full object-cover"
-                muted
-                playsInline
-                loop
-                autoPlay
-              />
-            ) : el.type === "text" ? (
+          <Fragment key={el.id}>
+            {showPanGhost && el.type === "image" ? (
               <div
-                className="h-full w-full"
-                style={{ textAlign: el.align }}
+                className="pointer-events-none absolute overflow-visible"
+                style={{
+                  left: el.x * designScale,
+                  top: el.y * designScale,
+                  width: boxW * designScale,
+                  height: boxH * designScale,
+                  zIndex: paintOrder + 50,
+                }}
               >
-                <span
-                  className="select-none"
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={el.src}
+                  alt=""
+                  draggable={false}
+                  className="absolute max-w-none select-none"
                   style={{
-                    fontFamily: el.fontFamily,
-                    fontSize: fontSizePx,
-                    fontWeight: el.bold ? 700 : 400,
-                    fontStyle: el.italic ? "italic" : "normal",
-                    color: el.color,
-                    whiteSpace: "pre-wrap",
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                    lineHeight: STORY_TEXT_LINE_HEIGHT,
-                    ...storyTextCssHighlightStyle(fontSizePx, el.highlight),
+                    width: cover.width * designScale,
+                    height: cover.height * designScale,
+                    left: mediaLeft * designScale,
+                    top: mediaTop * designScale,
+                    opacity: 0.4,
+                    filter: filterCss(el.filter, el.adjustments),
+                    transform: `rotate(${el.rotation}deg)`,
                   }}
-                >
-                  {el.text}
-                </span>
+                />
               </div>
-            ) : el.type === "drawing" ? (
-              <svg className="h-full w-full" viewBox={`0 0 ${STORY_WIDTH} ${STORY_HEIGHT}`}>
-                {el.strokes.map((stroke) => (
-                  <polyline
-                    key={stroke.id}
-                    fill="none"
-                    stroke={stroke.color}
-                    strokeWidth={stroke.size}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points={stroke.points.map((p) => `${p.x},${p.y}`).join(" ")}
-                  />
-                ))}
-              </svg>
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={el.src} alt={el.label ?? ""} className="h-full w-full object-contain" />
-            )}
-          </div>
+            ) : null}
+            <div
+              style={style}
+              className={cn(
+                "origin-center select-none",
+                interactive && "cursor-grab active:cursor-grabbing",
+                interacting && "outline outline-1 outline-white/80",
+                selected &&
+                  interactive &&
+                  !interacting &&
+                  "outline outline-1 outline-white/35",
+              )}
+              onPointerDown={(e) => onPointerDown(e, el)}
+              onPointerMove={onPointerMove}
+              onPointerUp={endPointer}
+              onPointerCancel={endPointer}
+            >
+              {el.type === "image" && locked ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={el.src}
+                  alt=""
+                  draggable={false}
+                  className="pointer-events-none absolute max-w-none select-none"
+                  style={{
+                    width: cover.width * designScale,
+                    height: cover.height * designScale,
+                    left: mediaLeft * designScale,
+                    top: mediaTop * designScale,
+                    filter: filterCss(el.filter, el.adjustments),
+                    transform: `rotate(${el.rotation}deg)`,
+                  }}
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    rememberNaturalSize(el.src, img.naturalWidth, img.naturalHeight);
+                    const gesture = gestureRef.current;
+                    if (gesture?.id === el.id && gesture.mode === "pan") {
+                      const next = coverMediaSize(
+                        img.naturalWidth,
+                        img.naturalHeight,
+                        gesture.boxW,
+                        gesture.boxH,
+                      );
+                      gesture.mediaW = next.width;
+                      gesture.mediaH = next.height;
+                    }
+                  }}
+                />
+              ) : el.type === "image" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={el.src}
+                  alt=""
+                  draggable={false}
+                  className="pointer-events-none h-full w-full object-cover select-none"
+                  style={{
+                    filter: filterCss(el.filter, el.adjustments),
+                  }}
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    rememberNaturalSize(el.src, img.naturalWidth, img.naturalHeight);
+                  }}
+                />
+              ) : el.type === "video" ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video
+                  src={el.src}
+                  className="pointer-events-none h-full w-full object-cover"
+                  muted
+                  playsInline
+                  loop
+                  autoPlay
+                />
+              ) : el.type === "text" ? (
+                <div className="h-full w-full" style={{ textAlign: el.align }}>
+                  <span
+                    className="select-none"
+                    style={{
+                      fontFamily: el.fontFamily,
+                      fontSize: fontSizePx,
+                      fontWeight: el.bold ? 700 : 400,
+                      fontStyle: el.italic ? "italic" : "normal",
+                      color: el.color,
+                      whiteSpace: "pre-wrap",
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
+                      lineHeight: STORY_TEXT_LINE_HEIGHT,
+                      ...storyTextCssHighlightStyle(fontSizePx, el.highlight),
+                    }}
+                  >
+                    {el.text}
+                  </span>
+                </div>
+              ) : el.type === "drawing" ? (
+                <svg className="h-full w-full" viewBox={`0 0 ${STORY_WIDTH} ${STORY_HEIGHT}`}>
+                  {el.strokes.map((stroke) => (
+                    <polyline
+                      key={stroke.id}
+                      fill="none"
+                      stroke={stroke.color}
+                      strokeWidth={stroke.size}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      points={stroke.points.map((p) => `${p.x},${p.y}`).join(" ")}
+                    />
+                  ))}
+                </svg>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={el.src}
+                  alt={el.label ?? ""}
+                  className="h-full w-full object-contain"
+                />
+              )}
+            </div>
+          </Fragment>
         );
       })}
     </div>

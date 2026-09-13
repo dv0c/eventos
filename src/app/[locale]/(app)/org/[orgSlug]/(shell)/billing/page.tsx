@@ -43,7 +43,11 @@ export default async function BillingPage({
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground">{t("subtitle")}</p>
       </div>
-      <BillingOverviewPanel overview={overview} locale={locale as "el" | "en"} />
+      <BillingOverviewPanel
+        overview={overview}
+        locale={locale as "el" | "en"}
+        orgSlug={orgSlug}
+      />
     </div>
   );
 }

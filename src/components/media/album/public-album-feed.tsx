@@ -898,9 +898,14 @@ export function PublicAlbumShell({
 
       {storyOpen && guestName && (storyPurpose === "wish" || uploadToken) ? (
         <StoryStudio
+          key={`${storyPurpose}-${activeChallenge?.id ?? "free"}-${activeChallenge?.mode ?? "none"}`}
           uploadToken={uploadToken ?? undefined}
           albumToken={albumToken}
           purpose={storyPurpose}
+          challengeId={activeChallenge?.id ?? null}
+          initialEntry={
+            activeChallenge?.mode === "collage" ? "collage" : "start"
+          }
           eventName={feed.eventName}
           guestName={guestName}
           primaryColor={primaryColor}
@@ -1136,7 +1141,7 @@ function AlbumMediaDetail({
 
   return (
     <div className="flex flex-col pb-6">
-      <div className="relative w-full bg-black">
+      <div className="relative flex w-full justify-center bg-black">
         {isVideo ? (
           <AlbumVideoPlayer
             src={item.url}
@@ -1151,7 +1156,7 @@ function AlbumMediaDetail({
           <img
             src={item.url}
             alt={item.caption ?? ""}
-            className="h-auto max-h-[min(60vh,100%)] w-full touch-pan-y select-none object-contain"
+            className="h-auto max-h-[min(70vh,100%)] w-auto max-w-full touch-pan-y select-none object-contain"
             draggable={false}
           />
         )}

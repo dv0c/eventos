@@ -8,6 +8,7 @@ import { prisma } from "@/server/db";
 import {
   isEventEnded,
   isEventWaiting,
+  isGuestLiveFeaturesAllowed,
   isGuestPhotoUploadAllowed,
 } from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
@@ -159,11 +160,22 @@ async function assertGuestPhotoUploadAllowed(event: {
   endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
+  liveStartedAt?: Date | null;
+  pausedAt?: Date | null;
+  stoppedAt?: Date | null;
+  lockedAt?: Date | null;
 }) {
   if (!isGuestPhotoUploadAllowed(event)) {
     if (isEventEnded(event)) {
       await revokeGuestConnectIfEnded(event.id);
       throw new MediaServiceError("Event has ended", 403, "EVENT_ENDED");
+    }
+    if (event.pausedAt) {
+      throw new MediaServiceError(
+        "Event is paused",
+        403,
+        "EVENT_PAUSED",
+      );
     }
     throw new MediaServiceError(
       "Event has not started yet",
@@ -589,8 +601,10 @@ export const mediaService = {
       return [];
     }
 
-    if (isEventEnded(event)) {
-      await revokeGuestConnectIfEnded(event.id);
+    if (!isGuestLiveFeaturesAllowed(event)) {
+      if (isEventEnded(event)) {
+        await revokeGuestConnectIfEnded(event.id);
+      }
       return [];
     }
 
@@ -632,7 +646,7 @@ export const mediaService = {
       return [];
     }
 
-    if (isEventEnded(event)) {
+    if (!isGuestLiveFeaturesAllowed(event)) {
       return [];
     }
 
@@ -660,8 +674,10 @@ export const mediaService = {
       return [];
     }
 
-    if (isEventEnded(event)) {
-      await revokeGuestConnectIfEnded(event.id);
+    if (!isGuestLiveFeaturesAllowed(event)) {
+      if (isEventEnded(event)) {
+        await revokeGuestConnectIfEnded(event.id);
+      }
       return [];
     }
 
@@ -703,7 +719,7 @@ export const mediaService = {
       return { events: [], countsByMedia: {} as Record<string, Record<string, number>>, latestCreatedAt: null as Date | null };
     }
 
-    if (isEventEnded(event)) {
+    if (!isGuestLiveFeaturesAllowed(event)) {
       return { events: [], countsByMedia: {} as Record<string, Record<string, number>>, latestCreatedAt: null as Date | null };
     }
 
@@ -759,7 +775,7 @@ export const mediaService = {
 
   async getWallReactionCountMap(eventSlug: string) {
     const event = await eventRepository.findBySlugPublic(eventSlug);
-    if (!event?.settings?.enableWall || isEventEnded(event)) {
+    if (!event?.settings?.enableWall || !isGuestLiveFeaturesAllowed(event)) {
       return {} as Record<string, Record<string, number>>;
     }
 

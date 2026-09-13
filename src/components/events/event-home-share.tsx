@@ -1,13 +1,20 @@
 "use client";
 
 import type { QRCodeType } from "@prisma/client";
-import { Download, QrCode, Share2, Upload, Images } from "lucide-react";
+import { Download, QrCode, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
 import { QrPreview, QrUrlField } from "@/components/media/qr-link-row";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { EventLifecycle } from "@/server/events/event-ended";
 
 interface QrCodeItem {
@@ -35,6 +42,7 @@ export function EventHomeShare({
   const sectionId = useId();
   const [uploadCode, setUploadCode] = useState<QrCodeItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const loadQrCodes = useCallback(async () => {
     setIsLoading(true);
@@ -76,109 +84,79 @@ export function EventHomeShare({
     }
   }
 
+  const subtitle =
+    lifecycle === "ended"
+      ? t("shareEndedSubtitle")
+      : lifecycle === "waiting"
+        ? t("shareWaitingReadySubtitle")
+        : t("shareSubtitle");
+
   return (
-    <section id="share-with-guests" aria-labelledby={sectionId} className="space-y-4">
-      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5 sm:p-6">
-        <div className="mb-5 space-y-1">
-          <h2 id={sectionId} className="text-sm font-semibold tracking-tight text-foreground">
-            {t("shareTitle")}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {lifecycle === "ended"
-              ? t("shareEndedSubtitle")
-              : lifecycle === "waiting"
-                ? t("shareWaitingReadySubtitle")
-                : t("shareSubtitle")}
-          </p>
+    <section id="share-with-guests" aria-labelledby={sectionId} className="space-y-3">
+      <div className="space-y-1">
+        <h2 id={sectionId} className="text-sm font-semibold tracking-tight text-foreground">
+          {t("shareTitle")}
+        </h2>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          {isLoading || !uploadCode ? (
+            <div className="h-10 animate-pulse rounded-lg bg-muted" />
+          ) : (
+            <QrUrlField url={uploadCode.url} disabled={!enableGallery} />
+          )}
         </div>
-
-        <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
-          <div className="flex flex-col items-center gap-3 sm:items-start">
-            {isLoading ? (
-              <div className="h-40 w-40 animate-pulse rounded-xl bg-muted" />
-            ) : (
-              <QrPreview
-                imageUrl={uploadCode?.imageUrl || null}
-                downloadUrl={downloadUrl}
-                alt={t("shareTitle")}
-                className="h-40 w-40 border border-border/60 bg-white p-2 shadow-sm"
-              />
-            )}
-            {!enableGallery ? (
-              <p className="max-w-[12rem] text-center text-xs text-muted-foreground sm:text-left">
-                {tHub("galleryDisabled")}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="min-w-0 space-y-5">
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">{t("shareUrlLabel")}</p>
-              {isLoading || !uploadCode ? (
-                <div className="h-10 animate-pulse rounded-lg bg-muted" />
-              ) : (
-                <QrUrlField url={uploadCode.url} disabled={!enableGallery} />
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                className="h-9"
-                disabled={!uploadCode || !enableGallery}
-                onClick={shareLink}
-              >
-                <Share2 className="mr-1.5 h-3.5 w-3.5" />
-                {t("shareButton")}
-              </Button>
-              {downloadUrl ? (
-                <Button variant="outline" size="sm" className="h-9 bg-background" asChild>
-                  <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    {tHub("downloadQr")}
-                  </a>
-                </Button>
-              ) : null}
-              <Button variant="outline" size="sm" className="h-9 bg-background" asChild>
-                <a
-                  href={uploadCode?.url ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {t("openAlbum")}
-                </a>
-              </Button>
-            </div>
-
-            <ol className="grid gap-3 sm:grid-cols-3">
-              {[
-                { icon: QrCode, label: t("stepScan") },
-                { icon: Upload, label: t("stepUpload") },
-                { icon: Images, label: t("stepAppear") },
-              ].map((step, index) => {
-                const Icon = step.icon;
-                return (
-                  <li
-                    key={step.label}
-                    className="flex items-start gap-2.5 rounded-md border border-white/10 px-3 py-2.5"
-                  >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-primary">
-                      <Icon className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="min-w-0 pt-0.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {t("stepNumber", { n: index + 1 })}
-                      </p>
-                      <p className="text-sm font-medium text-foreground">{step.label}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-9"
+            disabled={!uploadCode || !enableGallery}
+            onClick={shareLink}
+          >
+            <Share2 className="mr-1.5 h-3.5 w-3.5" />
+            {t("shareButton")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 bg-background"
+            disabled={!uploadCode || !enableGallery}
+            onClick={() => setQrOpen(true)}
+          >
+            <QrCode className="mr-1.5 h-3.5 w-3.5" />
+            {t("showQr")}
+          </Button>
         </div>
       </div>
+
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("qrDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("qrDialogDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <QrPreview
+              imageUrl={uploadCode?.imageUrl || null}
+              downloadUrl={downloadUrl}
+              alt={t("shareTitle")}
+              className="h-48 w-48 border border-border/60 bg-white p-2 shadow-sm"
+            />
+            {downloadUrl ? (
+              <Button variant="outline" size="sm" className="h-9 bg-background" asChild>
+                <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  {tHub("downloadQr")}
+                </a>
+              </Button>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

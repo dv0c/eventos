@@ -5,42 +5,39 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 const plans = [
   {
-    key: "planFree",
-    descKey: "planFreeDesc",
+    key: "free" as const,
     slug: "free",
     price: "€0",
-    features: ["featureGuests", "featureInvitations", "featureTimeline"],
+    features: ["freeF1", "freeF2", "freeF3"] as const,
     highlighted: false,
     checkout: false,
   },
   {
-    key: "planPro",
-    descKey: "planProDesc",
+    key: "pro" as const,
     slug: "pro",
-    price: "€79",
-    features: ["featureGuests", "featureSeating", "featureAnalytics", "featureTeam"],
+    price: "Premium",
+    features: ["proF1", "proF2", "proF3", "proF4"] as const,
     highlighted: true,
-    checkout: true,
+    checkout: false,
   },
   {
-    key: "planEnterprise",
-    descKey: "planEnterpriseDesc",
+    key: "ent" as const,
     slug: "enterprise",
     price: "Custom",
-    features: ["featureGuests", "featureSeating", "featureAnalytics", "featureTeam"],
+    features: ["entF1", "entF2", "entF3", "entF4"] as const,
     highlighted: false,
     checkout: false,
   },
-] as const;
+];
 
 export default function PricingPage() {
-  const t = useTranslations("marketing");
-  const tCommon = useTranslations("common");
+  const t = useTranslations("marketing.evento");
+  const tp = useTranslations("marketing.evento.pricingPage");
   const [loading, setLoading] = useState<string | null>(null);
 
   const startCheckout = async (planSlug: string) => {
@@ -63,63 +60,74 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
       <div className="mx-auto max-w-2xl text-center">
-        <h1 className="text-4xl font-bold tracking-tight">{t("pricingTitle")}</h1>
-        <p className="mt-4 text-lg text-muted-foreground">{t("pricingSubtitle")}</p>
+        <h1 className="text-balance text-4xl font-semibold tracking-tight text-neutral-950 sm:text-5xl">
+          {tp("title")}
+        </h1>
+        <p className="mt-4 text-lg text-neutral-600">{tp("subtitle")}</p>
       </div>
 
-      <div className="mt-16 grid gap-8 lg:grid-cols-3">
+      <div className="mt-14 grid gap-6 lg:grid-cols-3">
         {plans.map((plan) => (
-          <Card
+          <div
             key={plan.key}
-            className={
+            className={cn(
+              "flex flex-col rounded-2xl border p-7 sm:p-8",
               plan.highlighted
-                ? "border-primary/40 bg-gradient-to-b from-primary/5 to-card shadow-lg ring-1 ring-primary/20"
-                : "surface-elevated"
-            }
+                ? "border-[#C4A574]/50 bg-[#C4A574]/8 shadow-[0_20px_50px_-30px_rgba(166,124,82,0.45)]"
+                : "border-neutral-900/10 bg-white",
+            )}
           >
-            <CardHeader>
-              <CardTitle>{t(plan.key)}</CardTitle>
-              <p className="text-sm text-muted-foreground">{t(plan.descKey)}</p>
-              <div className="mt-4">
-                <span className="text-4xl font-bold">{plan.price}</span>
-                {plan.price !== "Custom" ? (
-                  <span className="text-muted-foreground">{t("perMonth")}</span>
-                ) : null}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span>{t(feature)}</span>
-                  </li>
-                ))}
-              </ul>
-              {plan.checkout ? (
-                <Button
-                  variant={plan.highlighted ? "gold" : "outline"}
-                  className="mt-8 w-full"
-                  disabled={loading === plan.slug}
-                  onClick={() => startCheckout(plan.slug)}
-                >
-                  {tCommon("getStarted")}
-                </Button>
-              ) : (
-                <Button
-                  variant={plan.highlighted ? "gold" : "outline"}
-                  className="mt-8 w-full"
-                  asChild
-                >
-                  <Link href={plan.price === "Custom" ? "/contact" : "/register"}>
-                    {plan.price === "Custom" ? t("contactSales") : tCommon("getStarted")}
-                  </Link>
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+            <h2 className="text-xl font-semibold text-neutral-950">
+              {tp(`${plan.key}Name`)}
+            </h2>
+            <p className="mt-2 text-sm text-neutral-600">{tp(`${plan.key}Desc`)}</p>
+            <div className="mt-6">
+              <span className="text-4xl font-semibold tracking-tight text-neutral-950">
+                {plan.price}
+              </span>
+              {plan.price !== "Custom" ? (
+                <span className="text-neutral-500">{tp("perMonth")}</span>
+              ) : null}
+            </div>
+            <ul className="mt-8 flex-1 space-y-3">
+              {plan.features.map((feature) => (
+                <li key={feature} className="flex items-start gap-2 text-sm text-neutral-700">
+                  <Check className="mt-0.5 size-4 shrink-0 text-[#A67C52]" />
+                  <span>{tp(feature)}</span>
+                </li>
+              ))}
+            </ul>
+            {plan.key === "pro" ? (
+              <Button
+                variant="gold"
+                className="mt-8 h-11 w-full rounded-lg font-semibold shadow-none"
+                asChild
+              >
+                <Link href="/register">{tp("buyPremiumEvents")}</Link>
+              </Button>
+            ) : plan.checkout ? (
+              <Button
+                variant="gold"
+                className="mt-8 h-11 w-full rounded-lg font-semibold shadow-none"
+                disabled={loading === plan.slug}
+                onClick={() => startCheckout(plan.slug)}
+              >
+                {t("ctaCreate")}
+              </Button>
+            ) : (
+              <Button
+                variant={plan.highlighted ? "gold" : "outline"}
+                className="mt-8 h-11 w-full rounded-lg font-semibold shadow-none"
+                asChild
+              >
+                <Link href={plan.price === "Custom" ? "/contact" : "/register"}>
+                  {plan.price === "Custom" ? tp("contactSales") : t("ctaCreate")}
+                </Link>
+              </Button>
+            )}
+          </div>
         ))}
       </div>
     </div>

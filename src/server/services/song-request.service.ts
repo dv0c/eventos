@@ -1,7 +1,10 @@
 import { SongRequestStatus } from "@prisma/client";
 
 import { prisma } from "@/server/db";
-import { isEventEnded } from "@/server/events/event-ended";
+import {
+  isEventEnded,
+  isGuestLiveFeaturesAllowed,
+} from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 
@@ -151,9 +154,23 @@ export const songRequestService = {
     if (!event?.settings) {
       throw new SongRequestServiceError("Album not found", 404, "NOT_FOUND");
     }
-    if (isEventEnded(event)) {
-      await revokeGuestConnectIfEnded(event.id);
-      throw new SongRequestServiceError("Event has ended", 403, "EVENT_ENDED");
+    if (!isGuestLiveFeaturesAllowed(event)) {
+      if (isEventEnded(event)) {
+        await revokeGuestConnectIfEnded(event.id);
+        throw new SongRequestServiceError("Event has ended", 403, "EVENT_ENDED");
+      }
+      if (event.pausedAt) {
+        throw new SongRequestServiceError(
+          "Event is paused",
+          403,
+          "EVENT_PAUSED",
+        );
+      }
+      throw new SongRequestServiceError(
+        "Guest features are unavailable",
+        403,
+        "EVENT_NOT_LIVE",
+      );
     }
     if (!(event.settings.enableSongRequests ?? true)) {
       throw new SongRequestServiceError(

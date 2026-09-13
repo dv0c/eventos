@@ -1,6 +1,7 @@
 import {
   AuditAction,
   EventStatus,
+  EventTier,
   EventType,
   Prisma,
   QRCodeType,
@@ -8,7 +9,6 @@ import {
 
 import { generateUniqueEventSlug } from "@/lib/slug";
 import { DEFAULT_EVENT_SETTINGS } from "@/server/events/default-settings";
-import { getEventEndAt, getEventStartAt } from "@/server/events/event-ended";
 import { prisma } from "@/server/db";
 import { enforceEventAccess, enforceOrganizationAccess } from "@/server/permissions/enforce";
 import {
@@ -29,9 +29,9 @@ export interface CreateEventWizardInput {
   type?: EventType;
   description?: string;
   date: Date;
-  endDate: Date;
-  startTime: string;
-  endTime: string;
+  endDate?: Date | null;
+  startTime?: string | null;
+  endTime?: string | null;
   clientId?: string;
   expectedGuests?: number;
   expectedCouples?: number;
@@ -39,6 +39,9 @@ export interface CreateEventWizardInput {
   expectedVip?: number;
   settings?: Prisma.EventSettingsCreateWithoutEventInput;
   theme?: Prisma.EventThemeCreateWithoutEventInput;
+  tier?: EventTier;
+  /** Skip free quota when creating after Premium purchase. */
+  skipFreeQuota?: boolean;
   games?: Array<{
     title: string;
     description?: string | null;
@@ -82,27 +85,6 @@ export class EventServiceError extends Error {
   }
 }
 
-function assertValidSchedule(input: {
-  date: Date;
-  endDate: Date;
-  startTime: string;
-  endTime: string;
-}) {
-  const startAt = getEventStartAt({ date: input.date, startTime: input.startTime });
-  const endAt = getEventEndAt({
-    date: input.date,
-    endDate: input.endDate,
-    endTime: input.endTime,
-  });
-  if (endAt.getTime() <= startAt.getTime()) {
-    throw new EventServiceError(
-      "Event end must be after start",
-      400,
-      "INVALID_SCHEDULE",
-    );
-  }
-}
-
 export const eventService = {
   async createEvent(
     userId: string,
@@ -110,12 +92,16 @@ export const eventService = {
     ipAddress?: string,
   ): Promise<EventWithRelations> {
     await enforceOrganizationAccess(userId, input.organizationId, "event:create");
-    await planLimitsService.assertEventCreateAllowed(userId, input.organizationId);
-    assertValidSchedule(input);
+    if (!input.skipFreeQuota) {
+      await planLimitsService.assertEventCreateAllowed(userId, input.organizationId);
+    }
 
     const slug = await generateUniqueEventSlug(input.name, (candidate) =>
       eventRepository.slugExists(candidate),
     );
+
+    const tier = input.tier ?? EventTier.FREE;
+    const now = new Date();
 
     let eventId: string | null = null;
 
@@ -128,14 +114,16 @@ export const eventService = {
         status: EventStatus.DRAFT,
         description: input.description ?? null,
         date: input.date,
-        endDate: input.endDate,
-        startTime: input.startTime,
-        endTime: input.endTime,
+        endDate: input.endDate ?? null,
+        startTime: input.startTime ?? null,
+        endTime: input.endTime ?? null,
         clientId: input.clientId ?? null,
         expectedGuests: input.expectedGuests ?? 0,
         expectedCouples: input.expectedCouples ?? 0,
         expectedChildren: input.expectedChildren ?? 0,
         expectedVip: input.expectedVip ?? 0,
+        tier,
+        premiumUnlockedAt: tier === EventTier.PREMIUM ? now : null,
         settings: { ...DEFAULT_EVENT_SETTINGS, ...input.settings },
         theme: input.theme,
       });

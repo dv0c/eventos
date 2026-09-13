@@ -25,7 +25,7 @@ describe("plan org and free-event caps", () => {
     findMany.mockResolvedValue([
       {
         organization: {
-          plan: { limits: { maxEvents: 1, maxOrgs: 1 } },
+          plan: { limits: { maxEvents: 3, maxOrgs: 1 } },
         },
       },
     ]);
@@ -43,37 +43,23 @@ describe("plan org and free-event caps", () => {
     } satisfies Partial<InstanceType<typeof PlanLimitError>>);
   });
 
-  it("assertEventCreateAllowed sums events across free orgs the user owns", async () => {
-    findFirst.mockResolvedValue({
-      id: "org-b",
-      plan: { slug: "free", limits: { maxEvents: 1, maxOrgs: 1 } },
-    });
+  it("assertEventCreateAllowed blocks after 3 owned events", async () => {
     findMany.mockResolvedValue([
-      {
-        organization: {
-          id: "org-a",
-          plan: { slug: "free", limits: { maxEvents: 1, maxOrgs: 1 } },
-        },
-      },
-      {
-        organization: {
-          id: "org-b",
-          plan: { slug: "free", limits: { maxEvents: 1, maxOrgs: 1 } },
-        },
-      },
+      { organizationId: "org-a" },
+      { organizationId: "org-b" },
     ]);
-    eventCount.mockResolvedValue(1);
+    eventCount.mockResolvedValue(3);
 
     const { planLimitsService } = await import(
       "@/server/services/plan-limits.service"
     );
+    const { FreeQuotaExceededError } = await import(
+      "@/server/events/event-entitlement"
+    );
 
     await expect(
       planLimitsService.assertEventCreateAllowed("user-1", "org-b"),
-    ).rejects.toMatchObject({
-      metric: "events",
-      code: "PLAN_LIMIT_EXCEEDED",
-    });
+    ).rejects.toBeInstanceOf(FreeQuotaExceededError);
 
     expect(eventCount).toHaveBeenCalledWith({
       where: {
@@ -82,5 +68,18 @@ describe("plan org and free-event caps", () => {
       },
     });
     expect(OrgRole.OWNER).toBe("OWNER");
+  });
+
+  it("assertEventCreateAllowed allows create under free quota", async () => {
+    findMany.mockResolvedValue([{ organizationId: "org-a" }]);
+    eventCount.mockResolvedValue(2);
+
+    const { planLimitsService } = await import(
+      "@/server/services/plan-limits.service"
+    );
+
+    await expect(
+      planLimitsService.assertEventCreateAllowed("user-1", "org-a"),
+    ).resolves.toBeUndefined();
   });
 });

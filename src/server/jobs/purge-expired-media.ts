@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db";
 import {
-  getEventEndAt,
+  getMediaPurgeAt,
   isEventEnded,
   MEDIA_RETENTION_DAYS,
 } from "@/server/events/event-ended";
@@ -23,7 +23,12 @@ export async function purgeExpiredEventMedia(now: Date = new Date()) {
     where: {
       deletedAt: null,
       media: { some: {} },
-      OR: [{ endDate: { lte: now } }, { endDate: null, date: { lte: now } }],
+      OR: [
+        { stoppedAt: { not: null } },
+        { lockedAt: { not: null } },
+        { status: "COMPLETED" },
+        { status: "ARCHIVED" },
+      ],
     },
     select: {
       id: true,
@@ -31,6 +36,11 @@ export async function purgeExpiredEventMedia(now: Date = new Date()) {
       date: true,
       endDate: true,
       endTime: true,
+      startTime: true,
+      liveStartedAt: true,
+      pausedAt: true,
+      stoppedAt: true,
+      lockedAt: true,
       media: {
         select: { id: true, storageKey: true, thumbnailKey: true },
       },
@@ -43,11 +53,10 @@ export async function purgeExpiredEventMedia(now: Date = new Date()) {
   let purgedMedia = 0;
 
   for (const event of candidates) {
-    if (!isEventEnded(event)) continue;
+    if (!isEventEnded(event, now)) continue;
 
-    const endAt = getEventEndAt(event);
-    const purgeAt = new Date(endAt.getTime() + days * 24 * 60 * 60 * 1000);
-    if (now.getTime() <= purgeAt.getTime()) continue;
+    const purgeAt = getMediaPurgeAt(event);
+    if (!purgeAt || now.getTime() <= purgeAt.getTime()) continue;
 
     for (const media of event.media) {
       try {

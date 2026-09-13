@@ -1,17 +1,43 @@
 import { EventStatus } from "@prisma/client";
 
+/** Product badge mapping: idle→waiting, live/paused→active, stopped/locked→ended. */
 export type EventLifecycle = "waiting" | "active" | "ended";
 
-/** Wall-clock timezone for event start/end times (product default: Greece). */
+/** Explicit run phase driven by Start / Pause / Stop. */
+export type EventRunPhase = "idle" | "live" | "paused" | "stopped" | "locked";
+
+/** Wall-clock timezone for event calendar day display (product default: Greece). */
 export const EVENT_TIME_ZONE = "Europe/Athens";
 
-export type EventScheduleFields = {
+export const LIVE_WINDOW_DAYS = 7;
+/** @deprecated Restart after stop is no longer allowed; kept for snapshot compat. */
+export const RESTART_GRACE_DAYS = 0;
+/** Days after stop/lock before guest media is purged from storage. */
+export const MEDIA_RETENTION_DAYS = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type EventRunFields = {
   status: EventStatus;
-  date: Date;
+  liveStartedAt?: Date | null;
+  pausedAt?: Date | null;
+  stoppedAt?: Date | null;
+  lockedAt?: Date | null;
+  /** @deprecated schedule end — kept for migration / calendar display */
+  date?: Date;
   endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
 };
+
+/** @deprecated Use EventRunFields — schedule fields no longer drive lifecycle. */
+export type EventScheduleFields = EventRunFields & {
+  date: Date;
+};
+
+function addDays(from: Date, days: number): Date {
+  return new Date(from.getTime() + days * DAY_MS);
+}
 
 /**
  * Parse "HH:mm" or "HH:mm:ss" into hours/minutes. Returns null if invalid.
@@ -129,6 +155,7 @@ function addCalendarDays(
   };
 }
 
+/** Calendar-day start for display only (not run lifecycle). */
 export function getEventStartAt(event: {
   date: Date;
   startTime?: string | null;
@@ -149,18 +176,19 @@ export function getEventStartAt(event: {
   return zonedWallTimeToUtc(year, monthIndex, day, 0, 0, 0, 0);
 }
 
+/**
+ * @deprecated Prefer run deadlines. Kept for calendar/legacy display.
+ */
 export function getEventEndAt(event: {
   date: Date;
   endDate?: Date | null;
   endTime?: string | null;
   startTime?: string | null;
 }): Date {
-  // If endDate is set, use that calendar day; otherwise use start date.
   let { year, monthIndex, day } = getCalendarYmd(event.endDate ?? event.date);
   const parsed = parseClockTime(event.endTime);
 
   if (parsed) {
-    // Overnight only when endDate is not set: endTime <= startTime → next calendar day.
     if (!event.endDate) {
       const startMinutes = clockToMinutes(event.startTime);
       const endMinutes = parsed.hours * 60 + parsed.minutes;
@@ -182,63 +210,157 @@ export function getEventEndAt(event: {
   return zonedWallTimeToUtc(year, monthIndex, day, 23, 59, 59, 999);
 }
 
-/**
- * Event is considered ended when status is COMPLETED/ARCHIVED,
- * or when the end datetime has passed.
- */
-export function isEventEnded(event: EventScheduleFields): boolean {
-  if (
-    event.status === EventStatus.COMPLETED ||
-    event.status === EventStatus.ARCHIVED
-  ) {
-    return true;
+export function getLiveDeadlineAt(event: {
+  liveStartedAt?: Date | null;
+}): Date | null {
+  if (!event.liveStartedAt) return null;
+  return addDays(event.liveStartedAt, LIVE_WINDOW_DAYS);
+}
+
+export function getRestartDeadlineAt(_event: {
+  stoppedAt?: Date | null;
+}): Date | null {
+  // Restart after stop is disabled.
+  return null;
+}
+
+export function getEventRunPhase(
+  event: EventRunFields,
+  now: Date = new Date(),
+): EventRunPhase {
+  if (event.lockedAt || event.status === EventStatus.ARCHIVED) {
+    return "locked";
   }
 
-  return Date.now() > getEventEndAt(event).getTime();
+  const nowMs = now.getTime();
+
+  // Live window expired while still "running" → treat as locked for phase
+  // (jobs will persist stoppedAt / lockedAt / COMPLETED).
+  if (event.liveStartedAt && !event.stoppedAt) {
+    const liveDeadline = getLiveDeadlineAt(event);
+    if (liveDeadline && nowMs > liveDeadline.getTime()) {
+      return "locked";
+    }
+    if (event.pausedAt) return "paused";
+    return "live";
+  }
+
+  if (event.stoppedAt || event.status === EventStatus.COMPLETED) {
+    return "locked";
+  }
+
+  return "idle";
+}
+
+export function canStartEvent(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  return getEventRunPhase(event, now) === "idle";
+}
+
+export function canPauseEvent(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  return getEventRunPhase(event, now) === "live";
+}
+
+export function canResumeEvent(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  return getEventRunPhase(event, now) === "paused";
+}
+
+export function canStopEvent(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  const phase = getEventRunPhase(event, now);
+  return phase === "live" || phase === "paused";
 }
 
 /**
- * Product-facing lifecycle: Waiting / Active / Ended (not Draft/Planning/etc.).
+ * Event is ended for host "completed" surfaces when stopped or locked.
  */
-export function getEventLifecycle(event: EventScheduleFields): EventLifecycle {
-  if (isEventEnded(event)) {
-    return "ended";
-  }
-  if (Date.now() < getEventStartAt(event).getTime()) {
-    return "waiting";
-  }
-  return "active";
-}
-
-export function isEventWaiting(event: EventScheduleFields): boolean {
-  return getEventLifecycle(event) === "waiting";
+export function isEventEnded(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  const phase = getEventRunPhase(event, now);
+  return phase === "stopped" || phase === "locked";
 }
 
 /**
- * Guest photo album upload is allowed after start (including after end).
- * Blocked only while waiting for the event to begin.
+ * Product-facing lifecycle for existing badges: Waiting / Active / Ended.
  */
-export function isGuestPhotoUploadAllowed(event: EventScheduleFields): boolean {
-  return getEventLifecycle(event) !== "waiting";
+export function getEventLifecycle(
+  event: EventRunFields,
+  now: Date = new Date(),
+): EventLifecycle {
+  const phase = getEventRunPhase(event, now);
+  if (phase === "idle") return "waiting";
+  if (phase === "live" || phase === "paused") return "active";
+  return "ended";
 }
 
-/** Days after event end before guest media is purged from storage. */
-export const MEDIA_RETENTION_DAYS = 30;
+export function isEventWaiting(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  return getEventRunPhase(event, now) === "idle";
+}
+
+/**
+ * Guest photo album upload only while live (not paused / idle / stopped / locked).
+ */
+export function isGuestPhotoUploadAllowed(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  return getEventRunPhase(event, now) === "live";
+}
+
+/** Guests may use wall / wishes only while live. */
+export function isGuestLiveFeaturesAllowed(
+  event: EventRunFields,
+  now: Date = new Date(),
+): boolean {
+  return getEventRunPhase(event, now) === "live";
+}
 
 export function getMediaPurgeAt(event: {
-  date: Date;
+  stoppedAt?: Date | null;
+  lockedAt?: Date | null;
+  date?: Date;
   endDate?: Date | null;
   endTime?: string | null;
   startTime?: string | null;
-}): Date {
-  const endAt = getEventEndAt(event);
-  return new Date(endAt.getTime() + MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+}): Date | null {
+  const anchor = event.lockedAt ?? event.stoppedAt;
+  if (anchor) {
+    return addDays(anchor, MEDIA_RETENTION_DAYS);
+  }
+  // Legacy fallback for events ended via schedule/status only
+  if (event.date) {
+    const endAt = getEventEndAt({
+      date: event.date,
+      endDate: event.endDate,
+      endTime: event.endTime,
+      startTime: event.startTime,
+    });
+    return addDays(endAt, MEDIA_RETENTION_DAYS);
+  }
+  return null;
 }
 
 export function isMediaRetentionExpired(
-  event: EventScheduleFields,
+  event: EventRunFields,
   now: Date = new Date(),
 ): boolean {
-  if (!isEventEnded(event)) return false;
-  return now.getTime() > getMediaPurgeAt(event).getTime();
+  if (!isEventEnded(event, now)) return false;
+  const purgeAt = getMediaPurgeAt(event);
+  if (!purgeAt) return false;
+  return now.getTime() > purgeAt.getTime();
 }

@@ -1,4 +1,7 @@
-import { isEventEnded } from "@/server/events/event-ended";
+import {
+  isEventEnded,
+  isGuestLiveFeaturesAllowed,
+} from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { mediaService } from "@/server/services/media.service";
 import { eventRepository } from "@/server/repositories/event.repository";
@@ -54,8 +57,9 @@ export async function GET(request: Request, context: RouteContext) {
           }
 
           const panic = Boolean(event.mediaPanicAt);
+          const paused = !isGuestLiveFeaturesAllowed(event);
 
-          if (panic) {
+          if (panic || paused) {
             wasPanic = true;
             controller.enqueue(
               encoder.encode(
@@ -64,7 +68,8 @@ export async function GET(request: Request, context: RouteContext) {
                   removed: [],
                   reactions: [],
                   announcement: null,
-                  panic: true,
+                  panic: panic,
+                  paused,
                 })}\n\n`,
               ),
             );
@@ -151,10 +156,12 @@ export async function GET(request: Request, context: RouteContext) {
         emitEnded();
       } else {
         const initialPanic = Boolean(event.mediaPanicAt);
-        wasPanic = initialPanic;
-        const initialMedia = initialPanic
-          ? []
-          : await mediaService.getAllWallMedia(eventSlug);
+        const initialPaused = !isGuestLiveFeaturesAllowed(event);
+        wasPanic = initialPanic || initialPaused;
+        const initialMedia =
+          initialPanic || initialPaused
+            ? []
+            : await mediaService.getAllWallMedia(eventSlug);
 
         // Never replay announcements on connect/refresh — only via live poll deltas.
         controller.enqueue(
@@ -164,6 +171,7 @@ export async function GET(request: Request, context: RouteContext) {
               reactions: [],
               initial: true,
               panic: initialPanic,
+              paused: initialPaused,
               ended: false,
             })}\n\n`,
           ),

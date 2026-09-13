@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { CreditCard, TrendingUp } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Link } from "@/i18n/navigation";
 import { formatCurrency } from "@/lib/format";
 import type { BillingOverview } from "@/server/services/billing.service";
 
 interface BillingOverviewProps {
   overview: BillingOverview;
   locale: "el" | "en";
+  orgSlug: string;
 }
 
 const METRIC_LABELS: Record<string, string> = {
@@ -32,25 +33,8 @@ const LIMIT_KEYS: Record<string, keyof BillingOverview["limits"]> = {
   collaborators: "maxCollaborators",
 };
 
-export function BillingOverviewPanel({ overview, locale }: BillingOverviewProps) {
+export function BillingOverviewPanel({ overview, locale, orgSlug }: BillingOverviewProps) {
   const t = useTranslations("billing");
-  const [loading, setLoading] = useState(false);
-
-  const upgrade = async (planSlug: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planSlug }),
-      });
-      const json = await res.json();
-      if (json.data?.url) window.location.href = json.data.url;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const usageMap = new Map(overview.usage.map((u) => [u.metric, u.value]));
 
   return (
@@ -62,26 +46,20 @@ export function BillingOverviewPanel({ overview, locale }: BillingOverviewProps)
               <CreditCard className="h-5 w-5" />
               {t("currentPlan")}
             </CardTitle>
-            <p className="mt-1 text-muted-foreground">{overview.plan.description}</p>
+            <p className="mt-1 text-muted-foreground">{t("eventPurchasesDesc")}</p>
           </div>
           <Badge variant="gold">{overview.plan.name}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-2xl font-bold">
             {formatCurrency(overview.plan.priceMonthly / 100, locale)}
-            <span className="text-sm font-normal text-muted-foreground">{t("perMonth")}</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              {t("perMonth")}
+            </span>
           </p>
-          {overview.subscription ? (
-            <p className="text-sm text-muted-foreground">
-              {t("status")}: {overview.subscription.status}
-            </p>
-          ) : null}
-          {overview.plan.slug !== "enterprise" ? (
-            <Button variant="gold" disabled={loading} onClick={() => upgrade("pro")}>
-              <TrendingUp className="h-4 w-4" />
-              {t("upgradeCta")}
-            </Button>
-          ) : null}
+          <Button variant="gold" asChild>
+            <Link href={`/org/${orgSlug}/events/new`}>{t("buyPremiumEventCta")}</Link>
+          </Button>
         </CardContent>
       </Card>
 
@@ -99,11 +77,12 @@ export function BillingOverviewPanel({ overview, locale }: BillingOverviewProps)
                 <CardContent className="p-4">
                   <div className="mb-2 flex justify-between text-sm">
                     <span>{t(labelKey)}</span>
-                    <span className="text-muted-foreground">
-                      {value} / {limit < 0 ? "∞" : limit}
+                    <span className="tabular-nums text-muted-foreground">
+                      {value}
+                      {limit > 0 ? ` / ${limit}` : ""}
                     </span>
                   </div>
-                  {limit > 0 ? <Progress value={pct} className="h-2" /> : null}
+                  {limit > 0 ? <Progress value={pct} /> : null}
                 </CardContent>
               </Card>
             );

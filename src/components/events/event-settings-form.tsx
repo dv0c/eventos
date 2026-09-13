@@ -120,11 +120,12 @@ export function EventSettingsForm({
 
       <div className={cn(tab === "photoWall" ? undefined : "max-w-2xl", "pt-1")}>
         {tab === "general" ? <GeneralTab event={event} orgSlug={orgSlug} /> : null}
-        {tab === "appearance" ? <AppearanceTab event={event} /> : null}
+        {tab === "appearance" ? <AppearanceTab event={event} orgSlug={orgSlug} /> : null}
         {tab === "photoWall" ? <PhotoWallTab event={event} /> : null}
         {tab === "moderation" ? (
           <ModerationTab
             event={event}
+            orgSlug={orgSlug}
             onManageCollaborators={() => selectTab("collaborators")}
           />
         ) : null}

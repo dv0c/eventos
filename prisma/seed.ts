@@ -58,7 +58,7 @@ const PLANS = [
     priceYearly: 0,
     sortOrder: 0,
     limits: {
-      maxEvents: 1,
+      maxEvents: 3,
       maxOrgs: 1,
       maxGuests: 50,
       maxStorage: 500,

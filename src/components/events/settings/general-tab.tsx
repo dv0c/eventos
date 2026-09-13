@@ -57,11 +57,7 @@ export function GeneralTab({
   const [isDeleting, setIsDeleting] = useState(false);
   const [name, setName] = useState(event.name);
   const [date, setDate] = useState(calendarDateString(event.date));
-  const [endDate, setEndDate] = useState(
-    calendarDateString(event.endDate ?? event.date),
-  );
   const [startTime, setStartTime] = useState(normalizeClock(event.startTime));
-  const [endTime, setEndTime] = useState(normalizeClock(event.endTime));
   const [type, setType] = useState<EventType>(event.type);
 
   async function patchEvent(body: Record<string, unknown>, successToast = true) {
@@ -93,9 +89,7 @@ export function GeneralTab({
     await patchEvent({
       name,
       date,
-      endDate,
       startTime: startTime || null,
-      endTime: endTime || null,
       type,
     });
   }
@@ -142,7 +136,6 @@ export function GeneralTab({
         <div className="border-b border-border/50 py-5">
           <h3 className="text-sm font-semibold">{t("eventSchedule")}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{t("eventScheduleDesc")}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{t("eventTimesDesc")}</p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">{tWizard("startDate")}</p>
@@ -166,33 +159,6 @@ export function GeneralTab({
                   const next = normalizeClock(value);
                   setStartTime(next);
                   void patchEvent({ startTime: next || null });
-                }}
-                placeholder={tWizard("pickTime")}
-                clearLabel={tCommon("clear")}
-              />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">{tWizard("endDate")}</p>
-              <DatePicker
-                value={endDate}
-                onChange={(value) => {
-                  setEndDate(value);
-                  if (value) void patchEvent({ endDate: value });
-                }}
-                placeholder={tWizard("pickDate")}
-                clearLabel={tCommon("clear")}
-              />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                {t("eventEndTime")}
-              </p>
-              <TimePicker
-                value={endTime}
-                onChange={(value) => {
-                  const next = normalizeClock(value);
-                  setEndTime(next);
-                  void patchEvent({ endTime: next || null });
                 }}
                 placeholder={tWizard("pickTime")}
                 clearLabel={tCommon("clear")}

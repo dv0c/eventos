@@ -2,7 +2,11 @@ import { AuditAction, MediaStatus } from "@prisma/client";
 import { nanoid } from "nanoid";
 
 import { prisma } from "@/server/db";
-import { isEventEnded, isEventWaiting } from "@/server/events/event-ended";
+import {
+  isEventEnded,
+  isEventWaiting,
+  isGuestLiveFeaturesAllowed,
+} from "@/server/events/event-ended";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
@@ -172,17 +176,30 @@ export const voiceWishService = {
       throw new VoiceWishServiceError("Album not found", 404, "ALBUM_NOT_FOUND");
     }
 
-    if (isEventWaiting(event)) {
+    if (!isGuestLiveFeaturesAllowed(event)) {
+      if (isEventEnded(event)) {
+        await revokeGuestConnectIfEnded(event.id);
+        throw new VoiceWishServiceError("Event has ended", 403, "EVENT_ENDED");
+      }
+      if (event.pausedAt) {
+        throw new VoiceWishServiceError(
+          "Event is paused",
+          403,
+          "EVENT_PAUSED",
+        );
+      }
+      if (isEventWaiting(event)) {
+        throw new VoiceWishServiceError(
+          "Event has not started yet",
+          403,
+          "EVENT_NOT_STARTED",
+        );
+      }
       throw new VoiceWishServiceError(
-        "Event has not started yet",
+        "Guest features are unavailable",
         403,
-        "EVENT_NOT_STARTED",
+        "EVENT_NOT_LIVE",
       );
-    }
-
-    if (isEventEnded(event)) {
-      await revokeGuestConnectIfEnded(event.id);
-      throw new VoiceWishServiceError("Event has ended", 403, "EVENT_ENDED");
     }
 
     if (!event.settings.enableGallery) {
@@ -263,7 +280,7 @@ export const voiceWishService = {
 
     if (isVideo) {
       const converted = await maybeTranscodeVideoToMp4(buffer, storedMime);
-      uploadBuffer = converted.buffer;
+      uploadBuffer = Buffer.from(converted.buffer);
       storedMime = converted.contentType;
     }
 
@@ -315,6 +332,10 @@ export const voiceWishService = {
         endDate: true,
         startTime: true,
         endTime: true,
+        liveStartedAt: true,
+        pausedAt: true,
+        stoppedAt: true,
+        lockedAt: true,
         settings: { select: { enableVoiceWishes: true } },
       },
     });
@@ -344,6 +365,10 @@ export const voiceWishService = {
         endDate: true,
         startTime: true,
         endTime: true,
+        liveStartedAt: true,
+        pausedAt: true,
+        stoppedAt: true,
+        lockedAt: true,
       },
     });
 
@@ -440,6 +465,10 @@ export const voiceWishService = {
         endDate: true,
         startTime: true,
         endTime: true,
+        liveStartedAt: true,
+        pausedAt: true,
+        stoppedAt: true,
+        lockedAt: true,
       },
     });
 

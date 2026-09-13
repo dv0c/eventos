@@ -38,6 +38,10 @@ export async function GET(_request: Request, context: RouteContext) {
         endDate: true,
         startTime: true,
         endTime: true,
+        liveStartedAt: true,
+        pausedAt: true,
+        stoppedAt: true,
+        lockedAt: true,
       },
     });
 

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -31,7 +31,7 @@ import {
   type WizardFormData,
 } from "@/components/events/wizard/wizard-schema";
 import { MediaUploadModal } from "@/components/media/media-upload-modal";
-import { useOrgPath } from "@/components/providers/org-provider";
+import { useOptionalOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { getGamePresetsForType, resolveGameMode } from "@/lib/event-game-presets";
@@ -39,8 +39,10 @@ import { getGamePresetsForType, resolveGameMode } from "@/lib/event-game-presets
 export function EventWizard() {
   const t = useTranslations("wizard");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   const router = useRouter();
   const orgPath = useOrgPath();
+  const org = useOptionalOrg();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<WizardTransitionDirection>("forward");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,9 +114,7 @@ export function EventWizard() {
           type: data.type,
           description: data.description || undefined,
           date: data.date,
-          endDate: data.endDate,
-          startTime: data.startTime,
-          endTime: data.endTime,
+          startTime: data.startTime || null,
           expectedGuests: data.expectedGuests,
           expectedCouples: data.expectedCouples,
           expectedChildren: data.expectedChildren,
@@ -144,6 +144,61 @@ export function EventWizard() {
       const result = await response.json();
 
       if (!response.ok) {
+        const code = result.error?.code as string | undefined;
+        if (code === "FREE_QUOTA_EXCEEDED" || code === "PLAN_LIMIT_EXCEEDED") {
+          if (!org?.orgSlug) {
+            toast.error(t("planLimitEvents"));
+            submittingRef.current = false;
+            setIsSubmitting(false);
+            return;
+          }
+          toast.message(t("buyPremiumEvent"));
+          const purchaseRes = await fetch("/api/events/purchase-create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orgSlug: org.orgSlug,
+              locale,
+              name: data.name,
+              type: data.type,
+              description: data.description || undefined,
+              date: data.date,
+              startTime: data.startTime || null,
+              expectedGuests: data.expectedGuests,
+              expectedCouples: data.expectedCouples,
+              expectedChildren: data.expectedChildren,
+              expectedVip: data.expectedVip,
+              theme: {
+                primaryColor: data.primaryColor,
+                secondaryColor: data.secondaryColor,
+                accentColor: data.accentColor,
+                style: data.style,
+                coverImageKey: data.coverImageKey,
+              },
+              games: data.games
+                .filter((game) => game.enabled)
+                .map((game, index) => ({
+                  title: game.title,
+                  description: game.description || null,
+                  presetKey: game.presetKey ?? null,
+                  mode: game.mode === "collage" ? "collage" : "photo",
+                  sortOrder: index,
+                  enabled: true,
+                  fields: game.fields,
+                  coverImage: game.coverImage ?? null,
+                })),
+            }),
+          });
+          const purchaseJson = await purchaseRes.json();
+          if (purchaseRes.ok && purchaseJson.data?.url) {
+            window.location.href = purchaseJson.data.url as string;
+            return;
+          }
+          toast.error(purchaseJson.error?.message ?? t("planLimitEvents"));
+          submittingRef.current = false;
+          setIsSubmitting(false);
+          return;
+        }
         toast.error(result.error?.message ?? t("submitError"));
         submittingRef.current = false;
         setIsSubmitting(false);

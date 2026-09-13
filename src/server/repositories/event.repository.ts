@@ -1,5 +1,6 @@
 import {
   EventStatus,
+  EventTier,
   EventType,
   MediaStatus,
   type Prisma,
@@ -40,6 +41,8 @@ export interface CreateEventData {
   expectedCouples?: number;
   expectedChildren?: number;
   expectedVip?: number;
+  tier?: EventTier;
+  premiumUnlockedAt?: Date | null;
   settings?: Prisma.EventSettingsCreateWithoutEventInput;
   theme?: Prisma.EventThemeCreateWithoutEventInput;
 }

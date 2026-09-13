@@ -1,10 +1,9 @@
 import { backgroundCss } from "@/lib/story/backgrounds";
+import { clampImagePan } from "@/lib/story/collage-layouts";
 import { filterCss } from "@/lib/story/filters";
 import { resolveStoryFontFamily } from "@/lib/story/story-fonts";
 import { drawStoryTextOnCanvas } from "@/lib/story/text-layout";
 import {
-  STORY_HEIGHT,
-  STORY_WIDTH,
   compareStoryElements,
   type ImageElement,
   type StoryDocument,
@@ -25,28 +24,29 @@ function paintBackground(
   ctx: CanvasRenderingContext2D,
   doc: StoryDocument,
 ): void {
+  const { width, height } = doc;
   const bg = doc.background;
   if (bg.kind === "solid") {
     ctx.fillStyle = bg.color;
-    ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+    ctx.fillRect(0, 0, width, height);
     return;
   }
   if (bg.kind === "gradient") {
     const angle = ((bg.angle ?? 160) * Math.PI) / 180;
-    const x0 = STORY_WIDTH / 2 - Math.cos(angle) * STORY_WIDTH;
-    const y0 = STORY_HEIGHT / 2 - Math.sin(angle) * STORY_HEIGHT;
-    const x1 = STORY_WIDTH / 2 + Math.cos(angle) * STORY_WIDTH;
-    const y1 = STORY_HEIGHT / 2 + Math.sin(angle) * STORY_HEIGHT;
+    const x0 = width / 2 - Math.cos(angle) * width;
+    const y0 = height / 2 - Math.sin(angle) * height;
+    const x1 = width / 2 + Math.cos(angle) * width;
+    const y1 = height / 2 + Math.sin(angle) * height;
     const grad = ctx.createLinearGradient(x0, y0, x1, y1);
     grad.addColorStop(0, bg.from);
     grad.addColorStop(1, bg.to);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+    ctx.fillRect(0, 0, width, height);
     return;
   }
   void backgroundCss(bg);
   ctx.fillStyle = "#0f0f12";
-  ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+  ctx.fillRect(0, 0, width, height);
 }
 
 async function drawImageElement(
@@ -54,16 +54,30 @@ async function drawImageElement(
   el: ImageElement,
 ): Promise<void> {
   const img = await loadImage(el.src);
+  const boxW = el.width * el.scale;
+  const boxH = el.height * el.scale;
+
   ctx.save();
   ctx.globalAlpha = el.opacity;
-  const cx = el.x + (el.width * el.scale) / 2;
-  const cy = el.y + (el.height * el.scale) / 2;
+  // Clip to the element's axis-aligned box so rotation/pan never spills into gutters.
+  ctx.beginPath();
+  ctx.rect(el.x, el.y, boxW, boxH);
+  ctx.clip();
+
+  const cx = el.x + boxW / 2;
+  const cy = el.y + boxH / 2;
   ctx.translate(cx, cy);
   ctx.rotate((el.rotation * Math.PI) / 180);
   ctx.filter = filterCss(el.filter, el.adjustments);
-  const w = el.width * el.scale;
-  const h = el.height * el.scale;
-  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
+  // object-cover + pan offset (collage cells)
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const cover = Math.max(boxW / iw, boxH / ih);
+  const dw = iw * cover;
+  const dh = ih * cover;
+  const pan = clampImagePan(el.panX ?? 0, el.panY ?? 0, dw, dh, boxW, boxH);
+  ctx.drawImage(img, -dw / 2 + pan.panX, -dh / 2 + pan.panY, dw, dh);
   ctx.restore();
 }
 
@@ -103,15 +117,15 @@ export async function exportStoryToBlob(
   }
 
   const canvas = document.createElement("canvas");
-  canvas.width = STORY_WIDTH;
-  canvas.height = STORY_HEIGHT;
+  canvas.width = doc.width;
+  canvas.height = doc.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas unavailable");
 
   if (doc.background.kind === "image") {
     try {
       const img = await loadImage(doc.background.src);
-      ctx.drawImage(img, 0, 0, STORY_WIDTH, STORY_HEIGHT);
+      ctx.drawImage(img, 0, 0, doc.width, doc.height);
     } catch {
       paintBackground(ctx, doc);
     }

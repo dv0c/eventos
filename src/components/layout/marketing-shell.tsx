@@ -1,28 +1,18 @@
-import { EB_Garamond } from "next/font/google";
-
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingHeader } from "@/components/layout/marketing-header";
 import { CookieConsent } from "@/components/privacy/cookie-consent";
 import { cn } from "@/lib/utils";
 
-const marketingDisplay = EB_Garamond({
-  subsets: ["latin", "greek"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-marketing-display",
-  display: "swap",
-});
-
 export function MarketingShell({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        marketingDisplay.variable,
-        "org-app dark relative flex min-h-dvh flex-col bg-background text-foreground",
+        "relative flex min-h-dvh flex-col bg-white text-neutral-950 antialiased",
       )}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_18%_0%,oklch(0.30_0.05_55/0.4),transparent_52%),radial-gradient(ellipse_at_88%_8%,oklch(0.26_0.04_75/0.28),transparent_48%),radial-gradient(ellipse_at_50%_100%,oklch(0.20_0.03_40/0.35),transparent_55%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[min(85vh,720px)] bg-[radial-gradient(ellipse_at_30%_-10%,rgba(200,180,150,0.18),transparent_55%),radial-gradient(ellipse_at_85%_10%,rgba(230,235,245,0.55),transparent_50%),linear-gradient(to_bottom,rgba(255,255,255,0)_55%,#ffffff_100%)]"
       />
       <div className="relative z-10 flex min-h-dvh flex-col">
         <MarketingHeader />

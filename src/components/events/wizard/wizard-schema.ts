@@ -4,7 +4,8 @@ import { z } from "zod";
 const timeString = z
   .string()
   .trim()
-  .regex(/^\d{1,2}:\d{2}(?::\d{2})?$/, "Invalid time");
+  .regex(/^\d{1,2}:\d{2}(?::\d{2})?$/, "Invalid time")
+  .or(z.literal(""));
 
 export const wizardGameSchema = z.object({
   id: z.string().optional(),
@@ -31,9 +32,7 @@ export const wizardBaseSchema = z.object({
   name: z.string().trim().min(1),
   description: z.string().optional(),
   date: z.string().min(1),
-  endDate: z.string().min(1),
   startTime: timeString,
-  endTime: timeString,
   expectedGuests: z.number().int().min(0),
   expectedCouples: z.number().int().min(0),
   expectedChildren: z.number().int().min(0),
@@ -46,24 +45,7 @@ export const wizardBaseSchema = z.object({
   games: z.array(wizardGameSchema),
 });
 
-export const wizardSchema = wizardBaseSchema.superRefine((data, ctx) => {
-  const start = new Date(`${data.date}T${normalizeTime(data.startTime)}`);
-  const end = new Date(`${data.endDate}T${normalizeTime(data.endTime)}`);
-  if (!(end.getTime() > start.getTime())) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "End must be after start",
-      path: ["endTime"],
-    });
-  }
-});
-
-function normalizeTime(value: string) {
-  const parts = value.split(":");
-  const h = parts[0]?.padStart(2, "0") ?? "00";
-  const m = parts[1] ?? "00";
-  return `${h}:${m}:00`;
-}
+export const wizardSchema = wizardBaseSchema;
 
 export type WizardFormData = z.infer<typeof wizardBaseSchema>;
 export type WizardGameForm = z.infer<typeof wizardGameSchema>;
@@ -74,9 +56,7 @@ export const stepSchemas = {
     name: true,
     description: true,
     date: true,
-    endDate: true,
     startTime: true,
-    endTime: true,
   }),
   theme: wizardBaseSchema.pick({
     primaryColor: true,
@@ -95,9 +75,7 @@ export function getDefaultFormValues(): WizardFormData {
     name: "",
     description: "",
     date: "",
-    endDate: "",
     startTime: "18:00",
-    endTime: "23:59",
     expectedGuests: 0,
     expectedCouples: 0,
     expectedChildren: 0,

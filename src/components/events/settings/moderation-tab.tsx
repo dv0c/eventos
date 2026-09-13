@@ -4,12 +4,13 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { SettingsRow } from "@/components/events/settings/settings-ui";
+import { SettingsRow, useEventPremiumUpgrade } from "@/components/events/settings/settings-ui";
 import { ModeratorInviteSection } from "@/components/events/settings/moderator-invite-section";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { isEventPremium } from "@/lib/event-premium";
 import type { AlbumPermission, ModerationSettings } from "@/server/events/wall-settings";
 import {
   clampAnnouncementDurationSec,
@@ -20,12 +21,21 @@ import type { EventWithRelations } from "@/server/repositories/event.repository"
 
 export function ModerationTab({
   event,
+  orgSlug,
   onManageCollaborators,
 }: {
   event: EventWithRelations;
+  orgSlug: string;
   onManageCollaborators: () => void;
 }) {
   const t = useTranslations("eventWorkspace.settings");
+  const premium = isEventPremium(event);
+  const { startUpgrade, upgradeBusy } = useEventPremiumUpgrade(event.id, orgSlug);
+  const premiumRow = {
+    isPremium: premium,
+    onUpgrade: startUpgrade,
+    upgradeBusy,
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [enableVoiceWishes, setEnableVoiceWishes] = useState(
     event.settings?.enableVoiceWishes ?? true,
@@ -184,10 +194,15 @@ export function ModerationTab({
         />
       </SettingsRow>
 
-      <SettingsRow title={t("manualApproval")} description={t("manualApprovalDesc")} badge="pro">
+      <SettingsRow
+        title={t("manualApproval")}
+        description={t("manualApprovalDesc")}
+        badge="pro"
+        {...premiumRow}
+      >
         <Switch
           checked={moderation.requireManualApproval}
-          disabled={isSaving}
+          disabled={isSaving || !premium}
           onCheckedChange={(checked) =>
             void patchModeration({ requireManualApproval: checked })
           }
@@ -198,6 +213,7 @@ export function ModerationTab({
         title={t("allowedMediaTypes")}
         description={t("allowedMediaTypesDesc")}
         badge="plus"
+        {...premiumRow}
       >
         <div className="flex flex-col gap-2 sm:items-end">
           {(
@@ -209,7 +225,7 @@ export function ModerationTab({
             <label key={key} className="inline-flex items-center gap-2 text-sm">
               <Checkbox
                 checked={moderation[key]}
-                disabled={isSaving}
+                disabled={isSaving || !premium}
                 onCheckedChange={(checked) =>
                   void patchModeration({ [key]: checked === true })
                 }
@@ -251,10 +267,11 @@ export function ModerationTab({
         title={t("disableGuestDownload")}
         description={t("disableGuestDownloadDesc")}
         badge="pro"
+        {...premiumRow}
       >
         <Switch
           checked={moderation.disableGuestDownload}
-          disabled={isSaving}
+          disabled={isSaving || !premium}
           onCheckedChange={(checked) =>
             void patchModeration({ disableGuestDownload: checked })
           }

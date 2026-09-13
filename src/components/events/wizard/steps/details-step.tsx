@@ -66,13 +66,7 @@ export function DetailsStep({ form }: DetailsStepProps) {
               <DatePicker
                 id="date"
                 value={field.value}
-                onChange={(value) => {
-                  field.onChange(value);
-                  const endDate = form.getValues("endDate");
-                  if (!endDate || endDate < value) {
-                    form.setValue("endDate", value, { shouldDirty: true });
-                  }
-                }}
+                onChange={field.onChange}
                 placeholder={t("pickDate")}
                 clearLabel={clearLabel}
               />
@@ -101,51 +95,6 @@ export function DetailsStep({ form }: DetailsStepProps) {
           />
           {errors.startTime ? (
             <p className="text-sm text-destructive">{t("validation.timeRequired")}</p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="endDate" className="text-base">
-            {t("endDate")}
-          </Label>
-          <Controller
-            control={form.control}
-            name="endDate"
-            render={({ field }) => (
-              <DatePicker
-                id="endDate"
-                value={field.value}
-                onChange={field.onChange}
-                placeholder={t("pickDate")}
-                clearLabel={clearLabel}
-              />
-            )}
-          />
-          {errors.endDate ? (
-            <p className="text-sm text-destructive">{t("validation.dateRequired")}</p>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="endTime" className="text-base">
-            {t("endTime")}
-          </Label>
-          <Controller
-            control={form.control}
-            name="endTime"
-            render={({ field }) => (
-              <TimePicker
-                id="endTime"
-                value={field.value}
-                onChange={field.onChange}
-                placeholder={t("pickTime")}
-                clearLabel={clearLabel}
-              />
-            )}
-          />
-          {errors.endTime ? (
-            <p className="text-sm text-destructive">{t("validation.endAfterStart")}</p>
           ) : null}
         </div>
       </div>

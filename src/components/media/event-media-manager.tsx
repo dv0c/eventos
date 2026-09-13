@@ -44,6 +44,7 @@ interface EventMediaManagerProps {
   albumHref: string | null;
   lifecycle?: EventLifecycle;
   mediaPurgeAt?: string | null;
+  isPremium?: boolean;
 }
 
 const FREE_UPLOAD_CAP = 100;
@@ -54,11 +55,12 @@ export function EventMediaManager({
   albumHref,
   lifecycle = "active",
   mediaPurgeAt = null,
+  isPremium = false,
 }: EventMediaManagerProps) {
   const t = useTranslations("eventWorkspace.media");
   const tMod = useTranslations("moderatorAlbum");
   const orgPath = useOrgPath();
-  const { planName, planSlug } = useOrg();
+  const { planName } = useOrg();
 
   const [items, setItems] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,7 +158,9 @@ export function EventMediaManager({
     return list;
   }, [items, filter, sortNewest]);
 
-  const uploadLimit = planSlug === "free" ? FREE_UPLOAD_CAP : Math.max(FREE_UPLOAD_CAP * 10, counts.total);
+  const uploadLimit = isPremium
+    ? Math.max(FREE_UPLOAD_CAP * 10, counts.total)
+    : FREE_UPLOAD_CAP;
   const usedPct = Math.min(100, Math.round((counts.total / uploadLimit) * 100));
 
   async function moderate(mediaId: string, action: "approve" | "reject" | "feature") {

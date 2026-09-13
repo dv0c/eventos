@@ -35,13 +35,20 @@ export function HomeTestimonials() {
                 “{t("testimonials.1.quote")}”
               </blockquote>
               <figcaption className="mt-8">
-                <p className="font-medium text-foreground">{t("testimonials.1.name")}</p>
-                <p className="mt-1 text-sm text-white/45">{t("testimonials.1.meta")}</p>
+                <p className="font-medium text-foreground">
+                  {t("testimonials.1.name")}
+                </p>
+                <p className="mt-1 text-sm text-white/45">
+                  {t("testimonials.1.meta")}
+                </p>
               </figcaption>
             </figure>
           </Reveal>
 
-          <Reveal delay={0.08} className="flex flex-col justify-end border-t border-white/10 pt-10 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
+          <Reveal
+            delay={0.08}
+            className="flex flex-col justify-end border-t border-white/10 pt-10 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0"
+          >
             <figure>
               <blockquote className="text-base leading-relaxed text-white/70 sm:text-lg">
                 “{t("testimonials.3.quote")}”
@@ -50,7 +57,9 @@ export function HomeTestimonials() {
                 <p className="text-sm font-medium text-foreground">
                   {t("testimonials.3.name")}
                 </p>
-                <p className="mt-1 text-sm text-white/40">{t("testimonials.3.meta")}</p>
+                <p className="mt-1 text-sm text-white/40">
+                  {t("testimonials.3.meta")}
+                </p>
               </figcaption>
             </figure>
           </Reveal>

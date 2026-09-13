@@ -13,9 +13,9 @@ export function HomeMidCta() {
   const t = useTranslations("marketing.home");
 
   return (
-    <section className="relative py-8 sm:py-12">
+    <section className="relative py-10 sm:py-14">
       <Reveal>
-        <div className="relative min-h-[360px] overflow-hidden sm:min-h-[420px]">
+        <div className="relative min-h-[380px] overflow-hidden sm:min-h-[440px]">
           <Image
             src="/marketing/demos/album-hero.png"
             alt=""
@@ -23,20 +23,21 @@ export function HomeMidCta() {
             className="object-cover"
             sizes="100vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#120A06]/92 via-[#120A06]/75 to-[#120A06]/45" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#120A06]/94 via-[#120A06]/78 to-[#120A06]/50" />
 
-          <div className="relative mx-auto flex min-h-[360px] max-w-7xl flex-col justify-center px-4 py-16 sm:min-h-[420px] sm:px-6 sm:py-20 lg:px-8">
+          <div className="relative mx-auto flex min-h-[380px] max-w-7xl flex-col justify-center px-4 py-16 sm:min-h-[440px] sm:px-6 sm:py-20 lg:px-8">
             <h2
               className={cn(
                 marketingDisplayClass,
-                "max-w-[16ch] text-[clamp(2rem,4vw,3.5rem)] leading-[1.08] text-white",
+                "max-w-[18ch] text-[clamp(2rem,4vw,3.35rem)] leading-[1.08] text-white",
               )}
             >
               {t("midCtaTitle")}
             </h2>
-            <p className="mt-5 max-w-[34ch] text-base leading-relaxed text-white/65 sm:text-lg">
+            <p className="mt-5 max-w-[40ch] text-base leading-relaxed text-white/65 sm:text-lg">
               {t("midCtaSubtitle")}
             </p>
+            <p className="mt-3 text-sm text-white/40">{t("midCtaTrust")}</p>
             <div className="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
               <Button
                 variant="gold"

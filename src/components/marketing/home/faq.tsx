@@ -10,9 +10,8 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { cn } from "@/lib/utils";
 
-import { Reveal, SectionShell, marketingDisplayClass } from "./reveal";
+import { Reveal, SectionIntro, SectionShell } from "./reveal";
 
 const FAQ_KEYS = [
   "noApp",
@@ -30,21 +29,15 @@ export function HomeFaq() {
   const t = useTranslations("marketing.home");
 
   return (
-    <section className="py-24 sm:py-32">
+    <section className="py-24 sm:py-28">
       <SectionShell>
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
           <Reveal>
-            <h2
-              className={cn(
-                marketingDisplayClass,
-                "text-[clamp(2rem,3.5vw,3.25rem)] leading-[1.1]",
-              )}
-            >
-              {t("faqTitle")}
-            </h2>
-            <p className="mt-4 max-w-[32ch] text-base leading-relaxed text-white/55 sm:text-lg">
-              {t("faqSubtitle")}
-            </p>
+            <SectionIntro
+              eyebrow={t("faqEyebrow")}
+              title={t("faqTitle")}
+              description={t("faqSubtitle")}
+            />
             <Button
               variant="gold"
               className="mt-8 h-11 rounded-md px-6 font-semibold shadow-none"

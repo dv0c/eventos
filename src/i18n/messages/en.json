@@ -170,12 +170,18 @@
         "conference": "conference",
         "baptism": "baptism"
       },
-      "heroSubtitle": "A private album and live wall — no app for guests.",
+      "heroSubtitle": "Collect every guest photo into a private album and cast a live wall in the room — no app downloads, no guest accounts.",
       "heroCta": "Create your event",
       "heroSecondaryCta": "How it works",
       "heroMicro": "Start free. Ready in minutes.",
+      "trust1": "Private album by default",
+      "trust2": "Live wall for any screen",
+      "trust3": "QR or link — guests upload in seconds",
+      "footerTagline": "Private guest albums and live photo walls for weddings, parties, and celebrations.",
       "miniSteps": {
-        "eyebrow": "The night, in three moments",
+        "eyebrow": "The night, end to end",
+        "title": "Before, during, and after — one calm flow",
+        "subtitle": "Set up once. Guests share from their phones. You keep a keepsafe that still feels like your event.",
         "phase": {
           "step1": "Before",
           "step2": "During",
@@ -190,8 +196,10 @@
           "step3": "Download the set, open sealed wishes, and keep the wall playlist of memories."
         }
       },
+      "valueEyebrow": "Built for the celebration",
       "valueTitle": "Memories become part of the night",
-      "valueSubtitle": "A live wall in the room. A private album after.",
+      "valueSubtitle": "A live wall in the room. A private album after. Guests never leave the browser.",
+      "valueBody": "Eventos replaces chat threads and shared folders with a guest flow people finish without asking for help — and a host experience you can moderate when you need to.",
       "valueCta": "Create your event",
       "valueDemo": "What’s included",
       "features": {
@@ -216,6 +224,7 @@
           "chip3": "Host approval optional"
         }
       },
+      "howEyebrow": "Setup",
       "howTitle": "How the night comes together",
       "howSubtitle": "Three steps. No tech briefing at the door.",
       "how": {
@@ -312,6 +321,7 @@
           "desc": "Only people with your link see the album. Your media stays yours."
         }
       },
+      "occasionsEyebrow": "Occasions",
       "occasionsTitle": "Different nights. Same warm center.",
       "occasionsSubtitle": "Wedding, party, corporate — without turning guests into tech support.",
       "occasionCards": {
@@ -347,6 +357,7 @@
       "midCtaTrust": "Start free · Ready in under two minutes · No app for guests",
       "midCtaPrimary": "Create your event",
       "midCtaSecondary": "View plans and pricing",
+      "testimonialsEyebrow": "Social proof",
       "testimonialsTitle": "Voices from real nights",
       "testimonialsSubtitle": "Stories from hosts who used albums and live walls.",
       "testimonials": {
@@ -396,6 +407,7 @@
         "6": "Hunting for files weeks later"
       },
       "compareCta": "Collect your event photos",
+      "faqEyebrow": "Support",
       "faqTitle": "Questions",
       "faqSubtitle": "Uploads, the wall, music, wishes, and privacy.",
       "faqCta": "I’m ready to start",
@@ -436,6 +448,259 @@
           "q": "We already have a photographer — is this still useful?",
           "a": "Yes. Pros can’t stand in every corner. Guest shots add candids your photographer may miss, and they can appear on the wall too."
         }
+      }
+    },
+    "evento": {
+      "ctaCreate": "Create your event",
+      "ctaSeeHow": "See how it works",
+      "brand": "Evento",
+      "hero": {
+        "eyebrow": "EVENT MEMORIES, CAPTURED TOGETHER",
+        "title1": "Every guest sees the event differently.",
+        "title2": "Now every moment lives together.",
+        "subtitle": "Create a shared event space where guests can upload photos, videos and messages using one simple QR code or link.",
+        "trust1": "No app required",
+        "trust2": "Free to start",
+        "trust3": "Setup in minutes",
+        "liveBadge": "Live",
+        "liveChip": "Maria just added a photo",
+        "qrLabel": "Scan to join"
+      },
+      "proof": {
+        "title": "Made for the moments people remember.",
+        "categories": {
+          "weddings": "Weddings",
+          "birthdays": "Birthdays",
+          "corporate": "Corporate Events",
+          "conferences": "Conferences",
+          "parties": "Parties",
+          "celebrations": "Celebrations"
+        }
+      },
+      "value": {
+        "title": "One place for every perspective.",
+        "body": "Your photographer captures the big moments. Your guests capture everything else. Bring spontaneous photos, videos and messages together instead of leaving them scattered across camera rolls and group chats.",
+        "photos": "Photos",
+        "videos": "Videos",
+        "messages": "Messages"
+      },
+      "how": {
+        "eyebrow": "How it works",
+        "title": "Four steps. Guests start sharing.",
+        "subtitle": "Create an event, share a QR, and watch the album fill in real time.",
+        "link": "See the full walkthrough",
+        "s1Label": "01",
+        "s1Title": "Create your event",
+        "s1Desc": "Set your event name, appearance and experience.",
+        "s2Label": "02",
+        "s2Title": "Share one simple QR code",
+        "s2Desc": "Guests scan it or open your event link.",
+        "s3Label": "03",
+        "s3Title": "Guests share their moments",
+        "s3Desc": "Photos, videos and messages — no app download.",
+        "s4Label": "04",
+        "s4Title": "Watch the event come alive",
+        "s4Desc": "Album and Live Photo Wall update as guests contribute."
+      },
+      "album": {
+        "title": "Every memory, beautifully together.",
+        "subtitle": "Photos, videos, captions and messages — gathered with your event’s identity."
+      },
+      "wall": {
+        "title": "Turn the room into part of the story.",
+        "subtitle": "Cast a cinematic Live Photo Wall to any TV or projector.",
+        "f1": "Updates live",
+        "f2": "Works on TVs and projectors",
+        "f3": "Made for the moment"
+      },
+      "qr": {
+        "title": "One scan. Everyone is in.",
+        "body": "Share a QR code or link and let guests join instantly. No app downloads. No complicated setup. No technical instructions printed in size 6 because apparently that was ever a good idea."
+      },
+      "customize": {
+        "title": "Make the experience feel like your event.",
+        "subtitle": "Title, logo, accent color, background and welcome screen — branding that guests actually notice.",
+        "fieldTitle": "Event title",
+        "fieldColor": "Accent color",
+        "fieldWelcome": "Welcome screen"
+      },
+      "messages": {
+        "title": "More than just photos.",
+        "subtitle": "Guests can leave messages and wishes alongside the media — participation, not just file dumping.",
+        "sample": "Best night ever",
+        "meta": "Guest wish · just now",
+        "caption": "Messages live in the same timeline as photos and video."
+      },
+      "useCases": {
+        "title": "Made for the moments worth sharing.",
+        "wedding": {
+          "title": "Weddings",
+          "desc": "First dance on the wall, candids in the album."
+        },
+        "birthday": {
+          "title": "Birthdays",
+          "desc": "Cake, toasts, and the shots friends actually take."
+        },
+        "corporate": {
+          "title": "Corporate Events",
+          "desc": "Retreats and dinners with a polished keepsafe."
+        },
+        "conference": {
+          "title": "Conferences",
+          "desc": "Sessions and hallway moments in one shared space."
+        },
+        "party": {
+          "title": "Parties",
+          "desc": "Energy on screen while the playlist rolls."
+        },
+        "other": {
+          "title": "Anything worth remembering",
+          "desc": "If guests have cameras, you have a home for them."
+        }
+      },
+      "diff": {
+        "title": "Less chasing photos. More living the moment.",
+        "oldTitle": "The old fragmented experience",
+        "old1": "Camera rolls",
+        "old2": "Group chats",
+        "old3": "Social media",
+        "old4": "Random cloud links",
+        "newTitle": "Evento",
+        "new1": "One QR code",
+        "new2": "One shared event",
+        "new3": "One beautiful place for every memory"
+      },
+      "testimonials": {
+        "title": "Voices from real nights",
+        "featured": "Our photographer couldn’t be everywhere. The guest album filled in angles we never would have had — and the wall kept the dance floor buzzing.",
+        "featuredName": "Elena K.",
+        "featuredMeta": "Wedding host · Athens",
+        "t2": "We tried chat threads and a shared Drive. Guests actually used Evento because scanning a QR was the whole setup.",
+        "t2Name": "Marcus T.",
+        "t2Meta": "Company offsite · Berlin",
+        "t3": "The live wall was the surprise of the night. People kept uploading just to see their shot appear on the screen.",
+        "t3Name": "Sofia and Nikos",
+        "t3Meta": "Reception · Thessaloniki"
+      },
+      "faq": {
+        "title": "Questions",
+        "subtitle": "Uploads, privacy, the wall, and customization.",
+        "items": {
+          "noApp": {
+            "q": "Do guests need an app?",
+            "a": "No. Guests open your event link or scan the QR code in the browser."
+          },
+          "noAccount": {
+            "q": "Do guests need an account?",
+            "a": "No. Guests can upload without creating an account."
+          },
+          "multiDay": {
+            "q": "Can I use Evento for a multi-day event?",
+            "a": "Yes. Your album stays open across the whole celebration."
+          },
+          "tv": {
+            "q": "Can I show the Photo Wall on a TV?",
+            "a": "Yes. Open the Live Photo Wall in a browser and cast or connect to a TV or projector."
+          },
+          "customize": {
+            "q": "Can I customize my event?",
+            "a": "Yes. Set colors, branding, welcome copy, and how the guest experience looks."
+          },
+          "private": {
+            "q": "Are uploads private?",
+            "a": "Albums are private by default. Only people with your share link can view or contribute."
+          },
+          "moderate": {
+            "q": "Can I moderate content?",
+            "a": "Yes. Remove uploads anytime, or require approval before media reaches the wall."
+          },
+          "after": {
+            "q": "What happens to the photos after the event?",
+            "a": "They stay in your private album. Download individual files or the full set whenever you want."
+          }
+        }
+      },
+      "finalCta": {
+        "title": "Don't let the best moments stay on someone else's phone.",
+        "subtitle": "Create your event, share one QR code and bring every perspective together.",
+        "trust": "Free to start · No app required for guests"
+      },
+      "footer": {
+        "tagline": "Shared event albums and Live Photo Walls for celebrations that deserve better than a group chat.",
+        "product": "PRODUCT",
+        "howItWorks": "How it works",
+        "features": "Features",
+        "pricing": "Pricing",
+        "useCases": "USE CASES",
+        "weddings": "Weddings",
+        "parties": "Parties",
+        "corporate": "Corporate events",
+        "conferences": "Conferences",
+        "resources": "RESOURCES",
+        "help": "Help Center",
+        "guides": "Guides",
+        "blog": "Blog",
+        "company": "COMPANY",
+        "about": "About",
+        "contact": "Contact",
+        "privacy": "Privacy",
+        "terms": "Terms",
+        "copyright": "© {year} Evento"
+      },
+      "productPage": {
+        "title": "Product",
+        "subtitle": "Everything guests need to share — and everything you need to keep the night beautiful.",
+        "albumTitle": "Digital album",
+        "albumDesc": "Every guest photo and video in one place you can reopen for years.",
+        "wallTitle": "Live Photo Wall",
+        "wallDesc": "A room-scale slideshow that updates as approved uploads arrive.",
+        "qrTitle": "QR and link access",
+        "qrDesc": "Table cards and entrance signs that open the experience in seconds.",
+        "msgTitle": "Messages and wishes",
+        "msgDesc": "Text and voice notes that live beside the photos — not lost in chat.",
+        "modTitle": "Moderation",
+        "modDesc": "Approve before the wall, or publish freely and tidy later.",
+        "brandTitle": "Event branding",
+        "brandDesc": "Colors, logo and welcome screens that feel like your celebration."
+      },
+      "howPage": {
+        "title": "How Evento works",
+        "subtitle": "A calm path from create to live wall — without a tech briefing at the door."
+      },
+      "pricingPage": {
+        "title": "Simple pricing for real celebrations",
+        "subtitle": "Start free. Upgrade when you need more guests, longer walls, or white-label polish.",
+        "freeName": "Free",
+        "freeDesc": "Perfect for trying Evento on a smaller gathering.",
+        "freeF1": "Shared guest album",
+        "freeF2": "QR and link invite",
+        "freeF3": "Basic Live Photo Wall",
+        "proName": "Pro",
+        "proDesc": "For weddings and parties that need the full night.",
+        "proF1": "Everything in Free",
+        "proF2": "Moderation and branding",
+        "proF3": "Full download and longer events",
+        "proF4": "Priority support",
+        "entName": "Enterprise",
+        "entDesc": "Multi-event teams and branded experiences.",
+        "entF1": "Everything in Pro",
+        "entF2": "Custom branding and SLAs",
+        "entF3": "Dedicated onboarding",
+        "entF4": "Volume pricing",
+        "perMonth": "/month",
+        "contactSales": "Contact sales",
+        "buyPremiumEvents": "Get Premium events"
+      },
+      "resourcesPage": {
+        "title": "Resources",
+        "subtitle": "Guides and help for hosting with Evento.",
+        "helpTitle": "Help Center",
+        "helpDesc": "Get answers about uploads, walls, and guest access.",
+        "guidesTitle": "Guides",
+        "guidesDesc": "Practical tips for QR setup and night-of hosting.",
+        "blogTitle": "Blog",
+        "blogDesc": "Stories and ideas for memorable celebrations.",
+        "cta": "Contact us"
       }
     }
   },
@@ -530,7 +795,8 @@
       "active": "Live",
       "ended": "Completed",
       "endedGuestMessage": "This event has ended. The live wall and other live guest features are closed.",
-      "notStartedGuestMessage": "This event has not started yet. Guest photo uploads will open when it begins."
+      "notStartedGuestMessage": "This event has not started yet. Guest photo uploads will open when it begins.",
+      "pausedGuestMessage": "This event is paused. Guest uploads and the live wall are temporarily closed."
     },
     "details": "Event details",
     "overview": "Overview",
@@ -728,7 +994,10 @@
     "sectionWorkspace": "Workspace",
     "sectionOrganization": "Organization",
     "features": "Features",
+    "product": "Product",
+    "howItWorks": "How it works",
     "pricing": "Pricing",
+    "resources": "Resources",
     "forPlanners": "For planners",
     "forBusinesses": "For businesses",
     "home": "Home",
@@ -759,45 +1028,76 @@
     "viewPlans": "View plans",
     "dismissBanner": "Dismiss",
     "home": {
-      "statusReady": "Your event is ready to receive memories.",
+      "statusReady": "Event is live.",
       "statusPending": "{count, plural, one {# upload waiting for approval.} other {# uploads waiting for approval.}}",
       "statusInactive": "Album and photo wall are currently disabled.",
-      "statusWaiting": "Configure your event now. Guest QR codes are ready to print — guests can upload once it starts.",
-      "statusEnded": "This event has ended. Download your photos, or let guests keep uploading with the same QR.",
+      "statusWaiting": "Not started. Guest QR is ready — uploads open when you press Start.",
+      "statusLive": "Live — guests can upload.",
+      "statusLiveDays": "{days, plural, one {Live — # day left in the window.} other {Live — # days left in the window.}}",
+      "statusPaused": "Paused — guests are blocked. The live clock keeps running.",
+      "statusPausedDays": "{days, plural, one {Paused — # day left in the live window.} other {Paused — # days left in the live window.}}",
+      "statusEnded": "Stopped. Download photos while they are still available.",
+      "statusStoppedRestart": "Stopped.",
+      "statusLocked": "Completed. This event cannot be started again.",
+      "runPhase": {
+        "idle": "Upcoming",
+        "live": "Live",
+        "paused": "Paused",
+        "stopped": "Completed",
+        "locked": "Completed"
+      },
+      "upgradePremium": "Upgrade to Premium",
+      "start": "Start",
+      "restart": "Start",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "stopConfirm": "Stop this event permanently? Guests will be blocked and you cannot start it again.",
+      "runActionFailed": "Could not update event run state",
+      "linkCopied": "Link copied",
+      "quickActionsLabel": "Quick actions",
+      "quickMedia": "Media",
+      "quickGuests": "Guests",
+      "quickWallSettings": "Wall settings",
+      "quickSettings": "Event settings",
+      "quickCopyAlbum": "Copy album link",
+      "showQr": "Show QR",
+      "qrDialogTitle": "Album QR code",
+      "qrDialogDescription": "Guests scan this code to open the album upload page.",
       "lifecycleWaiting": "Waiting",
       "lifecycleEnded": "Ended",
       "shareWaitingTitle": "QR codes not available yet",
       "shareWaitingSubtitle": "Finish your settings for now. Guest QR codes and share links appear when the event starts.",
-      "shareWaitingReadySubtitle": "Print or share these QR codes before the night — guests can use them once the event starts.",
-      "shareEndedSubtitle": "Guests can still scan this QR code to upload more photos.",
+      "shareWaitingReadySubtitle": "Share this link or QR before the event — guests upload after you Start.",
+      "shareEndedSubtitle": "Guests can still use this link to upload during the retention window.",
       "shareClosedTitle": "Guest linking closed",
       "shareClosedSubtitle": "This event has ended. QR codes and share links have been removed so guests can no longer connect.",
       "shareEvent": "Share",
       "openAlbum": "Open album",
       "openWall": "Open wall",
       "shareStepLabel": "Step 1",
-      "shareTitle": "Share with guests",
-      "shareSubtitle": "Share this QR code or link so guests can upload without an account.",
-      "shareUrlLabel": "Event sharing link",
+      "shareTitle": "Share",
+      "shareSubtitle": "Album link for guest uploads.",
+      "shareUrlLabel": "Album link",
       "shareButton": "Share",
       "stepNumber": "Step {n}",
       "stepScan": "Guests scan",
       "stepUpload": "Guests upload",
       "stepAppear": "Photos appear instantly",
-      "activityLabel": "Event activity",
+      "activityLabel": "Activity",
       "statMedia": "Photos & Videos",
       "statGuests": "Guests",
       "statNewToday": "New today",
       "statPending": "Pending",
       "featuresLabel": "Album and Photo Wall",
       "albumTitle": "Digital Album",
-      "albumDescription": "All the memories from your guests in one beautiful place.",
-      "albumEmptyTitle": "Your album is waiting for its first memory",
-      "albumEmptyBody": "Share the QR code with your guests and photos will appear here.",
+      "albumDescription": "Guest photos and videos.",
+      "albumEmptyTitle": "No media yet",
+      "albumEmptyBody": "Share the album link after you Start.",
       "wallTitle": "Live Photo Wall",
-      "wallDescription": "Display your guests' memories live on any screen.",
-      "wallEmptyTitle": "Your wall is waiting for its first memory",
-      "wallEmptyBody": "Share the QR code with your guests and photos will appear here live.",
+      "wallDescription": "Display guest media on a screen.",
+      "wallEmptyTitle": "No wall media yet",
+      "wallEmptyBody": "Approved photos appear here while the event is live.",
       "copyLink": "Copy Link"
     },
     "media": {
@@ -910,6 +1210,8 @@
       "proBadge": "Pro",
       "plusBadge": "Plus",
       "upgrade": "Upgrade",
+      "upgradeEvent": "Upgrade this event",
+      "upgradeFailed": "Could not start Premium checkout",
       "suggest": "Suggest",
       "upload": "Upload",
       "change": "Change",
@@ -1320,6 +1622,8 @@
     "creating": "Creating...",
     "submitSuccess": "Event created successfully",
     "submitError": "Failed to create event",
+    "planLimitEvents": "Free plan includes 3 events. Upgrade to create more.",
+    "buyPremiumEvent": "Free event limit reached. Continue to Premium checkout…",
     "validation": {
       "nameRequired": "Please enter an event name",
       "dateRequired": "Please select a date",
@@ -1915,11 +2219,13 @@
   },
   "billing": {
     "title": "Billing",
-    "subtitle": "Plan, subscription, and usage",
-    "currentPlan": "Current plan",
+    "subtitle": "Event purchases and usage",
+    "currentPlan": "Account",
     "perMonth": "/month",
     "status": "Status",
     "upgradeCta": "Upgrade plan",
+    "eventPurchasesDesc": "You get 3 free events. Unlock Premium settings per event, or buy Premium events after your free quota.",
+    "buyPremiumEventCta": "Create a Premium event",
     "checkoutFailed": "Could not start checkout. Please try again.",
     "checkoutNotConfigured": "Billing is not configured yet. Contact support or set Stripe price IDs.",
     "usageTitle": "Usage this period",
@@ -2031,7 +2337,19 @@
     "actionLibraryDesc": "Pick a photo or video from your device",
     "actionText": "Text",
     "actionTextDesc": "Start with words on a background",
+    "actionCollage": "Collage",
+    "actionCollageDesc": "Fill a grid with photos, Instagram-style",
     "actionBackground": "Background",
+    "collagePickLayout": "Choose a layout",
+    "collageFillHint": "Tap a cell to take or pick a photo",
+    "collageSlotProgress": "{filled} of {total} photos",
+    "collageIncomplete": "Fill every cell before posting",
+    "collageLayoutSplitV": "Split",
+    "collageLayoutSplitH": "Stack",
+    "collageLayout3": "3-up",
+    "collageLayout2x2": "Grid",
+    "collageContinue": "Continue filling",
+    "modeCollage": "COLLAGE",
     "cameraDeniedTitle": "Camera unavailable",
     "cameraDenied": "Allow camera access, or pick a photo from your library.",
     "cameraNotReady": "Camera is still starting — try again in a moment.",

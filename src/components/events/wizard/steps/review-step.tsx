@@ -45,11 +45,6 @@ export function ReviewStep({ form }: ReviewStepProps) {
           value={[values.date, values.startTime].filter(Boolean).join(" · ") || "—"}
         />
         <ReviewItem
-          icon={Calendar}
-          label={t("endDate")}
-          value={[values.endDate, values.endTime].filter(Boolean).join(" · ") || "—"}
-        />
-        <ReviewItem
           icon={Palette}
           label={t("steps.theme")}
           value={
