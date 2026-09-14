@@ -38,7 +38,7 @@ function EventRow({
   const overviewHref = orgPath(orgSlug, `/events/${event.id}/overview`);
 
   return (
-    <div className="flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-0">
+    <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3 last:border-0">
       <div className="min-w-0 flex-1">
         <Link
           href={overviewHref}
@@ -125,7 +125,7 @@ export default async function DashboardPage({
           <h2 className="text-sm font-semibold tracking-tight text-foreground">
             {t("needsAttention")}
           </h2>
-          <div className="overflow-hidden rounded-lg border border-white/10">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             {attention.map((event) => (
               <EventRow
                 key={event.id}
@@ -149,7 +149,7 @@ export default async function DashboardPage({
               <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
             </Button>
           </div>
-          <div className="overflow-hidden rounded-lg border border-white/10">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             {upcomingLive.map((event) => (
               <EventRow
                 key={event.id}
@@ -173,7 +173,7 @@ export default async function DashboardPage({
               <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
             </Button>
           </div>
-          <div className="overflow-hidden rounded-lg border border-white/10">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             {recent.map((event) => (
               <EventRow
                 key={event.id}

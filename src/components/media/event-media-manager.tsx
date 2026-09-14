@@ -5,6 +5,7 @@ import {
   Check,
   Download,
   EyeOff,
+  Lock,
   Music2,
   ShieldAlert,
   Smartphone,
@@ -16,7 +17,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SongRequestsPanel } from "@/components/media/song-requests-panel";
-import { VoiceWishesPanel } from "@/components/media/voice-wishes-panel";
 import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { useOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import type { EventLifecycle } from "@/server/events/event-ended";
 
-type MediaFilter = "published" | "pending" | "hidden";
+type MediaFilter = "published" | "pending" | "hidden" | "wishes";
 
 interface MediaItem {
   id: string;
@@ -36,6 +36,16 @@ interface MediaItem {
   caption: string | null;
   createdAt: string;
   isFeatured?: boolean;
+}
+
+interface WishItem {
+  id: string;
+  url: string;
+  mimeType: string;
+  fileName: string;
+  durationMs: number;
+  uploadedBy: string | null;
+  createdAt: string;
 }
 
 interface EventMediaManagerProps {
@@ -58,11 +68,17 @@ export function EventMediaManager({
   isPremium = false,
 }: EventMediaManagerProps) {
   const t = useTranslations("eventWorkspace.media");
+  const tWishes = useTranslations("eventWorkspace.voiceWishes");
   const tMod = useTranslations("moderatorAlbum");
   const orgPath = useOrgPath();
   const { planName } = useOrg();
 
   const [items, setItems] = useState<MediaItem[]>([]);
+  const [wishItems, setWishItems] = useState<WishItem[]>([]);
+  const [wishCount, setWishCount] = useState(0);
+  const [wishesUnlocked, setWishesUnlocked] = useState(false);
+  const [wishesLoading, setWishesLoading] = useState(true);
+  const [deletingWishId, setDeletingWishId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [filter, setFilter] = useState<MediaFilter>("published");
@@ -87,9 +103,33 @@ export function EventMediaManager({
     setIsLoading(false);
   }, [eventId, t]);
 
+  const loadWishes = useCallback(async () => {
+    setWishesLoading(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/wishes`);
+      if (!response.ok) {
+        toast.error(tWishes("loadError"));
+        setWishesLoading(false);
+        return;
+      }
+      const json = await response.json();
+      const isUnlocked = Boolean(json.data.unlocked);
+      setWishCount(json.data.count ?? 0);
+      setWishesUnlocked(isUnlocked);
+      setWishItems(isUnlocked ? (json.data.items ?? []) : []);
+    } catch {
+      toast.error(tWishes("loadError"));
+    }
+    setWishesLoading(false);
+  }, [eventId, tWishes]);
+
   useEffect(() => {
     void loadMedia();
   }, [loadMedia]);
+
+  useEffect(() => {
+    void loadWishes();
+  }, [loadWishes]);
 
   useEffect(() => {
     async function loadPanic() {
@@ -144,6 +184,7 @@ export function EventMediaManager({
   }, [items]);
 
   const filtered = useMemo(() => {
+    if (filter === "wishes") return [];
     let list = items.filter((item) => {
       if (filter === "published") {
         return item.status === MediaStatus.APPROVED || item.status === MediaStatus.FEATURED;
@@ -157,6 +198,13 @@ export function EventMediaManager({
     });
     return list;
   }, [items, filter, sortNewest]);
+
+  const sortedWishes = useMemo(() => {
+    return [...wishItems].sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sortNewest ? -diff : diff;
+    });
+  }, [wishItems, sortNewest]);
 
   const uploadLimit = isPremium
     ? Math.max(FREE_UPLOAD_CAP * 10, counts.total)
@@ -198,11 +246,33 @@ export function EventMediaManager({
     }
   }
 
+  async function handleDeleteWish(wishId: string) {
+    setDeletingWishId(wishId);
+    try {
+      const response = await fetch(`/api/events/${eventId}/wishes/${wishId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        toast.error(tWishes("deleteError"));
+        setDeletingWishId(null);
+        return;
+      }
+      toast.success(tWishes("deleteSuccess"));
+      await loadWishes();
+    } catch {
+      toast.error(tWishes("deleteError"));
+    }
+    setDeletingWishId(null);
+  }
+
   const filters: { id: MediaFilter; label: string; count: number }[] = [
     { id: "published", label: t("published"), count: counts.published },
     { id: "pending", label: t("needApproval"), count: counts.pending },
     { id: "hidden", label: t("hidden"), count: counts.hidden },
+    { id: "wishes", label: t("wishes"), count: wishCount },
   ];
+
+  const showingWishes = filter === "wishes";
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
@@ -396,7 +466,6 @@ export function EventMediaManager({
         </Button>
       </section>
 
-      <VoiceWishesPanel eventId={eventId} />
       <SongRequestsPanel eventId={eventId} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -426,7 +495,86 @@ export function EventMediaManager({
         </button>
       </div>
 
-      {isLoading ? (
+      {showingWishes ? (
+        wishesLoading ? (
+          <div
+            className="grid gap-3 sm:grid-cols-2 md:grid-cols-3"
+            role="status"
+            aria-label={tWishes("loading")}
+          >
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="overflow-hidden rounded-xl border border-border/60 bg-card p-3 shadow-sm"
+              >
+                <div className="mb-3 h-4 w-24 animate-pulse rounded bg-muted" />
+                <div className="aspect-video animate-pulse rounded-lg bg-muted" />
+              </div>
+            ))}
+          </div>
+        ) : !wishesUnlocked ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-card/50 px-6 py-16 text-center">
+            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+              <Lock className="size-3.5 shrink-0" />
+              {tWishes("sealedCount", { count: wishCount })}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">{tWishes("sealedHint")}</p>
+          </div>
+        ) : sortedWishes.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-card/50 px-6 py-16 text-center">
+            <p className="text-sm text-muted-foreground">{tWishes("empty")}</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {sortedWishes.map((item) => (
+              <article
+                key={item.id}
+                className="overflow-hidden rounded-xl border border-border/60 bg-card p-3 shadow-sm"
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {item.uploadedBy ?? tWishes("anonymous")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {tWishes("duration", {
+                        seconds: Math.round(item.durationMs / 1000),
+                      })}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={deletingWishId === item.id}
+                    onClick={() => void handleDeleteWish(item.id)}
+                    aria-label={tWishes("delete")}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                {item.mimeType.startsWith("video/") ? (
+                  <video
+                    src={item.url}
+                    controls
+                    playsInline
+                    className="w-full rounded-lg"
+                    preload="metadata"
+                  />
+                ) : (
+                  <audio
+                    src={item.url}
+                    controls
+                    className="w-full"
+                    preload="metadata"
+                  />
+                )}
+              </article>
+            ))}
+          </div>
+        )
+      ) : isLoading ? (
         <div
           className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
           role="status"

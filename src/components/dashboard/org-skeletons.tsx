@@ -23,20 +23,6 @@ function EventCardSkeleton() {
   );
 }
 
-export function DashboardFiltersSkeleton() {
-  return (
-    <>
-      <div className="md:hidden" aria-hidden>
-        <Bone className="h-10 w-full rounded-full" />
-      </div>
-      <div className="hidden items-center gap-3 md:flex" aria-hidden>
-        <Bone className="h-9 w-[200px] rounded-full" />
-        <Bone className="h-9 min-w-0 flex-1 rounded-full" />
-      </div>
-    </>
-  );
-}
-
 export function DashboardPageSkeleton() {
   return (
     <div
@@ -52,8 +38,6 @@ export function DashboardPageSkeleton() {
         </div>
         <Bone className="h-9 w-32 shrink-0" />
       </header>
-
-      <DashboardFiltersSkeleton />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (

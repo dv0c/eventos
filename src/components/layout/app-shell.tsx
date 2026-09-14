@@ -103,19 +103,11 @@ export function AppShell({
   const eventId = getEventIdFromPath(pathname);
   const isEventWorkspace = Boolean(eventId);
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
-  const isDayzerDashboard = /\/org\/[^/]+\/dashboard\/?$/.test(pathname);
 
   useOrgDarkTheme({
-    enabled: !isDayzerDashboard,
+    enabled: true,
     primaryColor: org?.mode === "B2B" ? org.primaryColor : null,
   });
-
-  // Ensure Dayzer dashboard stays on the light palette (no org dark chrome).
-  useLayoutEffect(() => {
-    if (!isDayzerDashboard) return;
-    const root = document.documentElement;
-    root.classList.remove("dark", "org-app");
-  }, [isDayzerDashboard]);
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [eventWorkspaceName, setEventWorkspaceName] = useState<string | null>(null);
@@ -167,10 +159,6 @@ export function AppShell({
   function handleCreateOrganization() {
     setMobileNavOpen(false);
     router.push("/organizations/new");
-  }
-
-  if (isDayzerDashboard) {
-    return <>{children}</>;
   }
 
   const sidebarProps = {
