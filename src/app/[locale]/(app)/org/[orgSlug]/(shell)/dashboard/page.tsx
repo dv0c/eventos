@@ -1,23 +1,24 @@
-import { EventStatus, PlatformRole } from "@prisma/client";
+import { EventStatus } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 
-import { DayzerDashboardShell } from "@/components/dashboard/dayzer/dayzer-dashboard-shell";
-import type {
-  DayzerDashboardData,
-  DayzerEventItem,
-  DayzerMember,
-} from "@/components/dashboard/dayzer/types";
+import { DashboardEmptyEvents } from "@/components/dashboard/dashboard-empty-events";
+import { EventLifecycleBadge } from "@/components/organization/event-lifecycle-badge";
+import { OrgPageHeader } from "@/components/organization/org-page-header";
+import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 import { formatDate } from "@/lib/format";
 import { orgPath } from "@/lib/org-path";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
 import { getEventLifecycle } from "@/server/events/event-ended";
-import { can } from "@/server/permissions/matrix";
-import { getStorageProvider } from "@/server/providers/storage";
-import { organizationRepository } from "@/server/repositories/organization.repository";
 import { eventService } from "@/server/services/event.service";
 
-function toEventItem(
+function EventRow({
+  event,
+  orgSlug,
+  locale,
+  openLabel,
+}: {
   event: {
     id: string;
     name: string;
@@ -28,26 +29,34 @@ function toEventItem(
     startTime?: string | null;
     endTime?: string | null;
     endDate?: Date | null;
-    theme?: { coverImageKey?: string | null } | null;
-  },
-  orgSlug: string,
-  locale: string,
-): DayzerEventItem {
-  const storage = getStorageProvider();
-  const coverKey = event.theme?.coverImageKey ?? null;
-  return {
-    id: event.id,
-    name: event.name,
-    dateLabel: formatDate(event.date, locale as "el" | "en"),
-    location: event.location ?? null,
-    clientName: event.client?.name ?? null,
-    lifecycle: getEventLifecycle(event),
-    overviewHref: orgPath(orgSlug, `/events/${event.id}/overview`),
-    guestsHref: orgPath(orgSlug, `/events/${event.id}/guests`),
-    messagesHref: orgPath(orgSlug, `/events/${event.id}/messages`),
-    wallHref: orgPath(orgSlug, `/events/${event.id}/media`),
-    coverUrl: coverKey ? storage.getPublicUrl(coverKey) : null,
   };
+  orgSlug: string;
+  locale: string;
+  openLabel: string;
+}) {
+  const lifecycle = getEventLifecycle(event);
+  const overviewHref = orgPath(orgSlug, `/events/${event.id}/overview`);
+
+  return (
+    <div className="flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-0">
+      <div className="min-w-0 flex-1">
+        <Link
+          href={overviewHref}
+          className="font-medium text-foreground hover:text-primary"
+        >
+          {event.name}
+        </Link>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {formatDate(event.date, locale as "el" | "en")}
+          {event.client ? ` · ${event.client.name}` : ""}
+        </p>
+      </div>
+      <EventLifecycleBadge lifecycle={lifecycle} />
+      <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2.5" asChild>
+        <Link href={overviewHref}>{openLabel}</Link>
+      </Button>
+    </div>
+  );
 }
 
 export default async function DashboardPage({
@@ -56,99 +65,136 @@ export default async function DashboardPage({
   params: Promise<{ locale: string; orgSlug: string }>;
 }) {
   const { locale, orgSlug } = await params;
-  const tDash = await getTranslations("dashboard");
+  const t = await getTranslations("dashboard");
+  const tEvents = await getTranslations("events");
+  const tCommon = await getTranslations("common");
   const session = await requireAuth();
-  const org = await getOrganizationBySlug(session.user.id, orgSlug);
+  const organizationId = (await getOrganizationBySlug(session.user.id, orgSlug)).id;
 
-  const [{ events }, members] = await Promise.all([
-    eventService.listEvents(session.user.id, {
-      organizationId: org.id,
-      pageSize: 50,
-    }),
-    organizationRepository.getMembers(org.id),
-  ]);
-
-  const attention = events.filter((e) => e.status === EventStatus.DRAFT);
-  const upcomingLive = events.filter((e) => {
-    if (e.status === EventStatus.DRAFT) return false;
-    const life = getEventLifecycle(e);
-    return life === "waiting" || life === "active";
+  const { events } = await eventService.listEvents(session.user.id, {
+    organizationId,
+    pageSize: 50,
   });
 
-  const featuredRaw = upcomingLive[0] ?? attention[0] ?? events[0] ?? null;
+  const createHref = orgPath(orgSlug, "/events/new");
 
-  let featuredStats: DayzerDashboardData["featuredStats"] = null;
-  if (featuredRaw) {
-    try {
-      const overview = await eventService.getEventOverview(
-        session.user.id,
-        featuredRaw.id,
-      );
-      featuredStats = {
-        guestCount: overview.stats.guestCount,
-        photoCount: overview.stats.totalMedia,
-        totalTasks: overview.stats.totalTasks,
-        completedTasks: overview.stats.completedTasks,
-        daysUntilEvent: overview.stats.daysUntilEvent,
-      };
-    } catch {
-      featuredStats = null;
-    }
+  if (events.length === 0) {
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-8">
+        <OrgPageHeader
+          title={t("overview")}
+          description={t("subtitle")}
+          actionLabel={t("createEvent")}
+          actionHref={createHref}
+        />
+        <DashboardEmptyEvents
+          title={t("noEvents")}
+          description={t("noEventsDesc")}
+          actionLabel={t("createEvent")}
+          actionHref={createHref}
+        />
+      </div>
+    );
   }
 
-  const featured = featuredRaw
-    ? toEventItem(featuredRaw, orgSlug, locale)
-    : null;
+  const attention = events.filter((e) => e.status === EventStatus.DRAFT).slice(0, 8);
+  const upcomingLive = events
+    .filter((e) => {
+      if (e.status === EventStatus.DRAFT) return false;
+      const life = getEventLifecycle(e);
+      return life === "waiting" || life === "active";
+    })
+    .slice(0, 8);
+  const attentionIds = new Set(attention.map((e) => e.id));
+  const upcomingIds = new Set(upcomingLive.map((e) => e.id));
+  const recent = events
+    .filter((e) => !attentionIds.has(e.id) && !upcomingIds.has(e.id))
+    .slice(0, 6);
 
-  const listSource =
-    upcomingLive.length > 0
-      ? upcomingLive
-      : events.filter((e) => e.id !== featuredRaw?.id);
+  return (
+    <div className="mx-auto w-full max-w-4xl space-y-8">
+      <OrgPageHeader
+        title={t("overview")}
+        description={t("subtitle")}
+        actionLabel={t("createEvent")}
+        actionHref={createHref}
+      />
 
-  const nestedSource = (upcomingLive.length > 0 ? upcomingLive : events).slice(
-    0,
-    4,
+      {attention.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">
+            {t("needsAttention")}
+          </h2>
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            {attention.map((event) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                orgSlug={orgSlug}
+                locale={locale}
+                openLabel={tEvents("open")}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {upcomingLive.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">
+              {t("upcomingLive")}
+            </h2>
+            <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" asChild>
+              <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            {upcomingLive.map((event) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                orgSlug={orgSlug}
+                locale={locale}
+                openLabel={tEvents("open")}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {recent.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">
+              {t("recentEvents")}
+            </h2>
+            <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" asChild>
+              <Link href={orgPath(orgSlug, "/events")}>{tCommon("viewAll")}</Link>
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            {recent.map((event) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                orgSlug={orgSlug}
+                locale={locale}
+                openLabel={tEvents("open")}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <p className="text-sm text-muted-foreground">
+        <Link
+          href={orgPath(orgSlug, "/analytics")}
+          className="underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {t("analyticsLink")}
+        </Link>
+      </p>
+    </div>
   );
-
-  const dayzerMembers: DayzerMember[] = members.map((m) => ({
-    id: m.id,
-    name: m.user.name,
-    email: m.user.email,
-    image: m.user.image,
-  }));
-
-  const canBilling = can(org.role, "org:manage_billing");
-  const isAdmin = session.user.platformRole === PlatformRole.ADMIN;
-
-  const firstName =
-    session.user.name?.trim().split(/\s+/)[0] ||
-    session.user.email?.split("@")[0] ||
-    tDash("accountFallback");
-
-  const data: DayzerDashboardData = {
-    user: {
-      name: session.user.name ?? null,
-      email: session.user.email ?? null,
-      image: session.user.image ?? null,
-    },
-    orgSlug,
-    orgRoleLabel: org.role,
-    brandName: org.brandName?.trim() || org.name,
-    nestedEvents: nestedSource.map((e) => toEventItem(e, orgSlug, locale)),
-    listEvents: listSource
-      .slice(0, 3)
-      .map((e) => toEventItem(e, orgSlug, locale)),
-    featured,
-    featuredStats,
-    members: dayzerMembers,
-    createEventHref: orgPath(orgSlug, "/events/new"),
-    eventsHref: orgPath(orgSlug, "/events"),
-    teamHref: orgPath(orgSlug, "/team"),
-    settingsHref: orgPath(orgSlug, "/settings"),
-    billingHref: canBilling ? orgPath(orgSlug, "/billing") : null,
-    adminHref: isAdmin ? "/admin" : null,
-    firstName,
-  };
-
-  return <DayzerDashboardShell data={data} />;
 }
