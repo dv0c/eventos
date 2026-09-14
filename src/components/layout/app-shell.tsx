@@ -38,8 +38,13 @@ function getEventIdFromPath(pathname: string): string | null {
   return eventId;
 }
 
-function useOrgDarkTheme(primaryColor?: string | null) {
+function useOrgDarkTheme(options: {
+  enabled: boolean;
+  primaryColor?: string | null;
+}) {
+  const { enabled, primaryColor } = options;
   useLayoutEffect(() => {
+    if (!enabled) return;
     const root = document.documentElement;
     root.classList.add("dark", "org-app");
     if (primaryColor) {
@@ -51,7 +56,7 @@ function useOrgDarkTheme(primaryColor?: string | null) {
       root.style.removeProperty("--org-primary");
       root.style.removeProperty("--primary");
     };
-  }, [primaryColor]);
+  }, [enabled, primaryColor]);
 }
 
 function SidebarTransition({
@@ -91,7 +96,6 @@ export function AppShell({
   activeOrganizationId,
 }: AppShellProps) {
   const org = useOptionalOrg();
-  useOrgDarkTheme(org?.mode === "B2B" ? org.primaryColor : null);
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
@@ -99,6 +103,20 @@ export function AppShell({
   const eventId = getEventIdFromPath(pathname);
   const isEventWorkspace = Boolean(eventId);
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isDayzerDashboard = /\/org\/[^/]+\/dashboard\/?$/.test(pathname);
+
+  useOrgDarkTheme({
+    enabled: !isDayzerDashboard,
+    primaryColor: org?.mode === "B2B" ? org.primaryColor : null,
+  });
+
+  // Ensure Dayzer dashboard stays on the light palette (no org dark chrome).
+  useLayoutEffect(() => {
+    if (!isDayzerDashboard) return;
+    const root = document.documentElement;
+    root.classList.remove("dark", "org-app");
+  }, [isDayzerDashboard]);
+
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [eventWorkspaceName, setEventWorkspaceName] = useState<string | null>(null);
 
@@ -149,6 +167,10 @@ export function AppShell({
   function handleCreateOrganization() {
     setMobileNavOpen(false);
     router.push("/organizations/new");
+  }
+
+  if (isDayzerDashboard) {
+    return <>{children}</>;
   }
 
   const sidebarProps = {
