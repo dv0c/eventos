@@ -191,24 +191,21 @@ export function CollaboratorsTab({ event }: { event: EventWithRelations }) {
                 value={role}
                 onValueChange={(value) => setRole(value as "EDITOR" | "VIEWER")}
               >
-                <SelectTrigger id="collabRole" className="h-9">
-                  <SelectValue />
+                <SelectTrigger id="collabRole">
+                  <SelectValue placeholder={t("inviteRole")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EDITOR">
-                    <div className="flex flex-col items-start gap-0.5">
-                      <span>{t("roleEditor")}</span>
-                      <span className="text-xs text-muted-foreground">{t("roleEditorDesc")}</span>
-                    </div>
+                  <SelectItem value="EDITOR" description={t("roleEditorDesc")}>
+                    {t("roleEditor")}
                   </SelectItem>
-                  <SelectItem value="VIEWER">
-                    <div className="flex flex-col items-start gap-0.5">
-                      <span>{t("roleViewer")}</span>
-                      <span className="text-xs text-muted-foreground">{t("roleViewerDesc")}</span>
-                    </div>
+                  <SelectItem value="VIEWER" description={t("roleViewerDesc")}>
+                    {t("roleViewer")}
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                {role === "VIEWER" ? t("roleViewerDesc") : t("roleEditorDesc")}
+              </p>
             </div>
           </div>
           <DialogFooter>
