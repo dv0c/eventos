@@ -158,10 +158,19 @@ enum NotificationType {
   RSVP_RECEIVED
   GUEST_DECLINED
   NEW_PHOTO
+  MEDIA_PENDING
   PAYMENT_FAILED
   TASK_OVERDUE
   COLLABORATOR_JOINED
+  COLLAB_INVITE
+  ORG_INVITE
   EVENT_APPROACHING
+  EVENT_ENDING_SOON
+  EVENT_STOPPED
+  MEDIA_PURGE_SOON
+  SONG_REQUEST
+  VOICE_WISH
+  PANIC_ARMED
   SYSTEM
 }
 
@@ -360,6 +369,7 @@ model Organization {
   eventTemplates    EventTemplate[]
   auditLogs         AuditLog[]
   eventPurchases    EventPurchase[]
+  notifications     Notification[]
 
   @@index([slug])
   @@index([planId])
@@ -534,6 +544,7 @@ model Event {
   auditLogs      AuditLog[]
   games          EventGame[]
   purchases      EventPurchase[]
+  notifications  Notification[]
 
   @@index([organizationId])
   @@index([slug])
@@ -1181,19 +1192,26 @@ model AuditLog {
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  type      NotificationType
-  title     String
-  body      String?
-  link      String?
-  read      Boolean          @default(false)
-  metadata  Json?
-  createdAt DateTime         @default(now())
+  id             String           @id @default(cuid())
+  userId         String
+  type           NotificationType
+  title          String
+  body           String?
+  link           String?
+  read           Boolean          @default(false)
+  metadata       Json?
+  eventId        String?
+  organizationId String?
+  createdAt      DateTime         @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event        Event?        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([eventId])
+  @@index([organizationId])
   @@index([createdAt])
   @@map("notifications")
 }

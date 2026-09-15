@@ -1,5 +1,6 @@
 import {
   AuditAction,
+  OrgRole,
   SubscriptionStatus,
   type Invoice,
   type Plan,
@@ -252,11 +253,23 @@ export const billingService = {
 
     const subscription = await prisma.subscription.findFirst({
       where: { stripeSubscriptionId: subscriptionId },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            slug: true,
+            members: {
+              where: { role: { in: [OrgRole.OWNER, OrgRole.ADMIN] } },
+              select: { userId: true },
+            },
+          },
+        },
+      },
     });
 
     if (!subscription) return null;
 
-    return prisma.invoice.upsert({
+    const invoice = await prisma.invoice.upsert({
       where: { stripeInvoiceId: stripeInvoice.id },
       create: {
         subscriptionId: subscription.id,
@@ -281,6 +294,27 @@ export const billingService = {
         pdfUrl: stripeInvoice.invoice_pdf ?? null,
       },
     });
+
+    if (stripeInvoice.status === "open" || stripeInvoice.status === "uncollectible") {
+      const {
+        enqueueNotification,
+        NotificationType,
+        notificationService,
+      } = await import("@/server/notifications/emit");
+      const userIds = subscription.organization.members.map((m) => m.userId);
+      enqueueNotification(() =>
+        notificationService.notifyUsers(userIds, {
+          type: NotificationType.PAYMENT_FAILED,
+          title: "Payment failed",
+          body: "A subscription invoice payment failed",
+          link: `/org/${subscription.organization.slug}/billing`,
+          organizationId: subscription.organization.id,
+          metadata: { stripeInvoiceId: stripeInvoice.id },
+        }),
+      );
+    }
+
+    return invoice;
   },
 
   async handleSubscriptionDeleted(stripeSubscription: Stripe.Subscription): Promise<void> {

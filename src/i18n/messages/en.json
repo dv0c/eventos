@@ -2455,5 +2455,25 @@
     "publishSuccess": "Post published",
     "publishError": "Could not publish post",
     "emptyStory": "Add a photo or text before publishing"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet",
+    "emptyDesc": "Updates about your events, moderation, and invites will show up here.",
+    "markAllRead": "Mark all read",
+    "unread": "{count} unread",
+    "accept": "Accept",
+    "decline": "Decline",
+    "openInvite": "Open invite",
+    "loadError": "Could not load notifications",
+    "actionError": "Could not update invite",
+    "accepted": "Invite accepted",
+    "declined": "Invite declined",
+    "justNow": "Just now",
+    "minutesAgo": "{count}m ago",
+    "hoursAgo": "{count}h ago",
+    "daysAgo": "{count}d ago",
+    "ariaLabel": "Notifications",
+    "ariaUnread": "Notifications, {count} unread"
   }
 }

@@ -234,6 +234,23 @@ export const songRequestService = {
       },
     });
 
+    {
+      const {
+        enqueueNotification,
+        NotificationType,
+        notificationService,
+      } = await import("@/server/notifications/emit");
+      enqueueNotification(() =>
+        notificationService.notifyEventStakeholders(event.id, {
+          type: NotificationType.SONG_REQUEST,
+          title: "New song request",
+          body: `${title} — ${artist}`,
+          link: `/mod/${event.id}/dj`,
+          metadata: { songRequestId: created.id },
+        }),
+      );
+    }
+
     return {
       id: created.id,
       title: created.title,

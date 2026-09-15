@@ -292,6 +292,35 @@ export const organizationService = {
       ipAddress,
     });
 
+    const invitee = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (invitee) {
+      const org = await prisma.organization.findFirst({
+        where: { id: organizationId },
+        select: { name: true, slug: true },
+      });
+      const {
+        enqueueNotification,
+        NotificationType,
+        notificationService,
+      } = await import("@/server/notifications/emit");
+      enqueueNotification(() =>
+        notificationService.notifyUser({
+          userId: invitee.id,
+          type: NotificationType.ORG_INVITE,
+          title: "Team invite",
+          body: org
+            ? `Join ${org.name} as ${role}`
+            : `You've been invited to an organization`,
+          link: `/invite/${invite.token}`,
+          organizationId,
+          metadata: { token: invite.token, inviteId: invite.id, role },
+        }),
+      );
+    }
+
     return invite;
   },
 

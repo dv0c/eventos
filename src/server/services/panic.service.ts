@@ -19,8 +19,29 @@ export const panicService = {
     const event = await prisma.event.update({
       where: { id: eventId },
       data: { mediaPanicAt: new Date() },
-      select: { id: true, mediaPanicAt: true },
+      select: {
+        id: true,
+        name: true,
+        mediaPanicAt: true,
+        organization: { select: { slug: true } },
+      },
     });
+
+    const {
+      enqueueNotification,
+      eventModLink,
+      NotificationType,
+      notificationService,
+    } = await import("@/server/notifications/emit");
+    enqueueNotification(() =>
+      notificationService.notifyEventStakeholders(eventId, {
+        type: NotificationType.PANIC_ARMED,
+        title: "Panic mode armed",
+        body: `${event.name}: guest uploads are blocked`,
+        link: eventModLink(eventId),
+        excludeUserId: userId,
+      }),
+    );
 
     return { panic: true as const, mediaPanicAt: event.mediaPanicAt!.toISOString() };
   },

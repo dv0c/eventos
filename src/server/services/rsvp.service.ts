@@ -191,6 +191,35 @@ export const rsvpService = {
       ipAddress,
     });
 
+    {
+      const {
+        enqueueNotification,
+        NotificationType,
+        notificationService,
+      } = await import("@/server/notifications/emit");
+      const guestName = `${context.guest.firstName} ${context.guest.lastName}`.trim();
+      const declined = input.status === RsvpStatus.NO;
+      enqueueNotification(async () => {
+        const event = await prisma.event.findFirst({
+          where: { id: context.event.id },
+          select: {
+            organization: { select: { slug: true } },
+          },
+        });
+        const orgSlug = event?.organization.slug;
+        await notificationService.notifyEventStakeholders(context.event.id, {
+          type: declined
+            ? NotificationType.GUEST_DECLINED
+            : NotificationType.RSVP_RECEIVED,
+          title: declined ? "Guest declined" : "RSVP received",
+          body: `${guestName} · ${input.status}`,
+          link: orgSlug
+            ? `/org/${orgSlug}/events/${context.event.id}/guests`
+            : null,
+        });
+      });
+    }
+
     return this.getByToken(token);
   },
 };

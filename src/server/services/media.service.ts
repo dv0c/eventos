@@ -141,7 +141,7 @@ async function getEventByUploadToken(uploadToken: string) {
       event: {
         include: {
           theme: true,
-          organization: { select: { logoUrl: true } },
+          organization: { select: { logoUrl: true, slug: true } },
         },
       },
     },
@@ -405,6 +405,35 @@ export const mediaService = {
       .catch(() => {
         // Queue unavailable — media stays pending for manual moderation
       });
+
+    const orgSlug = event.organization?.slug;
+    if (orgSlug) {
+      const {
+        enqueueNotification,
+        eventMediaLink,
+        eventModLink,
+        NotificationType,
+        notificationService,
+      } = await import("@/server/notifications/emit");
+      if (media.status === MediaStatus.PENDING) {
+        enqueueNotification(() =>
+          notificationService.notifyMediaPendingThrottled(event.id, {
+            title: "Photos awaiting approval",
+            body: `${event.name}: new media needs moderation`,
+            link: eventModLink(event.id),
+          }),
+        );
+      } else {
+        enqueueNotification(() =>
+          notificationService.notifyEventStakeholders(event.id, {
+            type: NotificationType.NEW_PHOTO,
+            title: "New photo uploaded",
+            body: event.name,
+            link: eventMediaLink(orgSlug, event.id),
+          }),
+        );
+      }
+    }
 
     return {
       id: media.id,

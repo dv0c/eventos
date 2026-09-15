@@ -2,6 +2,7 @@
 
 import type { OrganizationSummary } from "@/components/layout/org-switcher";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
+import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { useOptionalOrg } from "@/components/providers/org-provider";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -106,6 +107,8 @@ export function AppHeader({
 
       <div className="flex shrink-0 items-center gap-2">
         <LocaleSwitcher variant="glass" size="sm" />
+
+        <NotificationPanel />
 
         <Separator orientation="vertical" className="mx-1 hidden h-6 bg-white/15 sm:block" />
 

@@ -120,8 +120,6 @@ export async function POST(request: Request, context: RouteContext) {
       select: { id: true },
     });
 
-    const orgRole = parsed.data.role === "VIEWER" ? "VIEWER" : "EDITOR";
-
     const collaborator = await prisma.eventCollaborator.upsert({
       where: {
         eventId_email: { eventId, email },
@@ -132,27 +130,48 @@ export async function POST(request: Request, context: RouteContext) {
         role: parsed.data.role,
         userId: existingUser?.id ?? null,
         invitedBy: session.user.id,
-        status: existingUser ? InviteStatus.ACCEPTED : InviteStatus.PENDING,
+        status: InviteStatus.PENDING,
       },
       update: {
         role: parsed.data.role,
         userId: existingUser?.id ?? undefined,
-        status: existingUser ? InviteStatus.ACCEPTED : InviteStatus.PENDING,
+        status: InviteStatus.PENDING,
       },
     });
 
     if (existingUser) {
-      await prisma.collaborator.upsert({
-        where: {
-          eventId_userId: { eventId, userId: existingUser.id },
+      const full = await prisma.event.findFirst({
+        where: { id: eventId },
+        select: {
+          name: true,
+          organizationId: true,
+          organization: { select: { slug: true } },
         },
-        create: {
-          eventId,
-          userId: existingUser.id,
-          role: orgRole,
-        },
-        update: { role: orgRole },
       });
+      if (full) {
+        const {
+          enqueueNotification,
+          eventCollaboratorsLink,
+          NotificationType,
+          notificationService,
+        } = await import("@/server/notifications/emit");
+        enqueueNotification(() =>
+          notificationService.notifyUser({
+            userId: existingUser.id,
+            type: NotificationType.COLLAB_INVITE,
+            title: "Collaboration invite",
+            body: `You're invited to collaborate on ${full.name}`,
+            link: eventCollaboratorsLink(full.organization.slug, eventId),
+            eventId,
+            organizationId: full.organizationId,
+            metadata: {
+              collaboratorId: collaborator.id,
+              eventId,
+              role: parsed.data.role,
+            },
+          }),
+        );
+      }
     }
 
     return apiSuccess({ collaborator }, 201);

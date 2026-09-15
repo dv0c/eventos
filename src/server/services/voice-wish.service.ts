@@ -314,6 +314,24 @@ export const voiceWishService = {
       },
     });
 
+    {
+      const {
+        enqueueNotification,
+        eventModLink,
+        NotificationType,
+        notificationService,
+      } = await import("@/server/notifications/emit");
+      enqueueNotification(() =>
+        notificationService.notifyEventStakeholders(event.id, {
+          type: NotificationType.VOICE_WISH,
+          title: "New voice wish",
+          body: `${name} left a wish`,
+          link: eventModLink(event.id),
+          metadata: { wishId: wish.id },
+        }),
+      );
+    }
+
     return {
       id: wish.id,
       durationMs: wish.durationMs,

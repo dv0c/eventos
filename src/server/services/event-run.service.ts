@@ -226,6 +226,33 @@ export const eventRunService = {
       entityId: eventId,
       metadata: { runAction: "stop" },
     });
+
+    {
+      const {
+        enqueueNotification,
+        eventOverviewLink,
+        NotificationType,
+        notificationService,
+      } = await import("@/server/notifications/emit");
+      enqueueNotification(async () => {
+        const full = await prisma.event.findFirst({
+          where: { id: eventId },
+          select: {
+            name: true,
+            organization: { select: { slug: true } },
+          },
+        });
+        if (!full) return;
+        await notificationService.notifyEventStakeholders(eventId, {
+          type: NotificationType.EVENT_STOPPED,
+          title: "Event stopped",
+          body: full.name,
+          link: eventOverviewLink(full.organization.slug, eventId),
+          excludeUserId: userId,
+        });
+      });
+    }
+
     return toSnapshot(updated);
   },
 };

@@ -10,6 +10,7 @@ import { privacyService } from "@/server/services/privacy.service";
 import { purgeExpiredEventMedia } from "./purge-expired-media";
 import { completeEndedEvents } from "./complete-ended-events";
 import { autoStartScheduledEvents } from "./auto-start-scheduled-events";
+import { notifyLifecycleAlerts } from "./notify-lifecycle-alerts";
 import {
   eventCompletionQueue,
   getRedisConnection,
@@ -176,16 +177,22 @@ async function handleScheduledMessagesJob(job: Job<{ messageId?: string }>) {
 }
 
 async function handleMediaRetentionJob(_job: Job) {
+  const alerts = await notifyLifecycleAlerts();
   const result = await purgeExpiredEventMedia();
-  console.log("[media-retention worker] Purge complete", result);
-  return result;
+  console.log("[media-retention worker] Alerts + purge", { alerts, result });
+  return { alerts, result };
 }
 
 async function handleEventCompletionJob(_job: Job) {
   const started = await autoStartScheduledEvents();
+  const alerts = await notifyLifecycleAlerts();
   const result = await completeEndedEvents();
-  console.log("[event-completion worker] Auto-start + complete", { started, result });
-  return { started, result };
+  console.log("[event-completion worker] Auto-start + alerts + complete", {
+    started,
+    alerts,
+    result,
+  });
+  return { started, alerts, result };
 }
 
 export async function ensureMediaRetentionSchedule() {

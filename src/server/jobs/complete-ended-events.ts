@@ -44,6 +44,31 @@ export async function completeEndedEvents(now: Date = new Date()) {
       },
     });
     await revokeGuestConnectIfEnded(event.id);
+
+    const {
+      enqueueNotification,
+      eventOverviewLink,
+      NotificationType,
+      notificationService,
+    } = await import("@/server/notifications/emit");
+    const full = await prisma.event.findFirst({
+      where: { id: event.id },
+      select: {
+        name: true,
+        organization: { select: { slug: true } },
+      },
+    });
+    if (full) {
+      enqueueNotification(() =>
+        notificationService.notifyEventStakeholders(event.id, {
+          type: NotificationType.EVENT_STOPPED,
+          title: "Event auto-stopped",
+          body: `${full.name}: live window ended`,
+          link: eventOverviewLink(full.organization.slug, event.id),
+        }),
+      );
+    }
+
     completed += 1;
   }
 
