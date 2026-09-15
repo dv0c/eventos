@@ -88,79 +88,81 @@ export function WallStage({
             exit={{ opacity: 0 }}
             transition={{ duration }}
           >
-            <div className="relative inline-flex h-full max-h-full max-w-full items-center justify-center">
-              {isVideo ? (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video
-                  key={item.id}
-                  src={item.url}
-                  poster={item.thumbnailUrl ?? undefined}
-                  className="h-full max-h-full w-auto max-w-full object-contain drop-shadow-2xl"
-                  autoPlay
-                  muted={!soundEnabled}
-                  playsInline
-                  loop={false}
-                  onEnded={() => onVideoEnded?.()}
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.url}
-                  alt={item.caption ?? ""}
-                  className="h-full max-h-full w-auto max-w-full object-contain drop-shadow-2xl"
-                />
-              )}
+            <div className="relative inline-flex h-full max-h-[min(82vh,900px)] max-w-[min(72vw,900px)] items-center justify-center">
+              <div className="relative max-h-full max-w-full overflow-hidden rounded-[1.25rem] shadow-[0_20px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/10 sm:rounded-[1.5rem]">
+                {isVideo ? (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video
+                    key={item.id}
+                    src={item.url}
+                    poster={item.thumbnailUrl ?? undefined}
+                    className="max-h-[min(82vh,900px)] max-w-full object-contain"
+                    autoPlay
+                    muted={!soundEnabled}
+                    playsInline
+                    loop={false}
+                    onEnded={() => onVideoEnded?.()}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.url}
+                    alt={item.caption ?? ""}
+                    className="max-h-[min(82vh,900px)] max-w-full object-contain"
+                  />
+                )}
 
-              {showMeta || showReactionBar ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-2 px-3">
-                  {showMeta ? (
-                    <div
-                      className={cn(
-                        "max-w-full rounded-2xl px-5 py-2.5 text-center backdrop-blur-md",
-                        lightMeta ? "bg-white/85" : "bg-black/45",
-                      )}
-                    >
-                      {showNickname ? (
-                        <p
-                          className={cn(
-                            "text-sm font-semibold tracking-wide",
-                            lightMeta ? "text-neutral-800" : "text-white/90",
-                          )}
-                        >
-                          @{item.uploadedBy}
-                        </p>
-                      ) : null}
-                      {showCaption ? (
-                        <p
-                          className={cn(
-                            "text-base sm:text-lg",
-                            showNickname && "mt-1",
-                            lightMeta ? "text-neutral-700" : "text-white/85",
-                          )}
-                        >
-                          {item.caption}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
+                {showMeta || showReactionBar ? (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-2 px-3">
+                    {showMeta ? (
+                      <div
+                        className={cn(
+                          "max-w-[92%] rounded-full px-5 py-2.5 text-center backdrop-blur-md",
+                          lightMeta ? "bg-white/90" : "bg-black/55",
+                        )}
+                      >
+                        {showNickname ? (
+                          <p
+                            className={cn(
+                              "text-sm font-semibold tracking-wide",
+                              lightMeta ? "text-neutral-800" : "text-white/90",
+                            )}
+                          >
+                            @{item.uploadedBy}
+                          </p>
+                        ) : null}
+                        {showCaption ? (
+                          <p
+                            className={cn(
+                              "text-base sm:text-lg",
+                              showNickname && "mt-0.5",
+                              lightMeta ? "text-neutral-700" : "text-white/90",
+                            )}
+                          >
+                            {item.caption}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
 
-                  {showReactionBar ? (
-                    <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-md">
-                      {visibleReactions.map((emoji) => (
-                        <span
-                          key={emoji}
-                          className="inline-flex items-center gap-1 text-sm text-white/95"
-                        >
-                          <span className="text-base leading-none">{emoji}</span>
-                          <span className="text-xs font-medium tabular-nums">
-                            {item.reactionCounts?.[emoji] ?? 0}
+                    {showReactionBar ? (
+                      <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-md">
+                        {visibleReactions.map((emoji) => (
+                          <span
+                            key={emoji}
+                            className="inline-flex items-center gap-1 text-sm text-white/95"
+                          >
+                            <span className="text-base leading-none">{emoji}</span>
+                            <span className="text-xs font-medium tabular-nums">
+                              {item.reactionCounts?.[emoji] ?? 0}
+                            </span>
                           </span>
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </motion.div>
         </AnimatePresence>

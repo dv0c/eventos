@@ -229,6 +229,7 @@ export function LiveWall({
 
         if (data.initial) {
           setMedia(data.media ?? []);
+          setCurrentIndex(0);
           return;
         }
 
@@ -242,8 +243,11 @@ export function LiveWall({
             const existingIds = new Set(prev.map((m) => m.id));
             const newItems = data.media!.filter((m) => !existingIds.has(m.id));
             if (newItems.length > 0) {
-              setLiveMarqueeLine(t("wallNewPhoto"));
-              window.setTimeout(() => setLiveMarqueeLine(null), 12_000);
+              queueMicrotask(() => {
+                setCurrentIndex(0);
+                setLiveMarqueeLine(t("wallNewPhoto"));
+                window.setTimeout(() => setLiveMarqueeLine(null), 12_000);
+              });
             }
             return [...newItems, ...prev].slice(0, 100);
           });
