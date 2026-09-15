@@ -58,6 +58,9 @@ export function DetailsStep({ form }: DetailsStepProps) {
         <div className="space-y-2">
           <Label htmlFor="date" className="text-base">
             {t("startDate")}
+            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+              ({t("optional")})
+            </span>
           </Label>
           <Controller
             control={form.control}
@@ -65,16 +68,17 @@ export function DetailsStep({ form }: DetailsStepProps) {
             render={({ field }) => (
               <DatePicker
                 id="date"
-                value={field.value}
-                onChange={field.onChange}
+                value={field.value ?? ""}
+                onChange={(value) => {
+                  field.onChange(value);
+                  if (!value) form.setValue("startTime", "");
+                }}
                 placeholder={t("pickDate")}
                 clearLabel={clearLabel}
               />
             )}
           />
-          {errors.date ? (
-            <p className="text-sm text-destructive">{t("validation.dateRequired")}</p>
-          ) : null}
+          <p className="text-xs text-muted-foreground">{t("startDateHint")}</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="startTime" className="text-base">
@@ -90,6 +94,7 @@ export function DetailsStep({ form }: DetailsStepProps) {
                 onChange={field.onChange}
                 placeholder={t("pickTime")}
                 clearLabel={clearLabel}
+                disabled={!form.watch("date")}
               />
             )}
           />
@@ -97,6 +102,45 @@ export function DetailsStep({ form }: DetailsStepProps) {
             <p className="text-sm text-destructive">{t("validation.timeRequired")}</p>
           ) : null}
         </div>
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-border/60 p-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{t("approvalTitle")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("approvalDesc")}</p>
+        </div>
+        <Controller
+          control={form.control}
+          name="requireManualApproval"
+          render={({ field }) => (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => field.onChange(false)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  !field.value
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <p className="text-sm font-semibold">{t("approvalAuto")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("approvalAutoDesc")}</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => field.onChange(true)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  field.value
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <p className="text-sm font-semibold">{t("approvalManual")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("approvalManualDesc")}</p>
+              </button>
+            </div>
+          )}
+        />
       </div>
     </div>
   );

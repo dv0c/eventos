@@ -225,10 +225,10 @@ export function AppearanceTab({
       <SettingsRow
         title={t("removeBranding")}
         description={t("removeBrandingDesc")}
-        badge="pro"
+        badge={premium ? undefined : "plus"}
         isPremium={premium}
-        onUpgrade={startUpgrade}
-        upgradeBusy={upgradeBusy}
+        onUpgrade={premium ? undefined : startUpgrade}
+        upgradeBusy={premium ? undefined : upgradeBusy}
       >
         <Switch
           checked={appearance.removeBranding}

@@ -9,6 +9,7 @@ import { privacyService } from "@/server/services/privacy.service";
 
 import { purgeExpiredEventMedia } from "./purge-expired-media";
 import { completeEndedEvents } from "./complete-ended-events";
+import { autoStartScheduledEvents } from "./auto-start-scheduled-events";
 import {
   eventCompletionQueue,
   getRedisConnection,
@@ -181,9 +182,10 @@ async function handleMediaRetentionJob(_job: Job) {
 }
 
 async function handleEventCompletionJob(_job: Job) {
+  const started = await autoStartScheduledEvents();
   const result = await completeEndedEvents();
-  console.log("[event-completion worker] Complete ended events", result);
-  return result;
+  console.log("[event-completion worker] Auto-start + complete", { started, result });
+  return { started, result };
 }
 
 export async function ensureMediaRetentionSchedule() {

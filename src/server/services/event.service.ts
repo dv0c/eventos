@@ -28,7 +28,7 @@ export interface CreateEventWizardInput {
   name: string;
   type?: EventType;
   description?: string;
-  date: Date;
+  date?: Date | null;
   endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -37,6 +37,7 @@ export interface CreateEventWizardInput {
   expectedCouples?: number;
   expectedChildren?: number;
   expectedVip?: number;
+  requireManualApproval?: boolean;
   settings?: Prisma.EventSettingsCreateWithoutEventInput;
   theme?: Prisma.EventThemeCreateWithoutEventInput;
   tier?: EventTier;
@@ -102,6 +103,21 @@ export const eventService = {
 
     const tier = input.tier ?? EventTier.FREE;
     const now = new Date();
+    const requireManualApproval = input.requireManualApproval ?? false;
+    const allowVideos = tier === EventTier.PREMIUM;
+    const settings: Prisma.EventSettingsCreateWithoutEventInput = {
+      ...DEFAULT_EVENT_SETTINGS,
+      ...input.settings,
+      requireManualApproval,
+      sections: {
+        moderation: {
+          requireManualApproval,
+          allowPhotos: true,
+          allowVideos,
+          allowText: true,
+        },
+      },
+    };
 
     let eventId: string | null = null;
 
@@ -113,9 +129,9 @@ export const eventService = {
         type: input.type ?? EventType.OTHER,
         status: EventStatus.DRAFT,
         description: input.description ?? null,
-        date: input.date,
+        date: input.date ?? null,
         endDate: input.endDate ?? null,
-        startTime: input.startTime ?? null,
+        startTime: input.date ? (input.startTime ?? null) : null,
         endTime: input.endTime ?? null,
         clientId: input.clientId ?? null,
         expectedGuests: input.expectedGuests ?? 0,
@@ -124,7 +140,7 @@ export const eventService = {
         expectedVip: input.expectedVip ?? 0,
         tier,
         premiumUnlockedAt: tier === EventTier.PREMIUM ? now : null,
-        settings: { ...DEFAULT_EVENT_SETTINGS, ...input.settings },
+        settings,
         theme: input.theme,
       });
       eventId = event.id;

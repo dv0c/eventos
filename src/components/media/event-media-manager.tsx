@@ -20,6 +20,7 @@ import { SongRequestsPanel } from "@/components/media/song-requests-panel";
 import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { useOrg, useOrgPath } from "@/components/providers/org-provider";
 import { Button } from "@/components/ui/button";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import type { EventLifecycle } from "@/server/events/event-ended";
@@ -57,7 +58,7 @@ interface EventMediaManagerProps {
   isPremium?: boolean;
 }
 
-const FREE_UPLOAD_CAP = 100;
+const FREE_UPLOAD_CAP = 50;
 
 export function EventMediaManager({
   eventId,
@@ -70,8 +71,10 @@ export function EventMediaManager({
   const t = useTranslations("eventWorkspace.media");
   const tWishes = useTranslations("eventWorkspace.voiceWishes");
   const tMod = useTranslations("moderatorAlbum");
+  const tCommon = useTranslations("common");
   const orgPath = useOrgPath();
   const { planName } = useOrg();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const [items, setItems] = useState<MediaItem[]>([]);
   const [wishItems, setWishItems] = useState<WishItem[]>([]);
@@ -147,7 +150,16 @@ export function EventMediaManager({
 
   async function togglePanic() {
     const next = !panic;
-    if (next && !window.confirm(tMod("panicConfirm"))) return;
+    if (next) {
+      const ok = await confirm({
+        title: tMod("panicArm"),
+        description: tMod("panicConfirm"),
+        confirmLabel: tMod("panicArm"),
+        cancelLabel: tCommon("cancel"),
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     setPanicBusy(true);
     try {
       const response = await fetch(`/api/events/${eventId}/panic`, {
@@ -230,7 +242,14 @@ export function EventMediaManager({
   }
 
   async function handleDelete(mediaId: string) {
-    if (!confirm(t("deleteConfirm"))) return;
+    const ok = await confirm({
+      title: t("deleteConfirm"),
+      description: t("deleteConfirm"),
+      confirmLabel: tCommon("confirm"),
+      cancelLabel: tCommon("cancel"),
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       const response = await fetch(`/api/events/${eventId}/media/${mediaId}`, {
         method: "DELETE",
@@ -276,6 +295,7 @@ export function EventMediaManager({
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
+      {confirmDialog}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1.5">
           <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">

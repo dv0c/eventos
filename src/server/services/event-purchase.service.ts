@@ -7,7 +7,11 @@ import {
 } from "@prisma/client";
 import type Stripe from "stripe";
 
-import { getStripeClient, isStripeConfigured } from "@/lib/stripe";
+import {
+  ensureOrganizationStripeCustomer,
+  getStripeClient,
+  isStripeConfigured,
+} from "@/lib/stripe";
 import { prisma } from "@/server/db";
 import {
   FreeQuotaExceededError,
@@ -36,8 +40,9 @@ export type PremiumCreatePayload = {
   name: string;
   type?: EventType;
   description?: string;
-  date: string;
+  date?: string | null;
   startTime?: string | null;
+  requireManualApproval?: boolean;
   expectedGuests?: number;
   expectedCouples?: number;
   expectedChildren?: number;
@@ -69,26 +74,18 @@ async function ensureStripeCustomer(
     throw new EventPurchaseServiceError("Organization not found", 404, "ORG_NOT_FOUND");
   }
 
-  if (org.stripeCustomerId) return org.stripeCustomerId;
-
-  const stripe = getStripeClient();
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { email: true, name: true },
   });
 
-  const customer = await stripe.customers.create({
-    email: user?.email ?? undefined,
-    name: user?.name ?? org.name,
-    metadata: { organizationId },
+  return ensureOrganizationStripeCustomer({
+    organizationId,
+    organizationName: org.name,
+    existingCustomerId: org.stripeCustomerId,
+    email: user?.email,
+    name: user?.name,
   });
-
-  await prisma.organization.update({
-    where: { id: organizationId },
-    data: { stripeCustomerId: customer.id },
-  });
-
-  return customer.id;
 }
 
 async function resolveAmountCents(priceId: string): Promise<{
@@ -324,7 +321,7 @@ export const eventPurchaseService = {
 
     // CREATE
     const raw = purchase.createPayload as PremiumCreatePayload | null;
-    if (!raw?.name || !raw.date) {
+    if (!raw?.name) {
       await prisma.eventPurchase.update({
         where: { id: purchase.id },
         data: { status: EventPurchaseStatus.FAILED },
@@ -339,8 +336,9 @@ export const eventPurchaseService = {
         name: raw.name,
         type: raw.type,
         description: raw.description,
-        date: new Date(raw.date),
-        startTime: raw.startTime ?? null,
+        date: raw.date ? new Date(raw.date) : null,
+        startTime: raw.date ? (raw.startTime ?? null) : null,
+        requireManualApproval: raw.requireManualApproval ?? false,
         expectedGuests: raw.expectedGuests,
         expectedCouples: raw.expectedCouples,
         expectedChildren: raw.expectedChildren,

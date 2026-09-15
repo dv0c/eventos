@@ -27,7 +27,7 @@ export interface CreateEventData {
   type?: EventType;
   status?: EventStatus;
   description?: string | null;
-  date: Date;
+  date?: Date | null;
   endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -282,8 +282,10 @@ export const eventRepository = {
       }
     }
 
-    const msUntilEvent = event.date.getTime() - Date.now();
-    const daysUntilEvent = Math.ceil(msUntilEvent / (1000 * 60 * 60 * 24));
+    const msUntilEvent = event.date ? event.date.getTime() - Date.now() : 0;
+    const daysUntilEvent = event.date
+      ? Math.ceil(msUntilEvent / (1000 * 60 * 60 * 24))
+      : 0;
 
     return {
       eventId: event.id,

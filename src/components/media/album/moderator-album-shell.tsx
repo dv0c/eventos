@@ -3,7 +3,6 @@
 import { MediaStatus } from "@prisma/client";
 import {
   Check,
-  Inbox,
   Images,
   MoreHorizontal,
   Bell,
@@ -29,13 +28,14 @@ import {
 import { AlbumVideoPlayer } from "@/components/media/album/album-video-player";
 import { GuestNotifyForm } from "@/components/media/guest-notify-form";
 import { Button } from "@/components/ui/button";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "@/i18n/navigation";
 import { orgPath } from "@/lib/org-path";
 import type { AlbumPermission } from "@/server/events/wall-settings";
 import { cn } from "@/lib/utils";
 
-type ModTab = "inbox" | "album" | "notify" | "more";
+type ModTab = "album" | "notify" | "more";
 
 interface ModMediaItem {
   id: string;
@@ -70,7 +70,9 @@ export function ModeratorAlbumShell({
   initialSettings,
 }: ModeratorAlbumShellProps) {
   const t = useTranslations("moderatorAlbum");
-  const [tab, setTab] = useState<ModTab>("inbox");
+  const tCommon = useTranslations("common");
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [tab, setTab] = useState<ModTab>("album");
   const [items, setItems] = useState<ModMediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -127,7 +129,16 @@ export function ModeratorAlbumShell({
 
   async function togglePanic() {
     const next = !panic;
-    if (next && !window.confirm(t("panicConfirm"))) return;
+    if (next) {
+      const ok = await confirm({
+        title: t("panicArm"),
+        description: t("panicConfirm"),
+        confirmLabel: t("panicArm"),
+        cancelLabel: tCommon("cancel"),
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     setPanicBusy(true);
     try {
       const response = await fetch(`/api/events/${eventId}/panic`, {
@@ -144,6 +155,33 @@ export function ModeratorAlbumShell({
       toast.error(t("panicError"));
     }
     setPanicBusy(false);
+  }
+
+  async function deleteMedia(mediaId: string) {
+    const ok = await confirm({
+      title: t("action.delete"),
+      description: t("deleteConfirm"),
+      confirmLabel: t("action.delete"),
+      cancelLabel: tCommon("cancel"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusyId(mediaId);
+    try {
+      const response = await fetch(`/api/events/${eventId}/media/${mediaId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        toast.error(t("actionError"));
+        setBusyId(null);
+        return;
+      }
+      toast.success(t("action.delete"));
+      setItems((prev) => prev.filter((item) => item.id !== mediaId));
+    } catch {
+      toast.error(t("actionError"));
+    }
+    setBusyId(null);
   }
 
   useEffect(() => {
@@ -218,26 +256,6 @@ export function ModeratorAlbumShell({
     setBusyId(null);
   }
 
-  async function deleteMedia(mediaId: string) {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    setBusyId(mediaId);
-    try {
-      const response = await fetch(`/api/events/${eventId}/media/${mediaId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        toast.error(t("actionError"));
-        setBusyId(null);
-        return;
-      }
-      toast.success(t("action.delete"));
-      setItems((prev) => prev.filter((item) => item.id !== mediaId));
-    } catch {
-      toast.error(t("actionError"));
-    }
-    setBusyId(null);
-  }
-
   async function patchSettings(patch: Partial<ModeratorSettings>) {
     const previous = settings;
     const next = { ...settings, ...patch };
@@ -273,10 +291,11 @@ export function ModeratorAlbumShell({
     setSavingSettings(false);
   }
 
-  const feedItems = tab === "inbox" ? pending : tab === "album" ? published : [];
+  const feedItems = tab === "album" ? [...pending, ...published] : [];
 
   return (
     <div className="fixed inset-0 overflow-hidden overscroll-none bg-neutral-950 text-white">
+      {confirmDialog}
       <MobileAppLock />
       <div className="mx-auto flex h-dvh w-full max-w-lg flex-col overflow-hidden">
         <header
@@ -310,17 +329,13 @@ export function ModeratorAlbumShell({
             paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom))",
           }}
         >
-        {tab === "inbox" || tab === "album" ? (
+        {tab === "album" ? (
           loading ? (
-            <ModFeedListSkeleton showActions={tab === "inbox"} />
+            <ModFeedListSkeleton showActions />
           ) : feedItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 px-6 py-24 text-center">
-              <p className="text-lg font-medium">
-                {tab === "inbox" ? t("inboxEmpty") : t("albumEmpty")}
-              </p>
-              <p className="max-w-sm text-sm text-white/55">
-                {tab === "inbox" ? t("inboxEmptyDesc") : t("albumEmptyDesc")}
-              </p>
+              <p className="text-lg font-medium">{t("albumEmpty")}</p>
+              <p className="max-w-sm text-sm text-white/55">{t("albumEmptyDesc")}</p>
             </div>
           ) : (
             <ul className="divide-y divide-white/10">
@@ -328,7 +343,7 @@ export function ModeratorAlbumShell({
                 <ModPost
                   key={item.id}
                   item={item}
-                  mode={tab}
+                  mode={item.status === MediaStatus.PENDING ? "inbox" : "album"}
                   busy={busyId === item.id}
                   onApprove={() => void moderate(item.id, "approve")}
                   onReject={() => void moderate(item.id, "reject")}
@@ -411,19 +426,6 @@ export function ModeratorAlbumShell({
             </div>
 
             <div className="px-4 py-5">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={panicBusy}
-                className={cn(
-                  "mb-2 h-11 w-full gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10",
-                  panic && "border-destructive/50 bg-destructive/20 text-destructive",
-                )}
-                onClick={() => void togglePanic()}
-              >
-                <ShieldAlert className="size-4" />
-                {panic ? t("panicClear") : t("panicArm")}
-              </Button>
               {moderationQr ? (
                 <div className="mb-5 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div>
@@ -480,9 +482,22 @@ export function ModeratorAlbumShell({
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="mx-auto flex h-16 max-w-lg items-stretch">
+          <button
+            type="button"
+            disabled={panicBusy}
+            onClick={() => void togglePanic()}
+            className={cn(
+              "tap-press relative flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition",
+              panic
+                ? "text-red-400"
+                : "text-red-500/80 active:text-red-400",
+            )}
+          >
+            <ShieldAlert className={cn("size-5", panic && "fill-red-500/20")} />
+            {panic ? t("panicClear") : t("navPanic")}
+          </button>
           {(
             [
-              { id: "inbox" as const, icon: Inbox, label: t("navInbox") },
               { id: "album" as const, icon: Images, label: t("navAlbum") },
               { id: "notify" as const, icon: Bell, label: t("navNotify") },
               { id: "more" as const, icon: MoreHorizontal, label: t("navMore") },
@@ -499,7 +514,7 @@ export function ModeratorAlbumShell({
             >
               <item.icon className="size-5" />
               {item.label}
-              {item.id === "inbox" && pending.length > 0 ? (
+              {item.id === "album" && pending.length > 0 ? (
                 <span className="absolute right-[18%] top-1.5 size-1.5 rounded-full bg-amber-400" />
               ) : null}
             </button>

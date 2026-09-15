@@ -8,6 +8,7 @@ import {
   canStopEvent,
   getEventLifecycle,
   getEventRunPhase,
+  getEventStartAt,
   getLiveDeadlineAt,
   getMediaPurgeAt,
   getRestartDeadlineAt,
@@ -158,5 +159,28 @@ describe("event run phases", () => {
         status: EventStatus.ARCHIVED,
       }),
     ).toBe("locked");
+  });
+});
+
+describe("scheduled auto-start helpers", () => {
+  it("returns null start when date is omitted", () => {
+    expect(getEventStartAt({ date: null, startTime: "18:00" })).toBeNull();
+    expect(getEventStartAt({ date: undefined })).toBeNull();
+  });
+
+  it("builds Athens wall-time start from date + startTime", () => {
+    const start = getEventStartAt({
+      date: new Date("2026-01-15T00:00:00.000Z"),
+      startTime: "18:00",
+    });
+    expect(start?.toISOString()).toBe("2026-01-15T16:00:00.000Z");
+  });
+
+  it("defaults to midnight Athens when startTime is missing", () => {
+    const start = getEventStartAt({
+      date: new Date("2026-01-15T00:00:00.000Z"),
+      startTime: null,
+    });
+    expect(start?.toISOString()).toBe("2026-01-14T22:00:00.000Z");
   });
 });

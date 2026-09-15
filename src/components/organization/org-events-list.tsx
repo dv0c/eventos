@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 export type OrgEventListItem = {
   id: string;
   name: string;
-  date: Date;
+  date: Date | null;
   updatedAt?: Date;
   location?: string | null;
   clientName?: string | null;
@@ -78,7 +78,7 @@ export function OrgEventsList({
                     ) : null}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {formatDate(event.date, loc)}
+                    {event.date ? formatDate(event.date, loc) : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <EventLifecycleBadge lifecycle={event.lifecycle} />
@@ -140,7 +140,7 @@ export function OrgEventsList({
                     {event.name}
                   </Link>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {formatDate(event.date, loc)}
+                    {event.date ? formatDate(event.date, loc) : "—"}
                   </p>
                 </div>
                 <EventLifecycleBadge lifecycle={event.lifecycle} />

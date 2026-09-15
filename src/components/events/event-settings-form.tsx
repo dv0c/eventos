@@ -12,12 +12,14 @@ import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { EventTierBadge } from "@/components/events/event-tier-badge";
 import { AppearanceTab } from "@/components/events/settings/appearance-tab";
 import { CollaboratorsTab } from "@/components/events/settings/collaborators-tab";
 import { GamesTab } from "@/components/events/settings/games-tab";
 import { GeneralTab } from "@/components/events/settings/general-tab";
 import { ModerationTab } from "@/components/events/settings/moderation-tab";
 import { PhotoWallTab } from "@/components/events/settings/photo-wall-tab";
+import { isEventPremium } from "@/lib/event-premium";
 import { cn } from "@/lib/utils";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
 
@@ -86,12 +88,17 @@ export function EventSettingsForm({
     window.history.replaceState({}, "", url.toString());
   }
 
+  const premium = isEventPremium(event);
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-8">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-          {t("title")}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+            {t("title")}
+          </h1>
+          <EventTierBadge isPremium={premium} />
+        </div>
         <p className="max-w-xl text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
@@ -119,18 +126,25 @@ export function EventSettingsForm({
       </div>
 
       <div className={cn(tab === "photoWall" ? undefined : "max-w-2xl", "pt-1")}>
-        {tab === "general" ? <GeneralTab event={event} orgSlug={orgSlug} /> : null}
-        {tab === "appearance" ? <AppearanceTab event={event} orgSlug={orgSlug} /> : null}
-        {tab === "photoWall" ? <PhotoWallTab event={event} /> : null}
+        {tab === "general" ? (
+          <GeneralTab key={`general-${event.tier}`} event={event} orgSlug={orgSlug} />
+        ) : null}
+        {tab === "appearance" ? (
+          <AppearanceTab key={`appearance-${event.tier}`} event={event} orgSlug={orgSlug} />
+        ) : null}
+        {tab === "photoWall" ? <PhotoWallTab key={`wall-${event.tier}`} event={event} /> : null}
         {tab === "moderation" ? (
           <ModerationTab
+            key={`moderation-${event.tier}`}
             event={event}
             orgSlug={orgSlug}
             onManageCollaborators={() => selectTab("collaborators")}
           />
         ) : null}
-        {tab === "games" ? <GamesTab event={event} /> : null}
-        {tab === "collaborators" ? <CollaboratorsTab event={event} /> : null}
+        {tab === "games" ? <GamesTab key={`games-${event.tier}`} event={event} /> : null}
+        {tab === "collaborators" ? (
+          <CollaboratorsTab key={`collab-${event.tier}`} event={event} />
+        ) : null}
       </div>
     </div>
   );

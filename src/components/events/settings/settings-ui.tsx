@@ -58,7 +58,10 @@ export function PlusUpgradeBadge({
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
-      <Badge variant="gold" className="gap-1 px-2 py-0 text-[10px]">
+      <Badge
+        variant="outline"
+        className="gap-1 border-gold/40 bg-gold/10 px-2 py-0 text-[10px] font-medium text-gold hover:bg-gold/10"
+      >
         <Star className="h-2.5 w-2.5 fill-current" />
         {variant === "pro" ? t("proBadge") : t("plusBadge")}
       </Badge>
@@ -95,7 +98,7 @@ export function SettingsRow({
   children: ReactNode;
   className?: string;
 }) {
-  const showBadge = Boolean(badge) && !isPremium;
+  const locked = Boolean(badge) && !isPremium;
 
   return (
     <div
@@ -107,7 +110,7 @@ export function SettingsRow({
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          {showBadge ? (
+          {locked ? (
             <PlusUpgradeBadge
               variant={badge}
               onUpgrade={onUpgrade}
@@ -122,7 +125,7 @@ export function SettingsRow({
       <div
         className={cn(
           "shrink-0 sm:pt-0.5",
-          showBadge && "pointer-events-none opacity-50",
+          locked && "pointer-events-none opacity-50",
         )}
       >
         {children}

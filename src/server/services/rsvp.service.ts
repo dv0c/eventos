@@ -21,7 +21,7 @@ export interface RsvpContext {
     id: string;
     name: string;
     slug: string;
-    date: Date;
+    date: Date | null;
     location: string | null;
     hostName: string | null;
     settings: {

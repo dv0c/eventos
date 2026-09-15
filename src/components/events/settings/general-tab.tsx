@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { TimePicker } from "@/components/ui/time-picker";
-import { orgPath } from "@/lib/org-path";
 import { cn } from "@/lib/utils";
 import type { EventWithRelations } from "@/server/repositories/event.repository";
 
@@ -29,7 +28,8 @@ const TYPE_OPTIONS: { type: EventType; icon: typeof Heart; labelKey: string }[] 
   { type: EventType.OTHER, icon: CircleHelp, labelKey: "typeOther" },
 ];
 
-function calendarDateString(date: Date): string {
+function calendarDateString(date: Date | null | undefined): string {
+  if (!date) return "";
   return date.toISOString().slice(0, 10);
 }
 
@@ -49,12 +49,10 @@ export function GeneralTab({
   orgSlug: string;
 }) {
   const t = useTranslations("eventWorkspace.settings");
-  const tEvents = useTranslations("events");
   const tCommon = useTranslations("common");
   const tWizard = useTranslations("wizard");
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [name, setName] = useState(event.name);
   const [date, setDate] = useState(calendarDateString(event.date));
   const [startTime, setStartTime] = useState(normalizeClock(event.startTime));
@@ -88,34 +86,10 @@ export function GeneralTab({
     e.preventDefault();
     await patchEvent({
       name,
-      date,
-      startTime: startTime || null,
+      date: date || null,
+      startTime: date ? startTime || null : null,
       type,
     });
-  }
-
-  async function deleteEvent() {
-    const confirmed = window.confirm(
-      `${tEvents("deleteConfirm")}\n\n${tEvents("deleteWarning")}`,
-    );
-    if (!confirmed) return;
-
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/events/${event.id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        toast.error(t("deleteFailed"));
-        setIsDeleting(false);
-        return;
-      }
-      toast.success(t("deleteSuccess"));
-      window.location.assign(orgPath(orgSlug, "/events"));
-    } catch {
-      toast.error(t("deleteFailed"));
-      setIsDeleting(false);
-    }
   }
 
   return (
@@ -200,20 +174,6 @@ export function GeneralTab({
           </div>
         </div>
       </form>
-
-      <section className="border-t border-destructive/20 pt-6">
-        <h3 className="text-sm font-semibold text-destructive">{t("dangerZone")}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{tEvents("deleteWarning")}</p>
-        <Button
-          type="button"
-          variant="destructive"
-          className="mt-4"
-          disabled={isDeleting || isLoading}
-          onClick={() => void deleteEvent()}
-        >
-          {isDeleting ? t("deleting") : tEvents("delete")}
-        </Button>
-      </section>
     </div>
   );
 }

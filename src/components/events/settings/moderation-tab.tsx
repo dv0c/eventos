@@ -33,8 +33,8 @@ export function ModerationTab({
   const { startUpgrade, upgradeBusy } = useEventPremiumUpgrade(event.id, orgSlug);
   const premiumRow = {
     isPremium: premium,
-    onUpgrade: startUpgrade,
-    upgradeBusy,
+    onUpgrade: premium ? undefined : startUpgrade,
+    upgradeBusy: premium ? undefined : upgradeBusy,
   };
   const [isSaving, setIsSaving] = useState(false);
   const [enableVoiceWishes, setEnableVoiceWishes] = useState(
@@ -197,12 +197,10 @@ export function ModerationTab({
       <SettingsRow
         title={t("manualApproval")}
         description={t("manualApprovalDesc")}
-        badge="pro"
-        {...premiumRow}
       >
         <Switch
           checked={moderation.requireManualApproval}
-          disabled={isSaving || !premium}
+          disabled={isSaving}
           onCheckedChange={(checked) =>
             void patchModeration({ requireManualApproval: checked })
           }
@@ -212,27 +210,35 @@ export function ModerationTab({
       <SettingsRow
         title={t("allowedMediaTypes")}
         description={t("allowedMediaTypesDesc")}
-        badge="plus"
-        {...premiumRow}
       >
         <div className="flex flex-col gap-2 sm:items-end">
-          {(
-            [
-              ["allowPhotos", "mediaPhotos"],
-              ["allowVideos", "mediaVideos"],
-            ] as const
-          ).map(([key, labelKey]) => (
-            <label key={key} className="inline-flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={moderation[key]}
-                disabled={isSaving || !premium}
-                onCheckedChange={(checked) =>
-                  void patchModeration({ [key]: checked === true })
-                }
-              />
-              {t(labelKey)}
-            </label>
-          ))}
+          <label className="inline-flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={moderation.allowPhotos}
+              disabled={isSaving}
+              onCheckedChange={(checked) =>
+                void patchModeration({ allowPhotos: checked === true })
+              }
+            />
+            {t("mediaPhotos")}
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={premium ? moderation.allowVideos : false}
+              disabled={isSaving || !premium}
+              onCheckedChange={(checked) =>
+                void patchModeration({ allowVideos: checked === true })
+              }
+            />
+            <span className="inline-flex items-center gap-1.5">
+              {t("mediaVideos")}
+              {!premium ? (
+                <span className="text-[10px] font-medium uppercase tracking-wide text-gold">
+                  {t("plusBadge")}
+                </span>
+              ) : null}
+            </span>
+          </label>
         </div>
       </SettingsRow>
 
@@ -266,7 +272,7 @@ export function ModerationTab({
       <SettingsRow
         title={t("disableGuestDownload")}
         description={t("disableGuestDownloadDesc")}
-        badge="pro"
+        badge={premium ? undefined : "plus"}
         {...premiumRow}
       >
         <Switch

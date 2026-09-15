@@ -489,7 +489,7 @@ model Event {
   type           EventType   @default(OTHER)
   status         EventStatus @default(DRAFT)
   description    String?     @db.Text
-  date           DateTime
+  date           DateTime?
   endDate        DateTime?
   startTime      String?
   endTime        String?

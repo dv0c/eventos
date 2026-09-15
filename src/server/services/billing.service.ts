@@ -8,7 +8,7 @@ import {
 } from "@prisma/client";
 import type Stripe from "stripe";
 
-import { getStripeClient } from "@/lib/stripe";
+import { ensureOrganizationStripeCustomer, getStripeClient } from "@/lib/stripe";
 import { prisma } from "@/server/db";
 import { enforceOrganizationAccess } from "@/server/permissions/enforce";
 
@@ -129,26 +129,17 @@ export const billingService = {
     }
 
     const stripe = getStripeClient();
-    let customerId = org.stripeCustomerId;
-
-    if (!customerId) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true, name: true },
-      });
-
-      const customer = await stripe.customers.create({
-        email: user?.email ?? undefined,
-        name: user?.name ?? org.name,
-        metadata: { organizationId },
-      });
-
-      customerId = customer.id;
-      await prisma.organization.update({
-        where: { id: organizationId },
-        data: { stripeCustomerId: customerId },
-      });
-    }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    const customerId = await ensureOrganizationStripeCustomer({
+      organizationId,
+      organizationName: org.name,
+      existingCustomerId: org.stripeCustomerId,
+      email: user?.email,
+      name: user?.name,
+    });
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 

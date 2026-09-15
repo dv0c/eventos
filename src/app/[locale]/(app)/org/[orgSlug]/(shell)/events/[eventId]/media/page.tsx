@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { EventMediaManager } from "@/components/media/event-media-manager";
+import { isEventPremium } from "@/lib/event-premium";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
 import { getEventLifecycle, getMediaPurgeAt } from "@/server/events/event-ended";
@@ -36,7 +37,7 @@ export default async function EventMediaPage({ params }: MediaPageProps) {
       albumHref={albumHref}
       lifecycle={lifecycle}
       mediaPurgeAt={mediaPurgeAt}
-      isPremium={event.tier === "PREMIUM"}
+      isPremium={isEventPremium(event)}
     />
   );
 }

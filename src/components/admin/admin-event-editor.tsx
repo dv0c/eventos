@@ -30,7 +30,7 @@ export function AdminEventEditor({
     status: EventStatus;
     type: EventType;
     description: string | null;
-    date: Date;
+    date: Date | null;
     endDate: Date | null;
     startTime: string | null;
     endTime: string | null;
@@ -64,7 +64,7 @@ export function AdminEventEditor({
     status: event.status,
     type: event.type,
     description: event.description ?? "",
-    date: event.date.toISOString().slice(0, 10),
+    date: event.date ? event.date.toISOString().slice(0, 10) : "",
     endDate: event.endDate ? event.endDate.toISOString().slice(0, 10) : "",
     startTime: event.startTime ?? "",
     endTime: event.endTime ?? "",

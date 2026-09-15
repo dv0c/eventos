@@ -68,10 +68,12 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
           ) : null}
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-8">
-            <div className="flex items-center gap-2 text-white/90">
-              <Calendar className="h-5 w-5" />
-              <span>{formatDate(event.date, locale as "el" | "en")}</span>
-            </div>
+            {event.date ? (
+              <div className="flex items-center gap-2 text-white/90">
+                <Calendar className="h-5 w-5" />
+                <span>{formatDate(event.date, locale as "el" | "en")}</span>
+              </div>
+            ) : null}
             {event.location ? (
               <div className="flex items-center gap-2 text-white/90">
                 <MapPin className="h-5 w-5" />
@@ -80,7 +82,7 @@ export default async function PublicEventPage({ params }: PublicEventPageProps) 
             ) : null}
           </div>
 
-          {!ended ? (
+          {!ended && event.date ? (
             <div className="mt-8">
               <EventCountdown targetDate={event.date.toISOString()} />
             </div>

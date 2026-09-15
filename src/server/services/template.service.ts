@@ -83,7 +83,7 @@ export const templateService = {
         name: t.name,
         description: t.description,
         priority: t.priority,
-        dueDateOffsetDays: t.dueDate
+        dueDateOffsetDays: t.dueDate && event.date
           ? Math.ceil((t.dueDate.getTime() - event.date.getTime()) / (1000 * 60 * 60 * 24))
           : undefined,
       })),

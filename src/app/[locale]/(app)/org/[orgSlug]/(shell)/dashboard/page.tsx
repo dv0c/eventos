@@ -1,6 +1,7 @@
 import { EventStatus } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 
+import { FreeEventQuotaBadge } from "@/components/billing/free-event-quota-badge";
 import { DashboardEmptyEvents } from "@/components/dashboard/dashboard-empty-events";
 import { EventLifecycleBadge } from "@/components/organization/event-lifecycle-badge";
 import { OrgPageHeader } from "@/components/organization/org-page-header";
@@ -11,6 +12,7 @@ import { orgPath } from "@/lib/org-path";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
 import { getEventLifecycle } from "@/server/events/event-ended";
+import { getFreeEventQuotaState } from "@/server/events/event-entitlement";
 import { eventService } from "@/server/services/event.service";
 
 function EventRow({
@@ -22,7 +24,7 @@ function EventRow({
   event: {
     id: string;
     name: string;
-    date: Date;
+    date: Date | null;
     location?: string | null;
     client?: { name: string } | null;
     status: EventStatus;
@@ -47,7 +49,7 @@ function EventRow({
           {event.name}
         </Link>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {formatDate(event.date, locale as "el" | "en")}
+          {event.date ? formatDate(event.date, locale as "el" | "en") : "—"}
           {event.client ? ` · ${event.client.name}` : ""}
         </p>
       </div>
@@ -71,12 +73,16 @@ export default async function DashboardPage({
   const session = await requireAuth();
   const organizationId = (await getOrganizationBySlug(session.user.id, orgSlug)).id;
 
-  const { events } = await eventService.listEvents(session.user.id, {
-    organizationId,
-    pageSize: 50,
-  });
+  const [{ events }, quota] = await Promise.all([
+    eventService.listEvents(session.user.id, {
+      organizationId,
+      pageSize: 50,
+    }),
+    getFreeEventQuotaState(session.user.id),
+  ]);
 
   const createHref = orgPath(orgSlug, "/events/new");
+  const quotaBadge = <FreeEventQuotaBadge quota={quota} />;
 
   if (events.length === 0) {
     return (
@@ -86,7 +92,9 @@ export default async function DashboardPage({
           description={t("subtitle")}
           actionLabel={t("createEvent")}
           actionHref={createHref}
-        />
+        >
+          {quotaBadge}
+        </OrgPageHeader>
         <DashboardEmptyEvents
           title={t("noEvents")}
           description={t("noEventsDesc")}
@@ -118,7 +126,9 @@ export default async function DashboardPage({
         description={t("subtitle")}
         actionLabel={t("createEvent")}
         actionHref={createHref}
-      />
+      >
+        {quotaBadge}
+      </OrgPageHeader>
 
       {attention.length > 0 ? (
         <section className="space-y-3">

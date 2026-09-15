@@ -694,7 +694,7 @@
         "entF4": "Τιμολόγηση όγκου",
         "perMonth": "/μήνα",
         "contactSales": "Επικοινωνία πωλήσεων",
-        "buyPremiumEvents": "Premium εκδηλώσεις"
+        "buyPremiumEvents": "Plus εκδηλώσεις"
       },
       "resourcesPage": {
         "title": "Πόροι",
@@ -730,6 +730,8 @@
     "activityFeed": "Πρόσφατη δραστηριότητα",
     "noEvents": "Δεν έχετε ακόμα εκδηλώσεις",
     "noEventsDesc": "Δημιουργήστε την πρώτη σας εκδήλωση για να ξεκινήσετε.",
+    "freeEventsRemaining": "{count, plural, one {# δωρεάν εκδήλωση ακόμα} other {# δωρεάν εκδηλώσεις ακόμα}}",
+    "freeLimitReached": "Το δωρεάν όριο συμπληρώθηκε",
     "statsThisMonth": "Αυτόν τον μήνα",
     "statsAllTime": "Συνολικά",
     "tasksDue": "Εκκρεμείς εργασίες",
@@ -1042,11 +1044,13 @@
     "navSettings": "Ρυθμίσεις",
     "myAccount": "Ο Λογαριασμός μου",
     "planBadge": "{plan}",
+    "tierPlus": "Plus",
+    "tierFree": "Δωρεάν",
     "homeSubtitle": "Εδώ θα βρείτε ό,τι χρειάζεστε για τη διαχείριση της εκδήλωσής σας.",
-    "freePlanLabel": "Δωρεάν πλάνο",
-    "freePlanBanner": "Αναβαθμίστε για απεριόριστα ανεβάσματα και προηγμένη προσαρμογή.",
+    "freePlanLabel": "Δωρεάν εκδηλώσεις",
+    "freePlanBanner": "Έχετε 3 δωρεάν εκδηλώσεις. Αναβαθμίστε μια εκδήλωση σε Plus για προηγμένες ρυθμίσεις.",
     "upgradePlan": "Αναβάθμιση",
-    "viewPlans": "Δείτε πλάνα",
+    "viewPlans": "Χρεώσεις",
     "dismissBanner": "Κλείσιμο",
     "home": {
       "statusReady": "Η εκδήλωση είναι ζωντανή.",
@@ -1119,7 +1123,8 @@
       "wallEmptyTitle": "Δεν υπάρχουν μέσα στο wall ακόμη",
       "wallEmptyBody": "Οι εγκεκριμένες φωτογραφίες εμφανίζονται όσο η εκδήλωση είναι ζωντανή.",
       "copyLink": "Αντιγραφή συνδέσμου",
-      "upgradePremium": "Αναβάθμιση σε Premium"
+      "upgradePremium": "Αναβάθμιση σε Plus",
+      "premiumUnlocked": "Η εκδήλωση είναι πλέον Plus — οι προηγμένες ρυθμίσεις ξεκλειδώθηκαν."
     },
     "media": {
       "title": "Οι Φωτογραφίες & τα Βίντεό σας",
@@ -1352,7 +1357,7 @@
       "deleteFailed": "Αποτυχία διαγραφής εκδήλωσης",
       "deleting": "Διαγραφή…",
       "upgradeEvent": "Αναβάθμιση αυτής της εκδήλωσης",
-      "upgradeFailed": "Αποτυχία έναρξης Premium checkout"
+      "upgradeFailed": "Αποτυχία έναρξης Plus checkout"
     },
     "sectionEvent": "Εκδήλωση",
     "sectionManage": "Διαχείριση",
@@ -1583,6 +1588,14 @@
     "locationSearching": "Αναζήτηση...",
     "descriptionPlaceholder": "Λίγα λόγια για την εκδήλωση (προαιρετικό)",
     "startDate": "Ημερομηνία έναρξης",
+    "startDateHint": "Προαιρετικό. Αν οριστεί, η εκδήλωση ξεκινά αυτόματα τότε. Αλλιώς ξεκινήστε την από την επισκόπηση.",
+    "optional": "προαιρετικό",
+    "approvalTitle": "Ανεβάσματα καλεσμένων",
+    "approvalDesc": "Επιλέξτε αν οι φωτογραφίες εμφανίζονται αμέσως ή περιμένουν έγκριση.",
+    "approvalAuto": "Αυτόματη έγκριση",
+    "approvalAutoDesc": "Οι φωτογραφίες εμφανίζονται μόλις ανεβάσουν οι καλεσμένοι.",
+    "approvalManual": "Χειροκίνητη έγκριση",
+    "approvalManualDesc": "Ελέγχετε κάθε ανέβασμα πριν το δουν οι καλεσμένοι.",
     "startTime": "Ώρα έναρξης",
     "endDate": "Ημερομηνία λήξης",
     "endTime": "Ώρα λήξης",
@@ -1652,7 +1665,7 @@
       "endAfterStart": "Η λήξη πρέπει να είναι μετά την έναρξη",
       "stepIncomplete": "Συμπληρώστε τα απαιτούμενα πεδία πριν συνεχίσετε"
     },
-    "buyPremiumEvent": "Συμπληρώθηκε το όριο δωρεάν εκδηλώσεων. Συνέχεια σε Premium checkout…"
+    "buyPremiumEvent": "Συμπληρώθηκε το όριο δωρεάν εκδηλώσεων. Συνέχεια σε Plus checkout…"
   },
   "seating": {
     "title": "Διάταξη",
@@ -1901,6 +1914,7 @@
     "albumEmpty": "Δεν υπάρχουν δημοσιευμένες φωτογραφίες",
     "albumEmptyDesc": "Οι εγκεκριμένες φωτογραφίες εμφανίζονται σε αυτό το feed.",
     "navInbox": "Inbox",
+    "navPanic": "Πανικός",
     "navAlbum": "Άλμπουμ",
     "navNotify": "Ειδοποίηση",
     "navMore": "Περισσότερα",
@@ -2241,23 +2255,24 @@
   },
   "billing": {
     "title": "Χρεώσεις",
-    "subtitle": "Αγορές εκδηλώσεων και χρήση",
-    "currentPlan": "Λογαριασμός",
-    "perMonth": "/μήνα",
-    "status": "Κατάσταση",
-    "upgradeCta": "Αναβάθμιση πλάνου",
+    "subtitle": "Δωρεάν όριο και αγορές Plus εκδηλώσεων",
+    "freeAllowanceTitle": "Δωρεάν όριο",
+    "freeEventsRemaining": "{count, plural, one {# δωρεάν εκδήλωση ακόμα} other {# δωρεάν εκδηλώσεις ακόμα}}",
+    "freeAllowanceExhausted": "0 δωρεάν εκδηλώσεις ακόμα",
+    "freeAllowanceUsed": "{used} από {limit} δωρεάν εκδηλώσεις",
+    "freeAllowanceExhaustedHint": "Το δωρεάν όριο συμπληρώθηκε — οι νέες εκδηλώσεις απαιτούν Plus.",
+    "premiumTitle": "Plus εκδηλώσεις",
+    "premiumDesc": "Ξεκλειδώστε προηγμένες ρυθμίσεις σε μία εκδήλωση. Αγοράστε Plus στη δημιουργία ή αναβαθμίστε μια υπάρχουσα δωρεάν εκδήλωση.",
+    "premiumFeatureApproval": "Χειροκίνητη έγκριση φωτογραφιών",
+    "premiumFeatureMediaTypes": "Έλεγχος επιτρεπόμενων τύπων μέσων",
+    "premiumFeatureDownload": "Απενεργοποίηση λήψεων από καλεσμένους",
+    "premiumFeatureBranding": "Αφαίρεση branding Eventos",
+    "buyPremiumEventCta": "Δημιουργία Plus εκδήλωσης",
+    "upgradeExistingTip": "Έχετε ήδη δωρεάν εκδήλωση; Αναβαθμίστε την σε Plus από την επισκόπηση ή τις ρυθμίσεις της.",
     "checkoutFailed": "Δεν ήταν δυνατή η έναρξη πληρωμής. Δοκιμάστε ξανά.",
     "checkoutNotConfigured": "Η χρέωση δεν έχει ρυθμιστεί ακόμη. Επικοινωνήστε με την υποστήριξη.",
-    "usageTitle": "Χρήση τρέχοντος περιόδου",
-    "usageEvents": "Εκδηλώσεις",
-    "usageGuests": "Καλεσμένοι",
-    "usageStorage": "Αποθήκευση (MB)",
-    "usageMessages": "Μηνύματα",
-    "usageCollaborators": "Συνεργάτες",
     "noOrg": "Χωρίς οργανισμό",
-    "noOrgDesc": "Επιλέξτε οργανισμό για χρεώσεις.",
-    "eventPurchasesDesc": "Έχετε 3 δωρεάν εκδηλώσεις. Ξεκλειδώστε Premium ρυθμίσεις ανά εκδήλωση ή αγοράστε Premium μετά το όριο.",
-    "buyPremiumEventCta": "Δημιουργία Premium εκδήλωσης"
+    "noOrgDesc": "Επιλέξτε οργανισμό για χρεώσεις."
   },
   "analytics": {
     "title": "Αναλυτικά",

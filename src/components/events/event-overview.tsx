@@ -11,7 +11,6 @@ import {
   Settings2,
   Sparkles,
   Square,
-  Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -22,7 +21,9 @@ import { EventHomeActivity } from "@/components/events/event-home-activity";
 import { EventHomeFeatures } from "@/components/events/event-home-features";
 import { EventHomeShare } from "@/components/events/event-home-share";
 import { EventRunBadge } from "@/components/events/event-run-badge";
+import { EventTierBadge } from "@/components/events/event-tier-badge";
 import { useEventPremiumUpgrade } from "@/components/events/settings/settings-ui";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import type { EventLifecycle, EventRunPhase } from "@/server/events/event-ended";
@@ -75,14 +76,28 @@ export function EventOverview({
 }: EventOverviewProps) {
   const tHome = useTranslations("eventWorkspace.home");
   const tMedia = useTranslations("eventWorkspace.media");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [run, setRun] = useState(initialRun);
   const [busy, setBusy] = useState(false);
   const { startUpgrade, upgradeBusy } = useEventPremiumUpgrade(eventId, orgSlug);
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     setRun(initialRun);
   }, [initialRun]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("premium") !== "1") return;
+    if (isPremium) {
+      toast.success(tHome("premiumUnlocked"));
+    }
+    url.searchParams.delete("premium");
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, "", next);
+    router.refresh();
+  }, [isPremium, router, tHome]);
 
   const phase = run.phase;
   const ended = phase === "stopped" || phase === "locked";
@@ -129,7 +144,13 @@ export function EventOverview({
     async (action: "start" | "pause" | "resume" | "stop") => {
       if (!canEdit || busy) return;
       if (action === "stop") {
-        const ok = window.confirm(tHome("stopConfirm"));
+        const ok = await confirm({
+          title: tHome("stop"),
+          description: tHome("stopConfirm"),
+          confirmLabel: tHome("stop"),
+          cancelLabel: tCommon("cancel"),
+          destructive: true,
+        });
         if (!ok) return;
       }
       setBusy(true);
@@ -152,7 +173,7 @@ export function EventOverview({
         setBusy(false);
       }
     },
-    [busy, canEdit, eventId, router, tHome],
+    [busy, canEdit, confirm, eventId, router, tCommon, tHome],
   );
 
   async function copyAlbumLink() {
@@ -192,11 +213,6 @@ export function EventOverview({
       icon: Images,
     },
     {
-      href: `${base}/guests`,
-      label: tHome("quickGuests"),
-      icon: Users,
-    },
-    {
       href: `${base}/settings`,
       label: tHome("quickWallSettings"),
       icon: MonitorPlay,
@@ -221,6 +237,7 @@ export function EventOverview({
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-8">
+      {confirmDialog}
       <header className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1.5">
@@ -228,6 +245,7 @@ export function EventOverview({
               <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                 {eventName}
               </h1>
+              <EventTierBadge isPremium={isPremium} />
               <EventRunBadge phase={phase} />
             </div>
             <p className="text-sm text-muted-foreground">{statusText}</p>

@@ -4,6 +4,7 @@ import sharp from "sharp";
 
 import { WALL_REACTION_EMOJIS } from "@/lib/wall-reactions";
 import { isAlbumChallengeId } from "@/lib/album-challenges";
+import { FREE_PHOTO_CAP, isEventPremium } from "@/lib/event-premium";
 import { prisma } from "@/server/db";
 import {
   isEventEnded,
@@ -156,7 +157,7 @@ async function getEventByUploadToken(uploadToken: string) {
 async function assertGuestPhotoUploadAllowed(event: {
   id: string;
   status: EventStatus;
-  date: Date;
+  date?: Date | null;
   endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -281,11 +282,33 @@ export const mediaService = {
     }
 
     const moderation = getModerationFromSections(event.settings.sections);
-    if (isVideo && !moderation.allowVideos) {
-      throw new MediaServiceError("Video uploads are disabled", 403, "VIDEOS_DISABLED");
+    const premium = isEventPremium(event);
+
+    if (isVideo && (!premium || !moderation.allowVideos)) {
+      throw new MediaServiceError(
+        premium ? "Video uploads are disabled" : "Video uploads require Plus",
+        403,
+        premium ? "VIDEOS_DISABLED" : "PLUS_REQUIRED_VIDEO",
+      );
     }
     if (isImage && !moderation.allowPhotos) {
       throw new MediaServiceError("Photo uploads are disabled", 403, "PHOTOS_DISABLED");
+    }
+
+    if (!premium && isImage) {
+      const photoCount = await prisma.media.count({
+        where: {
+          eventId: event.id,
+          mimeType: { startsWith: "image/" },
+        },
+      });
+      if (photoCount >= FREE_PHOTO_CAP) {
+        throw new MediaServiceError(
+          `Free events allow up to ${FREE_PHOTO_CAP} photos`,
+          403,
+          "FREE_PHOTO_CAP",
+        );
+      }
     }
 
     const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;

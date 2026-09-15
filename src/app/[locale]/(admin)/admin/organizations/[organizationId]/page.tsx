@@ -60,7 +60,7 @@ export default async function AdminOrgDetailPage({
                 </td>
                 <td className="p-3">{event.status}</td>
                 <td className="p-3 text-muted-foreground">
-                  {event.date.toLocaleDateString()}
+                  {event.date ? event.date.toLocaleDateString() : '—'}
                 </td>
               </tr>
             ))}

@@ -159,7 +159,7 @@ export const DEFAULT_MODERATION_SETTINGS: ModerationSettings = {
     suggestive: true,
   },
   allowPhotos: true,
-  allowVideos: true,
+  allowVideos: false,
   allowText: true,
   albumPermission: "view_upload",
   disableGuestDownload: false,

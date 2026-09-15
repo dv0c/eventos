@@ -6,10 +6,11 @@ export function isEventPremium(event: {
   return event.tier === EventTier.PREMIUM || event.tier === "PREMIUM";
 }
 
-/** Settings fields that require Premium tier. */
+/** Max guest photo uploads on a Free event (hard server cap). */
+export const FREE_PHOTO_CAP = 50;
+
+/** Settings fields that require Plus (PREMIUM) tier. Manual approval is free. */
 export const PREMIUM_SETTINGS_KEYS = [
-  "requireManualApproval",
-  "allowPhotos",
   "allowVideos",
   "allowText",
   "disableGuestDownload",
@@ -30,16 +31,11 @@ export function collectPremiumSettingsTouches(input: {
   } | null;
 }): PremiumSettingsKey[] {
   const touched: PremiumSettingsKey[] = [];
-  if (input.requireManualApproval !== undefined) {
-    touched.push("requireManualApproval");
-  }
   if (input.appearance?.removeBranding !== undefined) {
     touched.push("removeBranding");
   }
   const mod = input.moderation;
   if (!mod) return touched;
-  if (mod.requireManualApproval !== undefined) touched.push("requireManualApproval");
-  if (mod.allowPhotos !== undefined) touched.push("allowPhotos");
   if (mod.allowVideos !== undefined) touched.push("allowVideos");
   if (mod.allowText !== undefined) touched.push("allowText");
   if (mod.disableGuestDownload !== undefined) touched.push("disableGuestDownload");

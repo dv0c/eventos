@@ -24,7 +24,7 @@ export type EventRunFields = {
   stoppedAt?: Date | null;
   lockedAt?: Date | null;
   /** @deprecated schedule end — kept for migration / calendar display */
-  date?: Date;
+  date?: Date | null;
   endDate?: Date | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -155,11 +155,12 @@ function addCalendarDays(
   };
 }
 
-/** Calendar-day start for display only (not run lifecycle). */
+/** Calendar-day start for display / scheduled auto-start. */
 export function getEventStartAt(event: {
-  date: Date;
+  date: Date | null | undefined;
   startTime?: string | null;
-}): Date {
+}): Date | null {
+  if (!event.date) return null;
   const { year, monthIndex, day } = getCalendarYmd(event.date);
   const parsed = parseClockTime(event.startTime);
   if (parsed) {
@@ -180,16 +181,18 @@ export function getEventStartAt(event: {
  * @deprecated Prefer run deadlines. Kept for calendar/legacy display.
  */
 export function getEventEndAt(event: {
-  date: Date;
+  date: Date | null | undefined;
   endDate?: Date | null;
   endTime?: string | null;
   startTime?: string | null;
-}): Date {
-  let { year, monthIndex, day } = getCalendarYmd(event.endDate ?? event.date);
+}): Date | null {
+  const base = event.endDate ?? event.date;
+  if (!base) return null;
+  let { year, monthIndex, day } = getCalendarYmd(base);
   const parsed = parseClockTime(event.endTime);
 
   if (parsed) {
-    if (!event.endDate) {
+    if (!event.endDate && event.date) {
       const startMinutes = clockToMinutes(event.startTime);
       const endMinutes = parsed.hours * 60 + parsed.minutes;
       if (startMinutes !== null && endMinutes <= startMinutes) {
@@ -333,7 +336,7 @@ export function isGuestLiveFeaturesAllowed(
 export function getMediaPurgeAt(event: {
   stoppedAt?: Date | null;
   lockedAt?: Date | null;
-  date?: Date;
+  date?: Date | null;
   endDate?: Date | null;
   endTime?: string | null;
   startTime?: string | null;
@@ -350,6 +353,7 @@ export function getMediaPurgeAt(event: {
       endTime: event.endTime,
       startTime: event.startTime,
     });
+    if (!endAt) return null;
     return addDays(endAt, MEDIA_RETENTION_DAYS);
   }
   return null;

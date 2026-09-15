@@ -1,94 +1,88 @@
 "use client";
 
-import { CreditCard } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Badge } from "@/components/ui/badge";
+import type { FreeEventQuota } from "@/components/billing/free-event-quota-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "@/i18n/navigation";
-import { formatCurrency } from "@/lib/format";
-import type { BillingOverview } from "@/server/services/billing.service";
 
 interface BillingOverviewProps {
-  overview: BillingOverview;
-  locale: "el" | "en";
+  quota: FreeEventQuota;
   orgSlug: string;
 }
 
-const METRIC_LABELS: Record<string, string> = {
-  events: "usageEvents",
-  guests: "usageGuests",
-  storage: "usageStorage",
-  messages: "usageMessages",
-  collaborators: "usageCollaborators",
-};
+const PREMIUM_FEATURE_KEYS = [
+  "premiumFeatureApproval",
+  "premiumFeatureMediaTypes",
+  "premiumFeatureDownload",
+  "premiumFeatureBranding",
+] as const;
 
-const LIMIT_KEYS: Record<string, keyof BillingOverview["limits"]> = {
-  events: "maxEvents",
-  guests: "maxGuests",
-  storage: "maxStorage",
-  messages: "maxMessages",
-  collaborators: "maxCollaborators",
-};
-
-export function BillingOverviewPanel({ overview, locale, orgSlug }: BillingOverviewProps) {
+export function BillingOverviewPanel({ quota, orgSlug }: BillingOverviewProps) {
   const t = useTranslations("billing");
-  const usageMap = new Map(overview.usage.map((u) => [u.metric, u.value]));
+  const usedPct =
+    quota.limit > 0 ? Math.min(100, (quota.used / quota.limit) * 100) : 0;
+  const exhausted = quota.remaining === 0;
 
   return (
-    <div className="space-y-8">
-      <Card className="surface-elevated">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              {t("currentPlan")}
-            </CardTitle>
-            <p className="mt-1 text-muted-foreground">{t("eventPurchasesDesc")}</p>
-          </div>
-          <Badge variant="gold">{overview.plan.name}</Badge>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-2xl font-bold">
-            {formatCurrency(overview.plan.priceMonthly / 100, locale)}
-            <span className="text-sm font-normal text-muted-foreground">
-              {t("perMonth")}
-            </span>
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-gold/10 via-transparent to-transparent p-6 sm:p-8">
+        <p className="text-sm font-medium text-muted-foreground">
+          {t("freeAllowanceTitle")}
+        </p>
+        <p className="mt-3 text-4xl font-semibold tracking-tight tabular-nums text-foreground sm:text-5xl">
+          {exhausted
+            ? t("freeAllowanceExhausted")
+            : t("freeEventsRemaining", { count: quota.remaining })}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("freeAllowanceUsed", { used: quota.used, limit: quota.limit })}
+        </p>
+        <Progress value={usedPct} className="mt-5 h-1.5" />
+        {exhausted ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            {t("freeAllowanceExhaustedHint")}
           </p>
-          <Button variant="gold" asChild>
-            <Link href={`/org/${orgSlug}/events/new`}>{t("buyPremiumEventCta")}</Link>
-          </Button>
-        </CardContent>
-      </Card>
+        ) : null}
+      </section>
 
-      <div>
-        <h2 className="mb-4 text-lg font-semibold">{t("usageTitle")}</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {Object.entries(METRIC_LABELS).map(([metric, labelKey]) => {
-            const value = usageMap.get(metric) ?? 0;
-            const limitKey = LIMIT_KEYS[metric];
-            const limit = overview.limits[limitKey];
-            const pct = limit > 0 ? Math.min(100, (value / limit) * 100) : 0;
-
-            return (
-              <Card key={metric} className="surface-elevated">
-                <CardContent className="p-4">
-                  <div className="mb-2 flex justify-between text-sm">
-                    <span>{t(labelKey)}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {value}
-                      {limit > 0 ? ` / ${limit}` : ""}
-                    </span>
-                  </div>
-                  {limit > 0 ? <Progress value={pct} /> : null}
-                </CardContent>
-              </Card>
-            );
-          })}
+      <section className="surface-elevated rounded-xl p-6 sm:p-8">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">
+                {t("premiumTitle")}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("premiumDesc")}
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {PREMIUM_FEATURE_KEYS.map((key) => (
+                <li
+                  key={key}
+                  className="flex items-start gap-2 text-sm text-foreground/90"
+                >
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                  <span>{t(key)}</span>
+                </li>
+              ))}
+            </ul>
+            <Button variant="gold" asChild className="h-9">
+              <Link href={`/org/${orgSlug}/events/new`}>
+                {t("buyPremiumEventCta")}
+              </Link>
+            </Button>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <p className="text-sm text-muted-foreground">{t("upgradeExistingTip")}</p>
     </div>
   );
 }

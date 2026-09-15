@@ -7,6 +7,7 @@ import {
   getEventLifecycle,
   getMediaPurgeAt,
 } from "@/server/events/event-ended";
+import { isEventPremium } from "@/lib/event-premium";
 import { revokeGuestConnectIfEnded } from "@/server/events/revoke-guest-connect";
 import { eventRunService } from "@/server/services/event-run.service";
 import { eventService } from "@/server/services/event.service";
@@ -46,7 +47,7 @@ export default async function EventOverviewPage({ params }: OverviewPageProps) {
         canEdit={canEdit}
         lifecycle={lifecycle}
         initialRun={initialRun}
-        isPremium={event.tier === "PREMIUM"}
+        isPremium={isEventPremium(event)}
         mediaPurgeAt={mediaPurgeAt}
         stats={{
           totalMedia: stats.totalMedia,

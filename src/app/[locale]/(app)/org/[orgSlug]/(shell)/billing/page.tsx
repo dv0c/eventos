@@ -1,12 +1,16 @@
 import { getTranslations } from "next-intl/server";
 
 import { BillingOverviewPanel } from "@/components/billing/billing-overview";
+import { OrgPageHeader } from "@/components/organization/org-page-header";
 import { orgPath } from "@/lib/org-path";
 import { redirect } from "@/i18n/navigation";
 import { getOrganizationBySlug } from "@/server/auth/organization-guard";
 import { requireAuth } from "@/server/auth/session";
-import { AccessError } from "@/server/permissions/enforce";
-import { billingService } from "@/server/services/billing.service";
+import { getFreeEventQuotaState } from "@/server/events/event-entitlement";
+import {
+  AccessError,
+  enforceOrganizationAccess,
+} from "@/server/permissions/enforce";
 
 export default async function BillingPage({
   params,
@@ -18,13 +22,15 @@ export default async function BillingPage({
   const session = await requireAuth();
   const organization = await getOrganizationBySlug(session.user.id, orgSlug);
 
-  let overview;
+  let quota;
 
   try {
-    overview = await billingService.getBillingOverview(
+    await enforceOrganizationAccess(
       session.user.id,
       organization.id,
+      "org:manage_billing",
     );
+    quota = await getFreeEventQuotaState(session.user.id);
   } catch (error) {
     if (error instanceof AccessError) {
       if (error.code === "PERMISSION_DENIED" || error.code === "ORG_FORBIDDEN") {
@@ -38,16 +44,9 @@ export default async function BillingPage({
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground">{t("subtitle")}</p>
-      </div>
-      <BillingOverviewPanel
-        overview={overview}
-        locale={locale as "el" | "en"}
-        orgSlug={orgSlug}
-      />
+    <div className="mx-auto w-full max-w-3xl space-y-8">
+      <OrgPageHeader title={t("title")} description={t("subtitle")} />
+      <BillingOverviewPanel quota={quota} orgSlug={orgSlug} />
     </div>
   );
 }

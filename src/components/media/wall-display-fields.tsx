@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { PlusUpgradeBadge } from "@/components/events/settings/settings-ui";
 import { MediaUploadModal } from "@/components/media/media-upload-modal";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -65,10 +64,7 @@ export function WallDisplayFields({
   return (
     <div className={cn("space-y-6", className)}>
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold">{t("mediaDuration")}</h3>
-          <PlusUpgradeBadge />
-        </div>
+        <h3 className="text-sm font-semibold">{t("mediaDuration")}</h3>
         <p className="text-sm text-muted-foreground">{t("mediaDurationDescription")}</p>
         <div className="grid grid-cols-3 gap-3">
           <DurationBox
@@ -91,10 +87,7 @@ export function WallDisplayFields({
 
         <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-4">
           <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold">{t("automaticVideoDuration")}</p>
-              <PlusUpgradeBadge />
-            </div>
+            <p className="text-sm font-semibold">{t("automaticVideoDuration")}</p>
             <p className="text-sm text-muted-foreground">{t("playVideoFullLength")}</p>
           </div>
           <Switch

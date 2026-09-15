@@ -27,12 +27,13 @@ export const wizardGameSchema = z.object({
   ),
 });
 
-export const wizardBaseSchema = z.object({
+export const wizardObjectSchema = z.object({
   type: z.nativeEnum(EventType),
   name: z.string().trim().min(1),
   description: z.string().optional(),
-  date: z.string().min(1),
+  date: z.string().optional().or(z.literal("")),
   startTime: timeString,
+  requireManualApproval: z.boolean(),
   expectedGuests: z.number().int().min(0),
   expectedCouples: z.number().int().min(0),
   expectedChildren: z.number().int().min(0),
@@ -45,27 +46,38 @@ export const wizardBaseSchema = z.object({
   games: z.array(wizardGameSchema),
 });
 
+export const wizardBaseSchema = wizardObjectSchema.superRefine((data, ctx) => {
+  if (data.date && data.date.trim() !== "" && !data.startTime) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Start time required when date is set",
+      path: ["startTime"],
+    });
+  }
+});
+
 export const wizardSchema = wizardBaseSchema;
 
-export type WizardFormData = z.infer<typeof wizardBaseSchema>;
+export type WizardFormData = z.infer<typeof wizardObjectSchema>;
 export type WizardGameForm = z.infer<typeof wizardGameSchema>;
 
 export const stepSchemas = {
-  type: wizardBaseSchema.pick({ type: true }),
-  details: wizardBaseSchema.pick({
+  type: wizardObjectSchema.pick({ type: true }),
+  details: wizardObjectSchema.pick({
     name: true,
     description: true,
     date: true,
     startTime: true,
+    requireManualApproval: true,
   }),
-  theme: wizardBaseSchema.pick({
+  theme: wizardObjectSchema.pick({
     primaryColor: true,
     secondaryColor: true,
     accentColor: true,
     style: true,
     coverImageKey: true,
   }),
-  games: wizardBaseSchema.pick({ games: true }),
+  games: wizardObjectSchema.pick({ games: true }),
   review: wizardSchema,
 } as const;
 
@@ -75,7 +87,8 @@ export function getDefaultFormValues(): WizardFormData {
     name: "",
     description: "",
     date: "",
-    startTime: "18:00",
+    startTime: "",
+    requireManualApproval: false,
     expectedGuests: 0,
     expectedCouples: 0,
     expectedChildren: 0,
