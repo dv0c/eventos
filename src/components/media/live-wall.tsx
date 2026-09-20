@@ -511,18 +511,6 @@ export function LiveWall({
       .map((item) => item.url);
   }, [slideshowItems]);
 
-  const appearBurst = useMemo(
-    () =>
-      currentItem
-        ? {
-            mediaId: currentItem.id,
-            appearKey: `${currentIndex}-${currentItem.id}`,
-            reactionCounts: currentItem.reactionCounts,
-          }
-        : null,
-    [currentItem, currentIndex],
-  );
-
   function handleCustomize() {
     if (canEdit && eventId) {
       setCustomizeOpen(true);
@@ -665,7 +653,6 @@ export function LiveWall({
 
         <WallFloatingReactions
           events={reactionEvents}
-          appearBurst={appearBurst}
           hidden={wallSettings.hideLikes || Boolean(activeAnnouncement)}
         />
 

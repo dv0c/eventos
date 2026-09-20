@@ -455,6 +455,7 @@
       "ctaSeeHow": "See how it works",
       "brand": "Evento",
       "hero": {
+        "eyebrow": "Guest albums & live walls",
         "title1": "Every guest sees the event differently.",
         "title2": "Now every moment lives together.",
         "subtitle": "One shared space for photos, videos and messages — guests join with a single QR code.",
@@ -464,6 +465,74 @@
         "liveBadge": "Live",
         "liveChip": "Maria just added a photo",
         "qrLabel": "Scan to join"
+      },
+      "ticker": {
+        "label": "For"
+      },
+      "strip": {
+        "eyebrow": "The product",
+        "title": "Album, wall, and guest upload — one night.",
+        "subtitle": "Everything guests and hosts need, without a separate app.",
+        "album": {
+          "title": "Shared album",
+          "desc": "Every photo and video lands in one private keepsafe."
+        },
+        "wall": {
+          "title": "Live photo wall",
+          "desc": "Cast the night on any TV or projector as guests upload."
+        },
+        "upload": {
+          "title": "Guest upload",
+          "desc": "Scan a QR, open the browser, share from the camera roll."
+        }
+      },
+      "features": {
+        "create": {
+          "eyebrow": "Create & QR",
+          "title": "Set up once. Guests join with a scan.",
+          "body": "Name the event, open the guest experience, and print or project one QR for the whole room.",
+          "c1": "Ready in minutes — no guest accounts",
+          "c2": "One QR or link for everyone",
+          "c3": "Host overview for media, guests, and wall"
+        },
+        "wall": {
+          "eyebrow": "Live wall",
+          "title": "Turn the room into part of the story.",
+          "body": "A live photo wall for TVs and projectors — the night reacts as guests upload.",
+          "c1": "Updates as guests upload",
+          "c2": "Works on any screen with a browser",
+          "c3": "Built for the dance floor, not a slideshow folder"
+        },
+        "album": {
+          "eyebrow": "Shared album",
+          "title": "Made for guests. No app. No account.",
+          "body": "A simple mobile experience: see the album, upload, and keep celebrating.",
+          "c1": "Photos, videos, and messages in one place",
+          "c2": "No app download at the door",
+          "c3": "Private album you can reopen after the night"
+        }
+      },
+      "proofStrip": {
+        "noApp": {
+          "title": "No app",
+          "desc": "Guests open your link or QR in the browser they already have."
+        },
+        "noAccounts": {
+          "title": "No guest accounts",
+          "desc": "Upload without signing up — less friction, more photos."
+        },
+        "minutes": {
+          "title": "Minutes to set up",
+          "desc": "Create the event, share the QR, and the album is live."
+        }
+      },
+      "pricingTeaser": {
+        "eyebrow": "Pricing",
+        "title": "Start free. Upgrade when the night needs more.",
+        "body": "Shared album and QR on Free. Moderation, branding, and longer walls on Pro.",
+        "cta": "See pricing",
+        "popular": "Most popular",
+        "proPrice": "See plans"
       },
       "proof": {
         "title": "One event. Hundreds of perspectives.",
@@ -594,6 +663,7 @@
         }
       },
       "testimonials": {
+        "eyebrow": "From the night",
         "title": "From hosts who used it on the night.",
         "featured": "Our photographer couldn't be everywhere. The guest album filled angles we never would have had — and the wall kept the dance floor buzzing.",
         "featuredName": "Elena K.",
@@ -608,6 +678,8 @@
       "faq": {
         "title": "Questions",
         "subtitle": "Short answers to the usual ones.",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all",
         "items": {
           "noApp": {
             "q": "Do guests need an app?",
@@ -2358,7 +2430,10 @@
     "next": "Next",
     "done": "Done",
     "modePost": "POST",
+    "modeText": "TEXT",
+    "modeVideo": "VIDEO",
     "modeWish": "WISH",
+    "tapToRecord": "Tap to record",
     "wishTapToRecord": "Tap to record · max 30s",
     "wishSend": "Send wish",
     "wishPublishSuccess": "Wish sealed",
@@ -2450,6 +2525,8 @@
     "selected": "Selected: {type}",
     "delete": "Delete",
     "backToEdit": "Back to edit",
+    "captionLabel": "Description (optional)",
+    "captionPlaceholder": "Add a message for the live wall…",
     "publish": "Publish",
     "publishing": "Publishing…",
     "publishSuccess": "Post published",

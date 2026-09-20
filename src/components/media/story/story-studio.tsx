@@ -14,7 +14,6 @@ import {
   RotateCw,
   SwitchCamera,
   Trash2,
-  Type,
   Undo2,
   X,
 } from "lucide-react";
@@ -34,6 +33,10 @@ import {
 import { toast } from "sonner";
 
 import { AlbumVideoPlayer } from "@/components/media/album/album-video-player";
+import {
+  StoryModeSlider,
+  type StoryCreateKind,
+} from "@/components/media/story/story-mode-slider";
 import { Button } from "@/components/ui/button";
 import { backgroundCss, STORY_BACKGROUND_PRESETS } from "@/lib/story/backgrounds";
 import {
@@ -116,9 +119,12 @@ const VIDEO_ACCEPT = "video/mp4,video/webm,video/quicktime";
 const MEDIA_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
 const STORY_TEXT_MAX_WIDTH_RATIO = 0.84;
 
-const HOLD_TO_RECORD_MS = 200;
 const LAYER_SCALE_MIN = 0.4;
 const LAYER_SCALE_MAX = 3;
+/** Instagram-like story card bottom radius */
+const CREATE_SHELL_RADIUS_PX = 28;
+/** Mode rail content row (gallery / labels / flip) — safe-area added separately */
+const MODE_RAIL_CONTENT_PX = 64;
 
 const HIGHLIGHT_CYCLE: Array<string | null> = [
   null,
@@ -182,27 +188,31 @@ function formatRemaining(elapsedMs: number): string {
   return `0:${String(remainingSec).padStart(2, "0")}`;
 }
 
-function fitCoverRect(
+/** Place a single photo on the story canvas by orientation. */
+function fitStoryPhotoRect(
   mediaW: number,
   mediaH: number,
 ): { x: number; y: number; width: number; height: number } {
-  const canvasRatio = STORY_WIDTH / STORY_HEIGHT;
+  const storyRatio = STORY_WIDTH / STORY_HEIGHT;
   const mediaRatio = mediaW / mediaH;
-  let width: number;
-  let height: number;
-  if (mediaRatio > canvasRatio) {
-    height = STORY_HEIGHT;
-    width = height * mediaRatio;
-  } else {
-    width = STORY_WIDTH;
-    height = width / mediaRatio;
+  if (mediaRatio > storyRatio) {
+    // Landscape: fit width, center vertically (keep horizontal look)
+    const width = STORY_WIDTH;
+    const height = width / mediaRatio;
+    return {
+      x: 0,
+      y: (STORY_HEIGHT - height) / 2,
+      width,
+      height,
+    };
   }
-  return {
-    x: (STORY_WIDTH - width) / 2,
-    y: (STORY_HEIGHT - height) / 2,
-    width,
-    height,
-  };
+  // Portrait / tall: full-bleed frame (cover via pan in export/DOM)
+  return { x: 0, y: 0, width: STORY_WIDTH, height: STORY_HEIGHT };
+}
+
+function isLandscapeMedia(mediaW: number, mediaH: number): boolean {
+  if (mediaW <= 0 || mediaH <= 0) return false;
+  return mediaW / mediaH > STORY_WIDTH / STORY_HEIGHT;
 }
 
 export function StoryStudio({
@@ -226,10 +236,12 @@ export function StoryStudio({
   const { doc, push, replace, commit, undo, redo, reset, canUndo, canRedo } = history;
 
   const [mode, setMode] = useState<StudioMode>(
-    isWish ? "camera" : enterCollage ? "collage" : "start",
+    isWish ? "camera" : enterCollage ? "collage" : "camera",
   );
+  const [createKind, setCreateKind] = useState<StoryCreateKind>("post");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [caption, setCaption] = useState("");
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
@@ -241,6 +253,8 @@ export function StoryStudio({
   const [pendingImage, setPendingImage] = useState<{
     src: string;
     objectUrl: boolean;
+    naturalWidth?: number;
+    naturalHeight?: number;
   } | null>(null);
   const [pendingVideo, setPendingVideo] = useState<{
     blob: Blob;
@@ -528,6 +542,19 @@ export function StoryStudio({
     setDraftRotation(0);
     setFilterLabelFlash(0);
     setMode("imageEdit");
+    const probe = new Image();
+    probe.onload = () => {
+      setPendingImage((prev) =>
+        prev && prev.src === src
+          ? {
+              ...prev,
+              naturalWidth: probe.naturalWidth,
+              naturalHeight: probe.naturalHeight,
+            }
+          : prev,
+      );
+    };
+    probe.src = src;
   }
 
   function openVideoPreview(blob: Blob, durationMs: number, mimeType: string) {
@@ -666,7 +693,7 @@ export function StoryStudio({
         return;
       }
 
-      const rect = fitCoverRect(img.naturalWidth, img.naturalHeight);
+      const rect = fitStoryPhotoRect(img.naturalWidth, img.naturalHeight);
       const nextDoc = createEmptyStory({ kind: "solid", color: "#0f0f12" });
       nextDoc.elements = [
         {
@@ -681,6 +708,8 @@ export function StoryStudio({
           scale: 1,
           zIndex: 1,
           opacity: 1,
+          panX: 0,
+          panY: 0,
         } satisfies ImageElement,
       ];
       reset(nextDoc);
@@ -727,8 +756,8 @@ export function StoryStudio({
     holdRecordStartedRef.current = false;
     if (shutterHoldTimerRef.current) clearTimeout(shutterHoldTimerRef.current);
 
-    // Wish mode: tap toggles record (no photo)
-    if (isWish) {
+    // Wish mode or Video create kind: tap toggles record (no photo)
+    if (isWish || createKind === "video") {
       if (recording) {
         stopVideoRecording();
       } else {
@@ -740,17 +769,12 @@ export function StoryStudio({
     // Collage: photo only
     if (collageFilling) return;
 
-    if (!videosAllowed) return;
-    shutterHoldTimerRef.current = setTimeout(() => {
-      shutterHoldTimerRef.current = null;
-      if (!shutterPressedRef.current) return;
-      holdRecordStartedRef.current = true;
-      void startVideoRecording();
-    }, HOLD_TO_RECORD_MS);
+    // Post: photo only (no hold-to-record)
+    if (createKind === "post") return;
   }
 
   function onShutterPointerUp() {
-    if (isWish) {
+    if (isWish || createKind === "video") {
       shutterPressedRef.current = false;
       return;
     }
@@ -765,7 +789,30 @@ export function StoryStudio({
       if (recording) stopVideoRecording();
       return;
     }
-    capturePhoto();
+    if (createKind === "post" || collageFilling || !videosAllowed) {
+      capturePhoto();
+    }
+  }
+
+  function selectCreateKind(next: StoryCreateKind) {
+    if (recording || next === createKind) return;
+    if (next === "video" && !videosAllowed) return;
+
+    if (next === "text") {
+      setCreateKind("text");
+      startTextPost();
+      return;
+    }
+
+    setCreateKind(next);
+    if (mode === "textEdit" || mode === "edit" || mode === "preview" || mode === "background") {
+      setEditingTextId(null);
+      setSelectedId(null);
+      reset(createEmptyStory());
+      setMode("camera");
+    } else if (mode !== "camera") {
+      setMode("camera");
+    }
   }
 
   function flipCamera() {
@@ -1008,7 +1055,8 @@ export function StoryStudio({
             setPublishing(false);
             return;
           }
-          formData.append("caption", eventName);
+          const trimmedCaption = caption.trim();
+          if (trimmedCaption) formData.append("caption", trimmedCaption);
           if (challengeId) formData.append("challengeId", challengeId);
           const poster = await captureVideoPoster(file);
           if (poster) formData.append("thumbnail", poster);
@@ -1019,6 +1067,7 @@ export function StoryStudio({
           toast.success(t("publishSuccess"));
         }
         clearPendingVideo();
+        setCaption("");
         reset(createEmptyStory());
         onPublished?.();
         onClose();
@@ -1058,13 +1107,15 @@ export function StoryStudio({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("uploadedBy", guestName);
-      formData.append("caption", eventName);
+      const trimmedCaption = caption.trim();
+      if (trimmedCaption) formData.append("caption", trimmedCaption);
       if (challengeId) formData.append("challengeId", challengeId);
       await uploadWithProgress({
         url: `/api/public/media/${uploadToken}`,
         formData,
       });
       toast.success(t("publishSuccess"));
+      setCaption("");
       reset(createEmptyStory());
       onPublished?.();
       onClose();
@@ -1076,6 +1127,14 @@ export function StoryStudio({
       toast.error(message || t("publishError"));
     }
     setPublishing(false);
+  }
+
+  function returnToCreateCamera() {
+    setCreateKind("post");
+    setEditingTextId(null);
+    setSelectedId(null);
+    reset(createEmptyStory());
+    setMode("camera");
   }
 
   function handleClose() {
@@ -1098,12 +1157,12 @@ export function StoryStudio({
         setMode("collage");
         return;
       }
-      setMode("start");
+      returnToCreateCamera();
       return;
     }
     if (mode === "videoPreview") {
       clearPendingVideo();
-      setMode("start");
+      returnToCreateCamera();
       return;
     }
     if (mode === "camera") {
@@ -1112,7 +1171,7 @@ export function StoryStudio({
         setMode("collage");
         return;
       }
-      setMode("start");
+      onClose();
       return;
     }
     if (mode === "collage") {
@@ -1125,7 +1184,7 @@ export function StoryStudio({
         onClose();
         return;
       }
-      setMode("start");
+      returnToCreateCamera();
       return;
     }
     if (mode === "background" || mode === "preview") {
@@ -1142,7 +1201,11 @@ export function StoryStudio({
         onClose();
         return;
       }
-      setMode("start");
+      if (createKind === "text") {
+        returnToCreateCamera();
+        return;
+      }
+      returnToCreateCamera();
       return;
     }
     onClose();
@@ -1150,7 +1213,22 @@ export function StoryStudio({
 
   const scale = useFullBleedScale(stageRef, doc.width, doc.height);
   const showComposeChrome = mode === "edit" || mode === "preview";
-  const isStart = mode === "start";
+  const showIgCreateShell =
+    !isWish && !enterCollage && !collageFilling && mode === "camera";
+  const showModeRail = showIgCreateShell;
+  const modeRailOffset = showModeRail
+    ? `calc(${MODE_RAIL_CONTENT_PX}px + max(0.75rem, env(safe-area-inset-bottom, 0px)))`
+    : undefined;
+  const createModes = useMemo(() => {
+    const modes: { id: StoryCreateKind; label: string }[] = [
+      { id: "text", label: t("modeText") },
+      { id: "post", label: t("modePost") },
+    ];
+    if (videosAllowed) {
+      modes.push({ id: "video", label: t("modeVideo") });
+    }
+    return modes;
+  }, [t, videosAllowed]);
 
   return (
     <div
@@ -1160,12 +1238,20 @@ export function StoryStudio({
         storyFontsClassName,
       )}
     >
-      <div className="mx-auto flex h-full w-full max-w-lg flex-col md:shadow-2xl">
+      <div className="relative mx-auto flex h-full w-full max-w-lg flex-col bg-black md:shadow-2xl">
+        <div className="relative min-h-0 flex-1">
         <div
           ref={stageRef}
           data-story-stage
-          className="relative min-h-0 flex-1 overflow-hidden bg-black select-none [-webkit-touch-callout:none]"
+          className="absolute inset-x-0 top-0 overflow-hidden bg-black select-none [-webkit-touch-callout:none]"
           style={{
+            bottom: modeRailOffset ?? 0,
+            borderBottomLeftRadius: showIgCreateShell
+              ? CREATE_SHELL_RADIUS_PX
+              : undefined,
+            borderBottomRightRadius: showIgCreateShell
+              ? CREATE_SHELL_RADIUS_PX
+              : undefined,
             transform:
               mode === "textEdit" && keyboardInset > 0
                 ? `translateY(-${Math.min(keyboardInset * 0.55, 220)}px)`
@@ -1176,9 +1262,7 @@ export function StoryStudio({
           <div
             className="absolute inset-0 select-none"
             style={{
-              background: isStart
-                ? `linear-gradient(160deg, ${primaryColor}66, #1a1423 50%, #0a0a0b)`
-                : mode === "collage" || (mode === "camera" && collageFilling)
+              background: mode === "collage" || (mode === "camera" && collageFilling)
                   ? COLLAGE_BG
                   : backgroundCss(doc.background),
             }}
@@ -1413,7 +1497,17 @@ export function StoryStudio({
                   src={pendingImage.src}
                   alt=""
                   draggable={false}
-                  className="pointer-events-none absolute inset-0 h-full w-full object-contain select-none"
+                  className={cn(
+                    "pointer-events-none absolute inset-0 h-full w-full select-none",
+                    pendingImage.naturalWidth != null &&
+                      pendingImage.naturalHeight != null &&
+                      isLandscapeMedia(
+                        pendingImage.naturalWidth,
+                        pendingImage.naturalHeight,
+                      )
+                      ? "object-contain"
+                      : "object-cover",
+                  )}
                   style={{
                     filter: filterCss(draftFilter, draftAdjust),
                     transform: `rotate(${draftRotation}deg)`,
@@ -1571,62 +1665,7 @@ export function StoryStudio({
             </div>
           </div>
 
-          {/* Start screen actions */}
-          {isStart && !isWish ? (
-            <div
-              className="absolute inset-0 z-20 flex flex-col px-5"
-              style={{
-                paddingTop: "max(5.5rem, calc(env(safe-area-inset-top) + 4rem))",
-                paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
-              }}
-            >
-              <div className="flex flex-1 flex-col items-center justify-center">
-                <p className="text-center text-4xl font-semibold tracking-[0.28em] text-white">
-                  {t("modePost")}
-                </p>
-                <h1 className="mt-4 text-center text-2xl font-semibold tracking-tight text-white">
-                  {t("startPrompt")}
-                </h1>
-                {eventName ? (
-                  <p className="mt-1.5 max-w-sm truncate text-center text-sm text-white/55">
-                    {t("startForEvent", { eventName })}
-                  </p>
-                ) : null}
-                <p className="mt-3 max-w-sm text-center text-sm leading-relaxed text-white/65">
-                  {t("startHint")}
-                </p>
-
-                <div className="mt-10 flex w-full max-w-md flex-col gap-3">
-                  <StartAction
-                    label={t("actionCamera")}
-                    description={
-                      videosAllowed ? t("actionCameraDesc") : t("actionCameraPhotoDesc")
-                    }
-                    onClick={() => setMode("camera")}
-                    icon={<Camera className="size-6" />}
-                  />
-                  <StartAction
-                    label={videosAllowed ? t("actionLibrary") : t("actionPhoto")}
-                    description={t("actionLibraryDesc")}
-                    onClick={() => fileRef.current?.click()}
-                    icon={<ImageIcon className="size-6" />}
-                  />
-                  <StartAction
-                    label={t("actionText")}
-                    description={t("actionTextDesc")}
-                    onClick={startTextPost}
-                    icon={<Type className="size-6" />}
-                  />
-                  <StartAction
-                    label={t("actionCollage")}
-                    description={t("actionCollageDesc")}
-                    onClick={() => beginCollage()}
-                    icon={<LayoutGrid className="size-6" />}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : null}
+          {/* Start screen removed — IG create shell opens on camera */}
 
           {/* Edit left rail */}
           {mode === "edit" ? (
@@ -1653,15 +1692,52 @@ export function StoryStudio({
             </div>
           ) : null}
 
-          {/* Camera chrome */}
-          {mode === "camera" ? (
+          {/* Camera chrome — IG create shell */}
+          {mode === "camera" && showIgCreateShell ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-5 pb-9">
+              {(createKind === "video" || recording) && (
+                <p className="pointer-events-none mb-3 text-center text-xs font-medium tracking-wide text-white/55">
+                  {recording
+                    ? formatRemaining(elapsedMs)
+                    : t("tapToRecord")}
+                </p>
+              )}
+              <div className="pointer-events-auto flex items-center justify-center">
+                <button
+                  type="button"
+                  onPointerDown={onShutterPointerDown}
+                  onPointerUp={onShutterPointerUp}
+                  onPointerCancel={onShutterPointerUp}
+                  onContextMenu={(e) => e.preventDefault()}
+                  disabled={!cameraReady}
+                  className={cn(
+                    "tap-press flex size-[4.25rem] touch-none items-center justify-center rounded-full border-[3px] border-white select-none disabled:opacity-40",
+                    recording && "border-red-500",
+                  )}
+                  aria-label={recording ? t("stopRecording") : t("capture")}
+                >
+                  <span
+                    className={cn(
+                      "bg-white transition-all",
+                      recording
+                        ? "size-7 rounded-md bg-red-500"
+                        : "size-[3.35rem] rounded-full",
+                    )}
+                  />
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Camera chrome — wish / collage */}
+          {mode === "camera" && !showIgCreateShell ? (
             <div
               className="absolute inset-x-0 bottom-0 z-20 px-4"
               style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
             >
-              {videosAllowed && !recording && !collageFilling ? (
+              {isWish && !recording ? (
                 <p className="mb-3 text-center text-xs font-medium tracking-wide text-white/55">
-                  {isWish ? t("wishTapToRecord") : t("holdToRecord")}
+                  {t("wishTapToRecord")}
                 </p>
               ) : collageFilling ? (
                 <p className="mb-3 text-center text-xs font-medium tracking-wide text-white/55">
@@ -1968,6 +2044,51 @@ export function StoryStudio({
           ) : null}
 
         </div>
+        </div>
+
+        {showModeRail ? (
+          <div
+            className="absolute inset-x-0 bottom-0 z-40 flex items-center gap-3 bg-black px-5 pt-3"
+            style={{
+              height: modeRailOffset,
+              paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={recording}
+              className="tap-press relative size-9 shrink-0 overflow-hidden rounded-[10px] bg-white/10 ring-1 ring-white/30 disabled:opacity-40"
+              aria-label={t("actionPhoto")}
+            >
+              {galleryPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={galleryPreview} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center">
+                  <ImageIcon className="size-4 text-white/90" />
+                </span>
+              )}
+            </button>
+            <div className="flex h-9 min-w-0 flex-1 items-center">
+              <StoryModeSlider
+                modes={createModes}
+                value={createKind}
+                disabled={recording}
+                onChange={selectCreateKind}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={flipCamera}
+              disabled={recording || !cameraReady}
+              className="tap-press flex size-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/30 disabled:opacity-40"
+              aria-label={t("flipCamera")}
+            >
+              <SwitchCamera className="size-4" />
+            </button>
+          </div>
+        ) : null}
 
         {/* Bottom panels */}
         {mode === "imageEdit" ? (
@@ -1994,6 +2115,22 @@ export function StoryStudio({
                 seconds: Math.max(1, Math.round(pendingVideo.durationMs / 1000)),
               })}
             </p>
+            {!isWish ? (
+              <label className="mb-3 block">
+                <span className="mb-1.5 block text-xs font-medium text-white/70">
+                  {t("captionLabel")}
+                </span>
+                <input
+                  type="text"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder={t("captionPlaceholder")}
+                  maxLength={200}
+                  disabled={publishing}
+                  className="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/35"
+                />
+              </label>
+            ) : null}
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -2002,7 +2139,11 @@ export function StoryStudio({
                 disabled={publishing}
                 onClick={() => {
                   clearPendingVideo();
-                  setMode(isWish ? "camera" : "start");
+                  if (isWish) {
+                    setMode("camera");
+                  } else {
+                    returnToCreateCamera();
+                  }
                 }}
               >
                 {t("retake")}
@@ -2050,6 +2191,20 @@ export function StoryStudio({
             className="shrink-0 border-t border-white/10 bg-neutral-950 px-3 pt-3"
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
+            <label className="mb-3 block">
+              <span className="mb-1.5 block text-xs font-medium text-white/70">
+                {t("captionLabel")}
+              </span>
+              <input
+                type="text"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder={t("captionPlaceholder")}
+                maxLength={200}
+                disabled={publishing}
+                className="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/35"
+              />
+            </label>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -2156,36 +2311,6 @@ function CollageLayoutThumb({
         />
       ))}
     </svg>
-  );
-}
-
-function StartAction({
-  label,
-  description,
-  icon,
-  onClick,
-}: {
-  label: string;
-  description: string;
-  icon: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="tap-press flex w-full items-center gap-4 rounded-2xl bg-white/10 px-4 py-4 text-left text-white ring-1 ring-white/15 transition active:scale-[0.99]"
-    >
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/15">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold tracking-tight">{label}</span>
-        <span className="mt-0.5 block text-sm leading-snug text-white/60">
-          {description}
-        </span>
-      </span>
-    </button>
   );
 }
 
