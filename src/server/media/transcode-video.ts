@@ -111,3 +111,51 @@ export async function maybeTranscodeVideoToMp4(
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
 }
+
+/**
+ * Extract a single JPEG poster frame near the start of a video.
+ * Returns null if ffmpeg is missing or extraction fails.
+ */
+export async function extractVideoPosterJpeg(
+  buffer: Buffer,
+  contentType: string,
+): Promise<Buffer | null> {
+  if (!(await isFfmpegAvailable())) return null;
+
+  const dir = await mkdtemp(join(tmpdir(), "eventos-poster-"));
+  const type = stripMimeParams(contentType);
+  const inputExt = type.includes("webm")
+    ? "webm"
+    : type.includes("quicktime")
+      ? "mov"
+      : type.includes("3gpp")
+        ? "3gp"
+        : type.includes("mp4")
+          ? "mp4"
+          : "bin";
+  const inputPath = join(dir, `input.${inputExt}`);
+  const outputPath = join(dir, "poster.jpg");
+
+  try {
+    await writeFile(inputPath, buffer);
+    await runFfmpeg([
+      "-y",
+      "-ss",
+      "0.15",
+      "-i",
+      inputPath,
+      "-frames:v",
+      "1",
+      "-q:v",
+      "3",
+      outputPath,
+    ]);
+    const out = await readFile(outputPath);
+    if (out.length < 64) return null;
+    return out;
+  } catch {
+    return null;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}

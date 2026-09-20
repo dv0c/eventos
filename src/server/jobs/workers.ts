@@ -162,7 +162,14 @@ async function handleExportsJob(job: Job<{ userId?: string; type?: string }>) {
 
 async function handleMediaProcessingJob(job: Job<{ mediaId?: string }>) {
   const { mediaId } = job.data;
-  console.log("[media-processing worker] Queued for moderation", mediaId ?? job.id);
+  if (!mediaId) {
+    console.log("[media-processing worker] Missing mediaId", job.id);
+    return;
+  }
+
+  const { mediaService } = await import("@/server/services/media.service");
+  const filled = await mediaService.ensureVideoPoster(mediaId);
+  console.log("[media-processing worker] Poster backfill", mediaId, { filled });
 }
 
 async function handleScheduledMessagesJob(job: Job<{ messageId?: string }>) {

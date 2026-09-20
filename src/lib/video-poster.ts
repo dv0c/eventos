@@ -12,43 +12,71 @@ export async function captureVideoPoster(file: File): Promise<File | null> {
     video.muted = true;
     video.playsInline = true;
     video.preload = "auto";
+    video.crossOrigin = "anonymous";
 
     await new Promise<void>((resolve, reject) => {
-      video.onloadeddata = () => resolve();
+      const onReady = () => resolve();
+      video.onloadeddata = onReady;
+      video.onloadedmetadata = onReady;
       video.onerror = () => reject(new Error("video load failed"));
       video.src = objectUrl;
+      void video.load();
     });
 
-    const seekTo = Math.min(0.1, Number.isFinite(video.duration) ? video.duration * 0.05 : 0.1);
-    if (Number.isFinite(video.duration) && video.duration > 0) {
-      await new Promise<void>((resolve) => {
-        const onSeeked = () => {
-          video.removeEventListener("seeked", onSeeked);
-          resolve();
-        };
-        video.addEventListener("seeked", onSeeked);
-        video.currentTime = seekTo;
-      });
+    // Prefer a tiny seek so browsers decode a real frame (iOS often blanks at 0).
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const seekCandidates = [
+      duration > 0 ? Math.min(0.25, duration * 0.1) : 0.1,
+      0.01,
+      0,
+    ];
+
+    for (const seekTo of seekCandidates) {
+      try {
+        if (seekTo > 0 || duration > 0) {
+          await new Promise<void>((resolve, reject) => {
+            const onSeeked = () => {
+              cleanup();
+              resolve();
+            };
+            const onError = () => {
+              cleanup();
+              reject(new Error("seek failed"));
+            };
+            const cleanup = () => {
+              video.removeEventListener("seeked", onSeeked);
+              video.removeEventListener("error", onError);
+            };
+            video.addEventListener("seeked", onSeeked);
+            video.addEventListener("error", onError);
+            video.currentTime = seekTo;
+          });
+        }
+
+        const width = video.videoWidth || 0;
+        const height = video.videoHeight || 0;
+        if (width < 2 || height < 2) continue;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+        ctx.drawImage(video, 0, 0, width, height);
+
+        const blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((result) => resolve(result), "image/jpeg", 0.82);
+        });
+        if (!blob || blob.size < 64) continue;
+
+        const base = file.name.replace(/\.[^.]+$/, "") || "video";
+        return new File([blob], `${base}-poster.jpg`, { type: "image/jpeg" });
+      } catch {
+        // try next seek candidate
+      }
     }
 
-    const width = video.videoWidth || 640;
-    const height = video.videoHeight || 360;
-    if (width < 2 || height < 2) return null;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, width, height);
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((result) => resolve(result), "image/jpeg", 0.82);
-    });
-    if (!blob) return null;
-
-    const base = file.name.replace(/\.[^.]+$/, "") || "video";
-    return new File([blob], `${base}-poster.jpg`, { type: "image/jpeg" });
+    return null;
   } catch {
     return null;
   } finally {

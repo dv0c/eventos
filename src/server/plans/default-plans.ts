@@ -90,7 +90,7 @@ export const DEFAULT_PLANS = [
 export const PLATFORM_ORG_SLUG_DEFAULT = "eventos";
 export const PLATFORM_ORG_NAME = "Eventos";
 export const PLATFORM_PLAN_SLUG = "enterprise";
-export const PLATFORM_ADMIN_EMAIL = "admin@eventos.gr";
+export const PLATFORM_ADMIN_EMAIL = "tasosmeidanis12@gmail.com";
 
 export function getPlatformOrgSlug(): string {
   const fromEnv = process.env.PLATFORM_ORG_SLUG?.trim();

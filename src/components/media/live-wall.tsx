@@ -96,7 +96,7 @@ export function LiveWall({
   const [connected, setConnected] = useState(false);
   const [config, setConfig] = useState<WallConfig | null>(null);
   const [panic, setPanic] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [reactionEvents, setReactionEvents] = useState<WallReactionEvent[]>([]);
@@ -108,11 +108,65 @@ export function LiveWall({
   const [chromeVisible, setChromeVisible] = useState(true);
   const hideChromeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seenAnnouncementIdsRef = useRef<Set<string>>(new Set());
+  const mediaRef = useRef<WallMediaItem[]>([]);
+  const playingIdRef = useRef<string | null>(null);
+  const pendingNewIdsRef = useRef<string[]>([]);
+  const resumeAfterIdRef = useRef<string | null>(null);
+  const slideEndsAtRef = useRef(0);
   const { soundEnabled, toggleSound } = useWallSound();
 
   const wallSettings = config?.wall ?? DEFAULT_WALL_DISPLAY_SETTINGS;
   const primaryColor = config?.theme.primaryColor ?? fallbackPrimary;
   const secondaryColor = config?.theme.secondaryColor ?? fallbackSecondary;
+
+  useEffect(() => {
+    mediaRef.current = media;
+  }, [media]);
+
+  useEffect(() => {
+    playingIdRef.current = playingId;
+  }, [playingId]);
+
+  const advanceSlide = useCallback(() => {
+    const items = mediaRef.current;
+    if (items.length === 0) {
+      setPlayingId(null);
+      return;
+    }
+
+    while (pendingNewIdsRef.current.length > 0) {
+      const nextId = pendingNewIdsRef.current.shift()!;
+      if (items.some((item) => item.id === nextId)) {
+        setPlayingId(nextId);
+        return;
+      }
+    }
+
+    if (resumeAfterIdRef.current) {
+      const resumeId = resumeAfterIdRef.current;
+      resumeAfterIdRef.current = null;
+      const resumeIdx = items.findIndex((item) => item.id === resumeId);
+      if (resumeIdx >= 0) {
+        setPlayingId(items[(resumeIdx + 1) % items.length]!.id);
+        return;
+      }
+    }
+
+    if (items.length <= 1) {
+      slideEndsAtRef.current = Date.now();
+      return;
+    }
+
+    const currentId = playingIdRef.current;
+    const idx = currentId
+      ? items.findIndex((item) => item.id === currentId)
+      : -1;
+    if (idx < 0) {
+      setPlayingId(items[0]!.id);
+      return;
+    }
+    setPlayingId(items[(idx + 1) % items.length]!.id);
+  }, []);
 
   const clearHideChromeTimer = useCallback(() => {
     if (hideChromeTimerRef.current) {
@@ -173,7 +227,12 @@ export function LiveWall({
         setConfig(json.data);
         if (typeof json.data?.panic === "boolean") {
           setPanic(json.data.panic);
-          if (json.data.panic) setMedia([]);
+          if (json.data.panic) {
+            setMedia([]);
+            setPlayingId(null);
+            pendingNewIdsRef.current = [];
+            resumeAfterIdRef.current = null;
+          }
         }
       }
     } catch {
@@ -207,6 +266,9 @@ export function LiveWall({
         if (data.ended) {
           setPanic(false);
           setMedia([]);
+          setPlayingId(null);
+          pendingNewIdsRef.current = [];
+          resumeAfterIdRef.current = null;
           return;
         }
 
@@ -214,6 +276,9 @@ export function LiveWall({
           setPanic(data.panic);
           if (data.panic) {
             setMedia([]);
+            setPlayingId(null);
+            pendingNewIdsRef.current = [];
+            resumeAfterIdRef.current = null;
             return;
           }
         }
@@ -228,27 +293,87 @@ export function LiveWall({
         }
 
         if (data.initial) {
-          setMedia(data.media ?? []);
-          setCurrentIndex(0);
+          const initial = data.media ?? [];
+          setMedia(initial);
+          pendingNewIdsRef.current = [];
+          resumeAfterIdRef.current = null;
+          setPlayingId(initial[0]?.id ?? null);
           return;
         }
 
         if (Array.isArray(data.removed) && data.removed.length > 0) {
           const removedIds = new Set(data.removed as string[]);
-          setMedia((prev) => prev.filter((m) => !removedIds.has(m.id)));
+          pendingNewIdsRef.current = pendingNewIdsRef.current.filter(
+            (id) => !removedIds.has(id),
+          );
+          if (
+            resumeAfterIdRef.current &&
+            removedIds.has(resumeAfterIdRef.current)
+          ) {
+            resumeAfterIdRef.current = null;
+          }
+          setMedia((prev) => {
+            const next = prev.filter((m) => !removedIds.has(m.id));
+            const currentId = playingIdRef.current;
+            if (currentId && removedIds.has(currentId)) {
+              queueMicrotask(() => {
+                if (next.length === 0) {
+                  setPlayingId(null);
+                  return;
+                }
+                const oldIdx = prev.findIndex((m) => m.id === currentId);
+                const fallback =
+                  next[Math.min(Math.max(oldIdx, 0), next.length - 1)] ??
+                  next[0];
+                setPlayingId(fallback?.id ?? null);
+              });
+            }
+            return next;
+          });
         }
 
         if (data.media && data.media.length > 0) {
           setMedia((prev) => {
             const existingIds = new Set(prev.map((m) => m.id));
             const newItems = data.media!.filter((m) => !existingIds.has(m.id));
-            if (newItems.length > 0) {
-              queueMicrotask(() => {
-                setCurrentIndex(0);
-                setLiveMarqueeLine(t("wallNewPhoto"));
-                window.setTimeout(() => setLiveMarqueeLine(null), 12_000);
-              });
+            if (newItems.length === 0) {
+              const updates = new Map(data.media!.map((m) => [m.id, m]));
+              return prev.map((m) => updates.get(m.id) ?? m);
             }
+
+            // Queue new uploads; keep current slide until its duration ends.
+            const currentId = playingIdRef.current;
+            if (currentId && resumeAfterIdRef.current == null) {
+              resumeAfterIdRef.current = currentId;
+            }
+            for (const item of newItems) {
+              if (!pendingNewIdsRef.current.includes(item.id)) {
+                pendingNewIdsRef.current.push(item.id);
+              }
+            }
+
+            queueMicrotask(() => {
+              setLiveMarqueeLine(t("wallNewPhoto"));
+              window.setTimeout(() => setLiveMarqueeLine(null), 12_000);
+              if (!playingIdRef.current && newItems[0]) {
+                // Empty wall: start with newest immediately
+                pendingNewIdsRef.current = pendingNewIdsRef.current.filter(
+                  (id) => id !== newItems[0]!.id,
+                );
+                resumeAfterIdRef.current = null;
+                setPlayingId(newItems[0]!.id);
+                return;
+              }
+              // Current slide already finished waiting — drain queue now
+              if (
+                playingIdRef.current &&
+                pendingNewIdsRef.current.length > 0 &&
+                Date.now() >= slideEndsAtRef.current
+              ) {
+                advanceSlide();
+              }
+            });
+
             return [...newItems, ...prev].slice(0, 100);
           });
         }
@@ -289,7 +414,17 @@ export function LiveWall({
   }, [eventSlug]);
 
   const slideshowItems = media;
-  const currentItem = slideshowItems[currentIndex] ?? null;
+  const currentIndex = useMemo(() => {
+    if (!playingId) return 0;
+    const idx = slideshowItems.findIndex((item) => item.id === playingId);
+    return idx >= 0 ? idx : 0;
+  }, [playingId, slideshowItems]);
+  const currentItem =
+    (playingId
+      ? slideshowItems.find((item) => item.id === playingId)
+      : null) ??
+    slideshowItems[currentIndex] ??
+    null;
 
   useEffect(() => {
     if (!activeAnnouncement) return;
@@ -305,47 +440,64 @@ export function LiveWall({
   }, [activeAnnouncement]);
 
   useEffect(() => {
-    if (slideshowItems.length <= 1 || activeAnnouncement) return;
+    if (!playingId || activeAnnouncement) return;
 
-    const item = slideshowItems[currentIndex];
-    const isVideo = item?.mimeType?.startsWith("video/");
+    const item = mediaRef.current.find((entry) => entry.id === playingId);
+    if (!item) return;
+
+    const isVideo = item.mimeType?.startsWith("video/");
 
     // Videos advance via WallStage onEnded; keep a long safety timeout only.
     if (isVideo) {
       const safetyMs =
         Math.max(wallSettings.videoDurationSec, 30) * 1000 + 5_000;
+      slideEndsAtRef.current = Date.now() + safetyMs;
       const timer = window.setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % slideshowItems.length);
+        advanceSlide();
       }, safetyMs);
       return () => window.clearTimeout(timer);
     }
 
     const durationMs =
-      item?.caption && !item.url
+      item.caption && !item.url
         ? wallSettings.textDurationSec * 1000
         : wallSettings.imageDurationSec * 1000;
 
+    slideEndsAtRef.current = Date.now() + durationMs;
     const timer = window.setTimeout(() => {
-      setCurrentIndex((prev) => (prev + 1) % slideshowItems.length);
+      advanceSlide();
     }, durationMs);
 
     return () => window.clearTimeout(timer);
-  }, [currentIndex, slideshowItems, wallSettings, activeAnnouncement]);
+  }, [
+    playingId,
+    activeAnnouncement,
+    advanceSlide,
+    wallSettings.imageDurationSec,
+    wallSettings.textDurationSec,
+    wallSettings.videoDurationSec,
+  ]);
 
   useEffect(() => {
-    if (currentIndex >= slideshowItems.length && slideshowItems.length > 0) {
-      setCurrentIndex(0);
+    if (slideshowItems.length === 0) {
+      if (playingId != null) setPlayingId(null);
+      return;
     }
-  }, [currentIndex, slideshowItems.length]);
+    if (playingId && !slideshowItems.some((item) => item.id === playingId)) {
+      setPlayingId(slideshowItems[0]!.id);
+    }
+  }, [playingId, slideshowItems]);
 
   // Preload next image
   useEffect(() => {
-    if (slideshowItems.length < 2) return;
-    const next = slideshowItems[(currentIndex + 1) % slideshowItems.length];
+    if (slideshowItems.length < 2 || !playingId) return;
+    const idx = slideshowItems.findIndex((item) => item.id === playingId);
+    if (idx < 0) return;
+    const next = slideshowItems[(idx + 1) % slideshowItems.length];
     if (!next || next.mimeType?.startsWith("video/")) return;
     const img = new Image();
     img.src = next.url;
-  }, [currentIndex, slideshowItems]);
+  }, [playingId, slideshowItems]);
 
   const sidePhotos = useMemo(() => {
     if (wallSettings.hideSideImages) return [];
@@ -475,8 +627,10 @@ export function LiveWall({
           hideCaption={wallSettings.hideCaption || Boolean(activeAnnouncement)}
           captionTheme={config?.appearance?.captionTheme ?? "dark"}
           onVideoEnded={() => {
-            if (slideshowItems.length <= 1) return;
-            setCurrentIndex((prev) => (prev + 1) % slideshowItems.length);
+            if (slideshowItems.length <= 1 && pendingNewIdsRef.current.length === 0) {
+              return;
+            }
+            advanceSlide();
           }}
           emptyState={
             <div className="text-center">

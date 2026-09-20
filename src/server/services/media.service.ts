@@ -26,7 +26,7 @@ import { mediaProcessingQueue } from "@/server/jobs/queues";
 import { enforceEventAccess } from "@/server/permissions/enforce";
 import { getStorageProvider } from "@/server/providers/storage";
 import { eventRepository } from "@/server/repositories/event.repository";
-import { maybeTranscodeVideoToMp4 } from "@/server/media/transcode-video";
+import { maybeTranscodeVideoToMp4, extractVideoPosterJpeg } from "@/server/media/transcode-video";
 
 import { auditService } from "./audit.service";
 
@@ -364,6 +364,16 @@ export const mediaService = {
       }
     }
 
+    if (isVideo && !thumbnailKey) {
+      const poster = await extractVideoPosterJpeg(buffer, contentType);
+      if (poster) {
+        const thumbStorageKey = `media/${event.slug}/${mediaId}.poster.jpg`;
+        thumbnailKey = await storage.upload(thumbStorageKey, poster, {
+          contentType: "image/jpeg",
+        });
+      }
+    }
+
     const requireManualApproval = event.settings?.requireManualApproval ?? false;
     const rawChallenge = challengeId?.trim() || null;
     let normalizedChallenge: string | null = null;
@@ -440,6 +450,37 @@ export const mediaService = {
       status: media.status,
       fileName: media.fileName,
     };
+  },
+
+  /**
+   * Backfill a JPEG poster for videos that were uploaded without thumbnailKey.
+   */
+  async ensureVideoPoster(mediaId: string): Promise<boolean> {
+    const media = await prisma.media.findUnique({
+      where: { id: mediaId },
+      include: { event: { select: { slug: true } } },
+    });
+    if (!media || !media.mimeType.startsWith("video/") || media.thumbnailKey) {
+      return false;
+    }
+
+    const storage = getStorageProvider();
+    const videoUrl = storage.getPublicUrl(media.storageKey);
+    const response = await fetch(videoUrl);
+    if (!response.ok) return false;
+    const videoBuffer = Buffer.from(await response.arrayBuffer());
+    const poster = await extractVideoPosterJpeg(videoBuffer, media.mimeType);
+    if (!poster) return false;
+
+    const thumbStorageKey = `media/${media.event.slug}/${media.id}.poster.jpg`;
+    const thumbnailKey = await storage.upload(thumbStorageKey, poster, {
+      contentType: "image/jpeg",
+    });
+    await prisma.media.update({
+      where: { id: media.id },
+      data: { thumbnailKey },
+    });
+    return true;
   },
 
   async uploadHost(userId: string, eventId: string, file: File, caption?: string) {

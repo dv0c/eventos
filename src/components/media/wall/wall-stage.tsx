@@ -48,6 +48,12 @@ export function WallStage({
   const showReactionBar = !hideReactions && visibleReactions.length > 0;
   const lightMeta = captionTheme === "light";
 
+  const blurSrc = item
+    ? item.mimeType?.startsWith("video/")
+      ? item.thumbnailUrl
+      : item.url
+    : null;
+
   return (
     <div className="absolute inset-0 flex items-center justify-center overflow-hidden pt-14 pb-12">
       <AnimatePresence mode="sync" initial={false}>
@@ -60,17 +66,17 @@ export function WallStage({
             exit={{ opacity: 0 }}
             transition={{ duration: duration * 0.9 }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={
-                item.mimeType?.startsWith("video/")
-                  ? (item.thumbnailUrl ?? item.url)
-                  : item.url
-              }
-              alt=""
-              className="h-full w-full scale-110 object-cover blur-3xl"
-              aria-hidden
-            />
+            {blurSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={blurSrc}
+                alt=""
+                className="h-full w-full scale-110 object-cover blur-3xl"
+                aria-hidden
+              />
+            ) : (
+              <div className="h-full w-full bg-neutral-950" aria-hidden />
+            )}
             <div className="absolute inset-0 bg-black/55" />
           </motion.div>
         ) : null}
@@ -82,21 +88,21 @@ export function WallStage({
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={item.id}
-            className="relative z-10 flex h-full max-h-full max-w-[min(96vw,1200px)] items-center justify-center"
+            className="relative z-10 flex h-full max-h-full w-full max-w-[min(96vw,1280px)] items-center justify-center px-3 sm:px-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration }}
           >
-            <div className="relative inline-flex h-full max-h-[min(82vh,900px)] max-w-[min(72vw,900px)] items-center justify-center">
-              <div className="relative max-h-full max-w-full overflow-hidden rounded-[1.25rem] shadow-[0_20px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/10 sm:rounded-[1.5rem]">
+            <div className="relative flex max-h-[min(86vh,960px)] w-full max-w-full items-center justify-center">
+              <div className="relative max-h-full max-w-full overflow-hidden rounded-[1.25rem] bg-black/20 shadow-[0_20px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/10 sm:rounded-[1.5rem]">
                 {isVideo ? (
                   // eslint-disable-next-line jsx-a11y/media-has-caption
                   <video
                     key={item.id}
                     src={item.url}
                     poster={item.thumbnailUrl ?? undefined}
-                    className="max-h-[min(82vh,900px)] max-w-full object-contain"
+                    className="max-h-[min(86vh,960px)] max-w-full object-contain"
                     autoPlay
                     muted={!soundEnabled}
                     playsInline
@@ -108,24 +114,24 @@ export function WallStage({
                   <img
                     src={item.url}
                     alt={item.caption ?? ""}
-                    className="max-h-[min(82vh,900px)] max-w-full object-contain"
+                    className="max-h-[min(86vh,960px)] max-w-full object-contain"
                   />
                 )}
 
                 {showMeta || showReactionBar ? (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-2 px-3">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pb-3 pt-10">
                     {showMeta ? (
                       <div
                         className={cn(
-                          "max-w-[92%] rounded-full px-5 py-2.5 text-center backdrop-blur-md",
-                          lightMeta ? "bg-white/90" : "bg-black/55",
+                          "max-w-[min(92%,36rem)] rounded-2xl px-5 py-2.5 text-center shadow-lg backdrop-blur-md",
+                          lightMeta ? "bg-white/92" : "bg-black/70",
                         )}
                       >
                         {showNickname ? (
                           <p
                             className={cn(
                               "text-sm font-semibold tracking-wide",
-                              lightMeta ? "text-neutral-800" : "text-white/90",
+                              lightMeta ? "text-neutral-800" : "text-white",
                             )}
                           >
                             @{item.uploadedBy}
@@ -134,9 +140,9 @@ export function WallStage({
                         {showCaption ? (
                           <p
                             className={cn(
-                              "text-base sm:text-lg",
-                              showNickname && "mt-0.5",
-                              lightMeta ? "text-neutral-700" : "text-white/90",
+                              "max-h-24 overflow-y-auto text-base leading-snug break-words sm:text-lg",
+                              showNickname && "mt-1",
+                              lightMeta ? "text-neutral-800" : "text-white",
                             )}
                           >
                             {item.caption}
@@ -146,7 +152,7 @@ export function WallStage({
                     ) : null}
 
                     {showReactionBar ? (
-                      <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-md">
+                      <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 backdrop-blur-md">
                         {visibleReactions.map((emoji) => (
                           <span
                             key={emoji}
